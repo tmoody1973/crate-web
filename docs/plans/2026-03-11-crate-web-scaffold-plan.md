@@ -1418,7 +1418,7 @@ This gives us access to `CrateAgent`, all MCP servers, and the typed `CrateEvent
 
 **Step 2: Create agent factory**
 
-The agent needs the user's API keys injected as env vars before creating the agent instance, since `getActiveServers()` checks `process.env`.
+CrateAgent accepts a `keys` option in its constructor (refactored in crate-cli Task 0), so no `process.env` hacking needed. Concurrency-safe for multiple users.
 
 ```typescript
 // src/lib/agent.ts
@@ -1428,41 +1428,20 @@ import type { CrateEvent } from "crate-cli/dist/agent/events.js";
 export type { CrateEvent };
 
 /**
- * Create a CrateAgent with user's API keys injected into process.env.
- * Keys are set before agent creation and cleaned up after the stream ends.
+ * Create a CrateAgent with user's API keys + embedded fallbacks.
+ * Uses the keys constructor option — no process.env mutation, concurrency-safe.
  */
-export function createAgentWithKeys(
+export function createAgent(
   userKeys: Record<string, string>,
   embeddedKeys: Record<string, string>,
-): { agent: CrateAgent; cleanup: () => void } {
-  const injectedKeys: string[] = [];
-
+): CrateAgent {
   // Merge: user keys win, embedded keys as fallback
   const allKeys = { ...embeddedKeys, ...userKeys };
 
-  // Inject into process.env
-  for (const [key, value] of Object.entries(allKeys)) {
-    if (value && !process.env[key]) {
-      process.env[key] = value;
-      injectedKeys.push(key);
-    }
-  }
-
-  // Set the Anthropic key (required)
-  if (userKeys.ANTHROPIC_API_KEY) {
-    process.env.ANTHROPIC_API_KEY = userKeys.ANTHROPIC_API_KEY;
-    injectedKeys.push("ANTHROPIC_API_KEY");
-  }
-
-  const agent = new CrateAgent();
-
-  const cleanup = () => {
-    for (const key of injectedKeys) {
-      delete process.env[key];
-    }
-  };
-
-  return { agent, cleanup };
+  return new CrateAgent({
+    model: "claude-sonnet-4-6",
+    keys: allKeys,
+  });
 }
 ```
 
@@ -1474,7 +1453,7 @@ import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { decrypt } from "@/lib/encryption";
-import { createAgentWithKeys } from "@/lib/agent";
+import { createAgent } from "@/lib/agent";
 import type { CrateEvent } from "@/lib/agent";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
@@ -1544,8 +1523,8 @@ export async function POST(req: Request) {
 
   const { message } = await req.json();
 
-  // Create agent with user's keys + embedded fallbacks
-  const { agent, cleanup } = createAgentWithKeys(userEnvKeys, getEmbeddedKeys());
+  // Create agent with user's keys + embedded fallbacks (concurrency-safe, no process.env mutation)
+  const agent = createAgent(userEnvKeys, getEmbeddedKeys());
 
   // Stream CrateEvents as SSE
   const encoder = new TextEncoder();
@@ -1564,7 +1543,6 @@ export async function POST(req: Request) {
         };
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorEvent)}\n\n`));
       } finally {
-        cleanup();
         controller.close();
       }
     },
