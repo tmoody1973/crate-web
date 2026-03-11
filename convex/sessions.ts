@@ -10,21 +10,50 @@ export const create = mutation({
     return await ctx.db.insert("sessions", {
       userId: args.userId,
       isShared: false,
+      isStarred: false,
+      isArchived: false,
+      lastMessageAt: now,
       createdAt: now,
       updatedAt: now,
     });
   },
 });
 
-export const list = query({
-  args: {
-    userId: v.id("users"),
+export const listRecent = query({
+  args: { userId: v.id("users"), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 20;
+    return await ctx.db
+      .query("sessions")
+      .withIndex("by_user_recent", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .take(limit);
   },
+});
+
+export const listStarred = query({
+  args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("sessions")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .order("desc")
+      .withIndex("by_user_starred", (q) =>
+        q.eq("userId", args.userId).eq("isStarred", true),
+      )
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+  },
+});
+
+export const listByCrate = query({
+  args: { userId: v.id("users"), crateId: v.id("crates") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("sessions")
+      .withIndex("by_user_crate", (q) =>
+        q.eq("userId", args.userId).eq("crateId", args.crateId),
+      )
+      .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
   },
 });
@@ -49,11 +78,54 @@ export const updateTitle = mutation({
   },
 });
 
+export const toggleStar = mutation({
+  args: { id: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id);
+    if (!session) throw new Error("Session not found");
+    await ctx.db.patch(args.id, { isStarred: !session.isStarred });
+  },
+});
+
+export const assignToCrate = mutation({
+  args: {
+    id: v.id("sessions"),
+    crateId: v.optional(v.id("crates")),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, {
+      crateId: args.crateId,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const archive = mutation({
+  args: { id: v.id("sessions") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, {
+      isArchived: true,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 export const toggleShare = mutation({
   args: { id: v.id("sessions") },
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Session not found");
     await ctx.db.patch(args.id, { isShared: !session.isShared });
+  },
+});
+
+export const touchLastMessage = mutation({
+  args: { id: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      lastMessageAt: now,
+      updatedAt: now,
+    });
   },
 });
