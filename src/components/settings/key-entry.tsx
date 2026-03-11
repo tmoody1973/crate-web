@@ -20,17 +20,27 @@ export function KeyEntry({ service, maskedValue, tier }: KeyEntryProps) {
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
+
   const handleSave = async () => {
     if (!value.trim()) return;
     setSaving(true);
+    setError(null);
     try {
-      await fetch("/api/keys", {
+      const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ service: service.id, value: value.trim() }),
       });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || `Failed (${res.status})`);
+        return;
+      }
       setEditing(false);
       setValue("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
     } finally {
       setSaving(false);
     }
@@ -66,22 +76,27 @@ export function KeyEntry({ service, maskedValue, tier }: KeyEntryProps) {
         </div>
       </div>
       {editing && (
-        <div className="mt-2 flex gap-2">
-          <input
-            type="password"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={`Paste your ${service.name} key...`}
-            className="flex-1 rounded border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-white focus:border-zinc-500 focus:outline-none"
-          />
-          <button
-            onClick={handleSave}
-            disabled={saving || !value.trim()}
-            className="rounded bg-white px-3 py-1.5 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-50"
-          >
-            {saving ? "..." : "Save"}
-          </button>
-        </div>
+        <>
+          <div className="mt-2 flex gap-2">
+            <input
+              type="password"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={`Paste your ${service.name} key...`}
+              className="flex-1 rounded border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-white focus:border-zinc-500 focus:outline-none"
+            />
+            <button
+              onClick={handleSave}
+              disabled={saving || !value.trim()}
+              className="rounded bg-white px-3 py-1.5 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-50"
+            >
+              {saving ? "..." : "Save"}
+            </button>
+          </div>
+          {error && (
+            <p className="mt-1 text-xs text-red-400">{error}</p>
+          )}
+        </>
       )}
     </div>
   );

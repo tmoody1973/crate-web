@@ -29,11 +29,6 @@ const TIER_2_SERVICES = [
     required: true,
   },
   { id: "genius", name: "Genius", description: "Lyrics, annotations" },
-  {
-    id: "youtube",
-    name: "YouTube Data",
-    description: "Enables audio player",
-  },
   { id: "tumblr", name: "Tumblr", description: "Publish to your blog" },
 ];
 

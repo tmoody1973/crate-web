@@ -13,7 +13,6 @@ const KEY_ENV_MAP: Record<string, string> = {
   discogs_secret: "DISCOGS_SECRET",
   lastfm: "LASTFM_API_KEY",
   genius: "GENIUS_ACCESS_TOKEN",
-  youtube: "YOUTUBE_API_KEY",
   tumblr_key: "TUMBLR_CONSUMER_KEY",
   tumblr_secret: "TUMBLR_CONSUMER_SECRET",
   kernel: "KERNEL_API_KEY",
@@ -87,6 +86,12 @@ export async function POST(req: Request) {
       JSON.stringify({ error: "message field is required" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
+  }
+
+  // Pass user's Anthropic key to process.env so the Claude Agent SDK picks it up.
+  // The SDK spawns a `claude` subprocess which reads ANTHROPIC_API_KEY from env.
+  if (userEnvKeys.ANTHROPIC_API_KEY) {
+    process.env.ANTHROPIC_API_KEY = userEnvKeys.ANTHROPIC_API_KEY;
   }
 
   // Create agent with user's keys + embedded fallbacks
