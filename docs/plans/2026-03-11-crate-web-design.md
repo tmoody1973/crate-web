@@ -271,21 +271,26 @@ Gear icon in navbar → slide-out drawer (stays in workspace flow).
 │  Anthropic (Required)                            │
 │  [••••••••••••sk-ant-3kf]  ✓ Valid    [Edit]    │
 │                                                  │
-│  Discogs (Optional)                              │
-│  [Not configured]                    [Add Key]   │
+│  ─── Tier 1: Active (zero-config) ───           │
+│  Discogs        ● Using shared key   [Add Own]   │
+│  Last.fm        ● Using shared key   [Add Own]   │
+│  Ticketmaster   ● Using shared key   [Add Own]   │
 │                                                  │
-│  YouTube Data API (Optional — enables player)    │
-│  [Not configured]                    [Add Key]   │
+│  ─── Tier 2: Add to unlock ───                  │
+│  Genius         ○ Not configured     [Add Key]   │
+│  YouTube Data   ○ Not configured     [Add Key]   │
 │                                                  │
 │  [Show all services ▼]                          │
 └─────────────────────────────────────────────────┘
 ```
 
-### Key Tiers
+### Key Tiers (Two-Tier Model)
 
-- **Required:** Anthropic API key
-- **Recommended:** Discogs, Last.fm, Genius
-- **Optional:** YouTube Data API, Bandcamp, Tumblr, Telegraph, etc.
+See: `crate-cli/docs/plans/2026-03-11-ticketmaster-and-tiered-keys-design.md` for full spec.
+
+- **Required:** Anthropic API key (only key needed to start)
+- **Tier 1 (zero-config):** Discogs, Last.fm, Ticketmaster — embedded default keys, work out of the box. User can override with own key for priority access.
+- **Tier 2 (BYOK):** Genius, YouTube Data API, Tumblr, Kernel, Mem0, Web Search — require user's own key
 
 ### Security
 
@@ -331,11 +336,11 @@ Each guide includes:
 
 ### First-Run Experience
 
-1. New user signs in via Clerk → welcome screen before workspace
-2. Shows 3 tiers: Required, Recommended, Optional
-3. "Quick start: just add your Anthropic key to begin."
-4. Big "Add Anthropic Key" CTA → inline guide → paste → validate → enter workspace
-5. Skip button for recommended/optional keys
+1. New user signs in via Clerk → welcome screen
+2. Only asks for **Anthropic key** (the only truly required key)
+3. Big "Add Anthropic Key" CTA → inline guide → paste → validate → enter workspace
+4. "You have 12 research sources active. Add more keys in Settings to unlock Genius, YouTube, and others."
+5. No Recommended/Optional prompts — Tier 1 services (Discogs, Last.fm, Ticketmaster) already work via embedded keys
 
 ### Contextual Nudges
 
