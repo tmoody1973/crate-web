@@ -4,9 +4,9 @@
 
 **Goal:** Scaffold the Crate Web app — a collaborative music research workspace with split-pane layout, streaming chat, dynamic artifacts via OpenUI, persistent audio player, and API key management.
 
-**Architecture:** Next.js 15 App Router on Vercel, Convex for real-time DB, Clerk for auth, OpenUI for dynamic components, YouTube IFrame API for audio. Two-tier key model with embedded defaults for Tier 1 services.
+**Architecture:** Next.js 15 App Router on Vercel, Convex for real-time DB, Clerk for auth, OpenUI for dynamic components, YouTube IFrame API for audio. Uses Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`) with `CrateAgent` imported from `crate-cli` npm package — same agent, same MCP servers, streamed to browser via SSE. Two-tier key model with embedded defaults for Tier 1 services.
 
-**Tech Stack:** Next.js 15, React 19, TypeScript, Convex, Clerk, @thesysdev/openui, Tailwind CSS, Vercel AI SDK
+**Tech Stack:** Next.js 15, React 19, TypeScript, Convex, Clerk, @thesysdev/openui, Tailwind CSS, crate-cli (npm dep), @anthropic-ai/claude-agent-sdk
 
 ---
 
@@ -1403,29 +1403,112 @@ git commit -m "feat: add API key encryption, storage, and settings drawer"
 
 ---
 
-### Task 10: Create chat API route with Vercel AI SDK streaming
+### Task 10: Install crate-cli and create chat API route with Claude Agent SDK
 
 **Files:**
-- Create: `src/app/api/chat/route.ts`
+- Create: `src/app/api/chat/route.ts`, `src/lib/agent.ts`
 
-**Step 1: Install Vercel AI SDK**
+**Step 1: Install crate-cli as npm dependency**
 
 ```bash
-npm install ai @ai-sdk/anthropic
+npm install crate-cli @anthropic-ai/claude-agent-sdk
 ```
 
-**Step 2: Create the chat route**
+This gives us access to `CrateAgent`, all MCP servers, and the typed `CrateEvent` stream.
+
+**Step 2: Create agent factory**
+
+The agent needs the user's API keys injected as env vars before creating the agent instance, since `getActiveServers()` checks `process.env`.
+
+```typescript
+// src/lib/agent.ts
+import { CrateAgent } from "crate-cli/dist/agent/index.js";
+import type { CrateEvent } from "crate-cli/dist/agent/events.js";
+
+export type { CrateEvent };
+
+/**
+ * Create a CrateAgent with user's API keys injected into process.env.
+ * Keys are set before agent creation and cleaned up after the stream ends.
+ */
+export function createAgentWithKeys(
+  userKeys: Record<string, string>,
+  embeddedKeys: Record<string, string>,
+): { agent: CrateAgent; cleanup: () => void } {
+  const injectedKeys: string[] = [];
+
+  // Merge: user keys win, embedded keys as fallback
+  const allKeys = { ...embeddedKeys, ...userKeys };
+
+  // Inject into process.env
+  for (const [key, value] of Object.entries(allKeys)) {
+    if (value && !process.env[key]) {
+      process.env[key] = value;
+      injectedKeys.push(key);
+    }
+  }
+
+  // Set the Anthropic key (required)
+  if (userKeys.ANTHROPIC_API_KEY) {
+    process.env.ANTHROPIC_API_KEY = userKeys.ANTHROPIC_API_KEY;
+    injectedKeys.push("ANTHROPIC_API_KEY");
+  }
+
+  const agent = new CrateAgent();
+
+  const cleanup = () => {
+    for (const key of injectedKeys) {
+      delete process.env[key];
+    }
+  };
+
+  return { agent, cleanup };
+}
+```
+
+**Step 3: Create the chat API route with SSE streaming**
 
 ```typescript
 // src/app/api/chat/route.ts
 import { auth } from "@clerk/nextjs/server";
-import { streamText } from "ai";
-import { createAnthropic } from "@ai-sdk/anthropic";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { decrypt } from "@/lib/encryption";
+import { createAgentWithKeys } from "@/lib/agent";
+import type { CrateEvent } from "@/lib/agent";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+
+// Map user-facing key names to env var names
+const KEY_ENV_MAP: Record<string, string> = {
+  anthropic: "ANTHROPIC_API_KEY",
+  discogs_key: "DISCOGS_KEY",
+  discogs_secret: "DISCOGS_SECRET",
+  lastfm: "LASTFM_API_KEY",
+  genius: "GENIUS_ACCESS_TOKEN",
+  youtube: "YOUTUBE_API_KEY",
+  tumblr_key: "TUMBLR_CONSUMER_KEY",
+  tumblr_secret: "TUMBLR_CONSUMER_SECRET",
+  kernel: "KERNEL_API_KEY",
+  mem0: "MEM0_API_KEY",
+  tavily: "TAVILY_API_KEY",
+  exa: "EXA_API_KEY",
+  ticketmaster: "TICKETMASTER_API_KEY",
+};
+
+// Embedded Tier 1 keys from Vercel env vars
+function getEmbeddedKeys(): Record<string, string> {
+  const embedded: Record<string, string> = {};
+  if (process.env.EMBEDDED_TICKETMASTER_KEY)
+    embedded.TICKETMASTER_API_KEY = process.env.EMBEDDED_TICKETMASTER_KEY;
+  if (process.env.EMBEDDED_LASTFM_KEY)
+    embedded.LASTFM_API_KEY = process.env.EMBEDDED_LASTFM_KEY;
+  if (process.env.EMBEDDED_DISCOGS_KEY)
+    embedded.DISCOGS_KEY = process.env.EMBEDDED_DISCOGS_KEY;
+  if (process.env.EMBEDDED_DISCOGS_SECRET)
+    embedded.DISCOGS_SECRET = process.env.EMBEDDED_DISCOGS_SECRET;
+  return embedded;
+}
 
 export async function POST(req: Request) {
   const { userId: clerkId } = await auth();
@@ -1439,57 +1522,297 @@ export async function POST(req: Request) {
   }
 
   // Decrypt user's API keys
-  let userKeys: Record<string, string> = {};
+  let rawKeys: Record<string, string> = {};
   if (user.encryptedKeys) {
-    userKeys = JSON.parse(decrypt(Buffer.from(user.encryptedKeys)));
+    rawKeys = JSON.parse(decrypt(Buffer.from(user.encryptedKeys)));
   }
 
-  const anthropicKey = userKeys.anthropic;
-  if (!anthropicKey) {
-    return new Response("Anthropic API key required. Add it in Settings.", { status: 400 });
+  if (!rawKeys.anthropic) {
+    return new Response(
+      JSON.stringify({ error: "Anthropic API key required. Add it in Settings." }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
   }
 
-  const { messages } = await req.json();
+  // Map user key names to env var names
+  const userEnvKeys: Record<string, string> = {};
+  for (const [userKey, envVar] of Object.entries(KEY_ENV_MAP)) {
+    if (rawKeys[userKey]) {
+      userEnvKeys[envVar] = rawKeys[userKey];
+    }
+  }
 
-  const anthropic = createAnthropic({ apiKey: anthropicKey });
+  const { message } = await req.json();
 
-  const result = streamText({
-    model: anthropic("claude-sonnet-4-6"),
-    system: "You are Crate, an expert music research agent. You help DJs, record collectors, music journalists, and serious listeners research music in depth.",
-    messages,
+  // Create agent with user's keys + embedded fallbacks
+  const { agent, cleanup } = createAgentWithKeys(userEnvKeys, getEmbeddedKeys());
+
+  // Stream CrateEvents as SSE
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const event of agent.research(message)) {
+          const data = JSON.stringify(event);
+          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+        }
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      } catch (err) {
+        const errorEvent: CrateEvent = {
+          type: "error",
+          message: err instanceof Error ? err.message : "Unknown error",
+        };
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorEvent)}\n\n`));
+      } finally {
+        cleanup();
+        controller.close();
+      }
+    },
   });
 
-  return result.toDataStreamResponse();
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }
 ```
 
-**Step 3: Commit**
+**Step 4: Verify types compile**
 
 ```bash
-git add src/app/api/chat/route.ts
-git commit -m "feat: add streaming chat API route with Vercel AI SDK"
+npx tsc --noEmit
+```
+
+**Step 5: Commit**
+
+```bash
+git add src/lib/agent.ts src/app/api/chat/route.ts
+git commit -m "feat: add chat API route using CrateAgent from crate-cli with SSE streaming"
 ```
 
 ---
 
-### Task 11: Wire up chat panel to streaming API
+### Task 11: Wire up chat panel to CrateEvent SSE stream
 
 **Files:**
+- Create: `src/hooks/use-crate-agent.ts`
 - Modify: `src/components/workspace/chat-panel.tsx`
 
-**Step 1: Install useChat hook dependency (already in ai package)**
+**Step 1: Create `useCrateAgent` hook for SSE consumption**
 
-**Step 2: Update chat panel with streaming**
+```typescript
+// src/hooks/use-crate-agent.ts
+"use client";
+
+import { useState, useCallback, useRef } from "react";
+
+interface ToolProgress {
+  tool: string;
+  server: string;
+  status: "running" | "complete";
+  durationMs?: number;
+}
+
+interface PlanTask {
+  id: number;
+  description: string;
+  done: boolean;
+}
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface CrateAgentState {
+  messages: Message[];
+  toolProgress: ToolProgress[];
+  plan: PlanTask[] | null;
+  isLoading: boolean;
+  error: string | null;
+  totalMs: number;
+  toolsUsed: string[];
+}
+
+export function useCrateAgent() {
+  const [state, setState] = useState<CrateAgentState>({
+    messages: [],
+    toolProgress: [],
+    plan: null,
+    isLoading: false,
+    error: null,
+    totalMs: 0,
+    toolsUsed: [],
+  });
+
+  const abortRef = useRef<AbortController | null>(null);
+
+  const sendMessage = useCallback(async (input: string) => {
+    // Add user message
+    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: input };
+    const assistantId = crypto.randomUUID();
+
+    setState((prev) => ({
+      ...prev,
+      messages: [...prev.messages, userMsg],
+      toolProgress: [],
+      plan: null,
+      isLoading: true,
+      error: null,
+    }));
+
+    abortRef.current = new AbortController();
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: input }),
+        signal: abortRef.current.signal,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        setState((prev) => ({ ...prev, isLoading: false, error: err.error }));
+        return;
+      }
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let assistantText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6);
+          if (data === "[DONE]") continue;
+
+          try {
+            const event = JSON.parse(data);
+
+            switch (event.type) {
+              case "plan":
+                setState((prev) => ({ ...prev, plan: event.tasks }));
+                break;
+
+              case "tool_start":
+                setState((prev) => ({
+                  ...prev,
+                  toolProgress: [
+                    ...prev.toolProgress,
+                    { tool: event.tool, server: event.server, status: "running" },
+                  ],
+                }));
+                break;
+
+              case "tool_end":
+                setState((prev) => ({
+                  ...prev,
+                  toolProgress: prev.toolProgress.map((tp) =>
+                    tp.tool === event.tool && tp.status === "running"
+                      ? { ...tp, status: "complete", durationMs: event.durationMs }
+                      : tp,
+                  ),
+                }));
+                break;
+
+              case "answer_token":
+                assistantText += event.token;
+                setState((prev) => {
+                  const msgs = [...prev.messages];
+                  const existing = msgs.find((m) => m.id === assistantId);
+                  if (existing) {
+                    return {
+                      ...prev,
+                      messages: msgs.map((m) =>
+                        m.id === assistantId ? { ...m, content: assistantText } : m,
+                      ),
+                    };
+                  }
+                  return {
+                    ...prev,
+                    messages: [
+                      ...msgs,
+                      { id: assistantId, role: "assistant", content: assistantText },
+                    ],
+                  };
+                });
+                break;
+
+              case "done":
+                setState((prev) => ({
+                  ...prev,
+                  isLoading: false,
+                  totalMs: event.totalMs,
+                  toolsUsed: event.toolsUsed,
+                }));
+                break;
+
+              case "error":
+                setState((prev) => ({
+                  ...prev,
+                  isLoading: false,
+                  error: event.message,
+                }));
+                break;
+            }
+          } catch {
+            // Skip malformed JSON
+          }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: err instanceof Error ? err.message : "Connection failed",
+        }));
+      }
+    }
+  }, []);
+
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+    setState((prev) => ({ ...prev, isLoading: false }));
+  }, []);
+
+  return { ...state, sendMessage, stop };
+}
+```
+
+**Step 2: Update chat panel to use `useCrateAgent`**
 
 ```tsx
 // src/components/workspace/chat-panel.tsx
 "use client";
 
-import { useChat } from "ai/react";
+import { useState, FormEvent } from "react";
+import { useCrateAgent } from "@/hooks/use-crate-agent";
 
 export function ChatPanel() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } =
-    useChat({ api: "/api/chat" });
+  const [input, setInput] = useState("");
+  const { messages, toolProgress, plan, isLoading, error, sendMessage } =
+    useCrateAgent();
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    sendMessage(input.trim());
+    setInput("");
+  };
 
   return (
     <div className="flex h-full flex-col bg-zinc-950">
@@ -1499,27 +1822,72 @@ export function ChatPanel() {
             Ask about any artist, track, sample, or genre...
           </p>
         )}
+
         {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`mb-4 ${m.role === "user" ? "text-white" : "text-zinc-300"}`}
-          >
+          <div key={m.id} className="mb-4">
             <span className="text-xs font-semibold uppercase text-zinc-500">
               {m.role === "user" ? "You" : "Crate"}
             </span>
-            <div className="mt-1 whitespace-pre-wrap">{m.content}</div>
+            <div
+              className={`mt-1 whitespace-pre-wrap ${
+                m.role === "user" ? "text-white" : "text-zinc-300"
+              }`}
+            >
+              {m.content}
+            </div>
           </div>
         ))}
-        {isLoading && (
+
+        {/* Research plan */}
+        {plan && (
+          <div className="mb-4 rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+            <p className="text-xs font-semibold uppercase text-zinc-400">
+              Research Plan
+            </p>
+            {plan.map((task) => (
+              <div key={task.id} className="mt-1 text-sm text-zinc-300">
+                {task.id}. {task.description}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Tool progress */}
+        {toolProgress.length > 0 && (
+          <div className="mb-4 space-y-1">
+            {toolProgress.map((tp, i) => (
+              <div key={i} className="text-xs text-zinc-500">
+                {tp.status === "running" ? (
+                  <span className="text-cyan-400">⟳ {tp.server}: {tp.tool}...</span>
+                ) : (
+                  <span className="text-green-400">
+                    ✓ {tp.server}: {tp.tool}
+                    {tp.durationMs ? ` (${(tp.durationMs / 1000).toFixed(1)}s)` : ""}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {isLoading && toolProgress.length === 0 && (
           <div className="text-zinc-500">Researching...</div>
         )}
+
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-800 bg-red-950 p-3 text-sm text-red-300">
+            {error}
+          </div>
+        )}
       </div>
+
       <form onSubmit={handleSubmit} className="border-t border-zinc-800 p-4">
         <input
           value={input}
-          onChange={handleInputChange}
+          onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about any artist, track, or genre..."
           className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
+          disabled={isLoading}
         />
       </form>
     </div>
@@ -1533,13 +1901,17 @@ export function ChatPanel() {
 npm run dev
 ```
 
-Sign in, go to `/w`, add Anthropic key in settings, type a message — should stream a response.
+Sign in, go to `/w`, add Anthropic key in settings, type a message — should see:
+1. Research plan appears (if query is substantive)
+2. Tool progress shows which MCP servers are being queried
+3. Answer streams in token by token
+4. Done state with total time and tools used
 
 **Step 4: Commit**
 
 ```bash
-git add src/components/workspace/chat-panel.tsx
-git commit -m "feat: wire chat panel to streaming AI with useChat"
+git add src/hooks/use-crate-agent.ts src/components/workspace/chat-panel.tsx
+git commit -m "feat: wire chat panel to CrateAgent SSE stream with tool progress"
 ```
 
 ---

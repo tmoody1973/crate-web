@@ -29,7 +29,7 @@ Crate CLI is powerful but locked behind a terminal interface. Most music people 
 | Auth | Clerk | Fast integration, handles OAuth, fits Vercel ecosystem |
 | Real-time DB | Convex | Real-time subscriptions for live sessions, no SQL to manage |
 | Dynamic UI | OpenUI (@thesysdev/openui) | Agent generates contextual UI components at runtime |
-| Agent | Claude API via Vercel AI SDK | Stream responses to browser with tool calling |
+| Agent | Claude Agent SDK via crate-cli npm dep | Same CrateAgent + MCP servers as CLI, streamed via SSE |
 | MCP Servers | Import from `crate-cli` npm package | Reuse all 19 servers without duplication |
 | Audio | YouTube IFrame API + Bandcamp embeds | Widest catalog coverage, no user OAuth required |
 

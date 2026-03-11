@@ -6,7 +6,7 @@
 
 **Architecture:** Next.js App Router on Vercel, Convex for real-time data, Clerk for auth, OpenUI for agent-generated dynamic components, YouTube IFrame API for audio playback. Imports MCP servers from `crate-cli` npm package.
 
-**Tech Stack:** Next.js 15, Convex, Clerk, OpenUI (@thesysdev/openui), YouTube IFrame API, Vercel AI SDK, Claude API
+**Tech Stack:** Next.js 15, Convex, Clerk, OpenUI (@thesysdev/openui), YouTube IFrame API, Claude Agent SDK (@anthropic-ai/claude-agent-sdk) via crate-cli npm package
 
 ---
 
@@ -52,14 +52,14 @@ Convex mutation: create message in session
 Next.js API route (/api/chat)
   │
   ├─ Decrypts user's API keys from Convex
-  ├─ Initializes Claude with user's Anthropic key via Vercel AI SDK
-  ├─ Registers MCP servers based on which keys the user has
+  ├─ Injects keys into process.env, creates CrateAgent (from crate-cli npm dep)
+  ├─ CrateAgent activates MCP servers based on available keys (same as CLI)
   │
   ▼
-Claude streams response
+CrateAgent.research() yields CrateEvents
   │
-  ├─ Text tokens → streamed to chat panel (SSE / Vercel AI SDK stream)
-  ├─ Tool calls → tool progress shown in chat, results feed back to Claude
+  ├─ answer_token → streamed to chat panel via SSE
+  ├─ tool_start/tool_end → tool progress shown in chat (server name, tool name, duration)
   ├─ render_artifact() calls → structured data sent to artifacts panel
   ├─ play_track() / queue_track() calls → sent to audio player
   │
