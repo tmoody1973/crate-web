@@ -10,28 +10,53 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_clerk_id", ["clerkId"]),
 
+  crates: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    color: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   sessions: defineTable({
     userId: v.id("users"),
+    crateId: v.optional(v.id("crates")),
     title: v.optional(v.string()),
     isShared: v.boolean(),
+    isStarred: v.boolean(),
+    isArchived: v.boolean(),
+    lastMessageAt: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_starred", ["userId", "isStarred"])
+    .index("by_user_crate", ["userId", "crateId"])
+    .index("by_user_recent", ["userId", "lastMessageAt"]),
 
   messages: defineTable({
     sessionId: v.id("sessions"),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
     createdAt: v.number(),
-  }).index("by_session", ["sessionId"]),
+  })
+    .index("by_session", ["sessionId"])
+    .searchIndex("search_content", {
+      searchField: "content",
+      filterFields: ["sessionId"],
+    }),
 
   artifacts: defineTable({
     sessionId: v.id("sessions"),
+    userId: v.id("users"),
     messageId: v.optional(v.id("messages")),
     type: v.string(),
+    label: v.string(),
     data: v.string(),
+    contentHash: v.string(),
     createdAt: v.number(),
-  }).index("by_session", ["sessionId"]),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_user", ["userId"]),
 
   toolCalls: defineTable({
     sessionId: v.id("sessions"),
