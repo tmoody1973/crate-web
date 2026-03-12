@@ -13,10 +13,11 @@ export type { CrateEvent };
 export function createAgent(
   userKeys: Record<string, string>,
   embeddedKeys: Record<string, string>,
+  model?: string,
 ): CrateAgent {
   const allKeys = { ...embeddedKeys, ...userKeys };
   const agent = new CrateAgent({
-    model: "claude-sonnet-4-6",
+    model: model || "claude-sonnet-4-6",
     keys: allKeys,
     skipPlanning: true,
   });

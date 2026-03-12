@@ -23,6 +23,7 @@ import { crateLibrary } from "@/lib/openui/library";
 import { crateStreamAdapter } from "@/lib/openui/stream-adapter";
 import { useArtifact } from "./artifact-provider";
 import { getToolLabel, type ToolStep } from "@/lib/tool-labels";
+import { ModelSelector, getStoredModel } from "./model-selector";
 
 // --- Tool activity context ---
 const ToolActivityContext = createContext<{ steps: ToolStep[] }>({ steps: [] });
@@ -391,6 +392,23 @@ function ChatPersistence() {
   return null;
 }
 
+function ChatHeader() {
+  const [hasOpenRouter, setHasOpenRouter] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/keys")
+      .then((r) => r.json())
+      .then((data) => setHasOpenRouter(!!data.keys?.openrouter))
+      .catch(() => {});
+  }, []);
+
+  return (
+    <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
+      <ModelSelector hasOpenRouter={hasOpenRouter} />
+    </div>
+  );
+}
+
 export function ChatPanel() {
   const [steps, setSteps] = useState<ToolStep[]>([]);
 
@@ -438,7 +456,7 @@ export function ChatPanel() {
       return fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: messageText }),
+        body: JSON.stringify({ message: messageText, model: getStoredModel() }),
         signal: abortController.signal,
       });
     },
@@ -449,6 +467,7 @@ export function ChatPanel() {
     <ToolActivityContext.Provider value={{ steps }}>
       <ChatProvider processMessage={processMessage} streamProtocol={adapter}>
         <div className="flex h-full flex-col bg-zinc-950">
+          <ChatHeader />
           <ChatHydration />
           <ChatMessages />
           <ChatInput />

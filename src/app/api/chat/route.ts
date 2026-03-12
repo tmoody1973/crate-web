@@ -78,7 +78,7 @@ export async function POST(req: Request) {
     }
   }
 
-  let body: { message?: string };
+  let body: { message?: string; model?: string };
   try {
     body = await req.json();
   } catch {
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { message } = body;
+  const { message, model } = body;
   if (!message || typeof message !== "string") {
     return new Response(
       JSON.stringify({ error: "message field is required" }),
@@ -109,8 +109,17 @@ export async function POST(req: Request) {
     process.env.ANTHROPIC_API_KEY = userEnvKeys.ANTHROPIC_API_KEY;
   }
 
+  // Non-Anthropic models require OpenRouter
+  const isThirdPartyModel = model && !model.startsWith("claude-");
+  if (isThirdPartyModel && !hasOpenRouter) {
+    return new Response(
+      JSON.stringify({ error: "An OpenRouter key is required for non-Anthropic models. Add one in Settings." }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   // Create agent with user's keys + embedded fallbacks
-  const agent = createAgent(userEnvKeys, getEmbeddedKeys());
+  const agent = createAgent(userEnvKeys, getEmbeddedKeys(), model);
 
   // Load user memories from Mem0 (if key is configured)
   await agent.startSession();
