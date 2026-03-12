@@ -126,19 +126,34 @@ export async function POST(req: Request) {
 
   // Configure SDK auth per OpenRouter docs:
   // https://openrouter.ai/docs/guides/community/anthropic-agent-sdk
+  //
+  // For non-Claude models via OpenRouter, we remap the model using
+  // ANTHROPIC_DEFAULT_SONNET_MODEL so the SDK sees a "sonnet" alias
+  // but OpenRouter routes to the actual model (GPT-4o, Gemini, etc.)
+  let agentModel = model;
   if (hasOpenRouter && (isThirdPartyModel || !hasAnthropic)) {
     process.env.ANTHROPIC_BASE_URL = "https://openrouter.ai/api";
     process.env.ANTHROPIC_AUTH_TOKEN = rawKeys.openrouter;
     process.env.ANTHROPIC_API_KEY = ""; // Must be explicitly empty for OpenRouter
+    if (isThirdPartyModel && model) {
+      // Override the default Sonnet model to the OpenRouter model ID
+      process.env.ANTHROPIC_DEFAULT_SONNET_MODEL = model;
+      agentModel = "claude-sonnet-4-6"; // SDK sees "sonnet", OpenRouter routes to actual model
+    }
   } else if (userEnvKeys.ANTHROPIC_API_KEY) {
     // Direct Anthropic: clear any previous OpenRouter config
     delete process.env.ANTHROPIC_BASE_URL;
     delete process.env.ANTHROPIC_AUTH_TOKEN;
+    delete process.env.ANTHROPIC_DEFAULT_SONNET_MODEL;
     process.env.ANTHROPIC_API_KEY = userEnvKeys.ANTHROPIC_API_KEY;
   }
 
+  // Unset CLAUDECODE to prevent "cannot launch inside another session" error
+  // when dev server was started from a Claude Code terminal session
+  delete process.env.CLAUDECODE;
+
   // Create agent with user's keys + embedded fallbacks
-  const agent = createAgent(userEnvKeys, getEmbeddedKeys(), model);
+  const agent = createAgent(userEnvKeys, getEmbeddedKeys(), agentModel);
 
   // Load user memories from Mem0 (if key is configured)
   await agent.startSession();
@@ -154,9 +169,10 @@ export async function POST(req: Request) {
         }
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       } catch (err) {
+        console.error("[SSE stream] Error:", err);
         const errorEvent = {
           type: "error",
-          message: err instanceof Error ? err.message : "Unknown error",
+          message: err instanceof Error ? `${err.message}\n${err.stack}` : "Unknown error",
         };
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify(errorEvent)}\n\n`),
