@@ -120,6 +120,16 @@ export function getToolLabel(
     case "get_artist_connections":
       return `Fetching sampling connections for "${inp.artist}"`;
 
+    // iTunes
+    case "search_itunes_songs":
+      return `Searching iTunes for "${inp.query}"`;
+    case "search_itunes_albums":
+      return `Searching iTunes albums for "${inp.query}"`;
+    case "search_itunes_artists":
+      return `Searching iTunes artists for "${inp.query}"`;
+    case "lookup_itunes_album":
+      return `Looking up iTunes album #${inp.albumId}`;
+
     // Browser (Kernel)
     case "browse_url":
       return `Reading page: ${inp.url}`;

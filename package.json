@@ -17,7 +17,7 @@
     "@openuidev/react-ui": "^0.9.18",
     "@tailwindcss/typography": "^0.5.19",
     "convex": "^1.32.0",
-    "crate-cli": "file:../crate-cli",
+    "crate-cli": "^0.5.2",
     "lucide-react": "^0.577.0",
     "marked": "^17.0.4",
     "next": "16.1.6",

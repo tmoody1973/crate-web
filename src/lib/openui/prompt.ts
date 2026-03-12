@@ -85,9 +85,10 @@ Top-level show prep container. \`tracks\` is array of TrackContextCard refs. \`t
 - **NEVER use the collection server's MCP tools** (playlist_list, create_playlist, add_track, search_collection). Those write to a local SQLite database that the web UI cannot read. Always use OpenUI components (TrackList, AddToPlaylist, AlbumGrid) — they save directly to the cloud database.
 - **Always include image URLs when available.** When your MCP tool results return image data, pass those URLs into the components:
   - ArtistCard: Use \`image_url\` from Genius artist results or \`thumbnail\` from Wikipedia for the \`imageUrl\` prop.
-  - TrackItem: Use \`song_art_image_thumbnail_url\` from Genius, \`image_url\` from Bandcamp, or album cover from Discogs for the \`imageUrl\` prop.
-  - AlbumEntry: Use \`cover_image\` or \`images[0].uri\` from Discogs, \`image_url\` from Bandcamp for the \`imageUrl\` prop.
-  - Prioritize high-quality images: Discogs covers > Bandcamp images > Genius artwork > Wikipedia thumbnails.
+  - TrackItem: Use \`artworkUrl\` from search_itunes_songs (high-res 600x600), \`song_art_image_thumbnail_url\` from Genius, \`image_url\` from Bandcamp, or album cover from Discogs for the \`imageUrl\` prop.
+  - AlbumEntry: Use \`artworkUrl\` from search_itunes_albums, \`cover_image\` or \`images[0].uri\` from Discogs, \`image_url\` from Bandcamp for the \`imageUrl\` prop.
+  - TrackContextCard: Use \`artworkUrl\` from search_itunes_songs for the \`imageUrl\` prop. iTunes is free and returns 600x600 artwork — always try it first.
+  - Prioritize high-quality images: iTunes artwork > Discogs covers > Bandcamp images > Genius artwork > Wikipedia thumbnails.
 - Do not wrap simple text responses in components.
 - For show prep requests, ALWAYS output a ShowPrepPackage containing TrackContextCards, TalkBreakCards, and SocialPostCards. Generate one TrackContextCard per track in the setlist, talk breaks for each transition, and one SocialPostCard per track or for the show overall.
 - When show prep includes an interview or guest mention, add InterviewPrepCards inside the ShowPrepPackage.
