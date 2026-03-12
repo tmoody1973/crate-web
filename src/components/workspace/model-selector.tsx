@@ -21,6 +21,7 @@ const MODELS: ModelOption[] = [
   { id: "meta-llama/llama-4-maverick", name: "Llama 4 Maverick", provider: "Meta", description: "Open source, powerful" },
   { id: "deepseek/deepseek-r1", name: "DeepSeek R1", provider: "DeepSeek", description: "Reasoning model" },
   { id: "mistralai/mistral-large-2411", name: "Mistral Large", provider: "Mistral", description: "European AI leader" },
+  { id: "inception/mercury-2", name: "Mercury 2", provider: "Inception", description: "Ultra-fast inference" },
 ];
 
 const STORAGE_KEY = "crate-model";
