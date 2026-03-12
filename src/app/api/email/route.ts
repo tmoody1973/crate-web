@@ -6,6 +6,9 @@ import { NextResponse } from "next/server";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
+const CRATE_INBOX = "slack-rm@agentmail.to";
+const AGENTMAIL_API = "https://api.agentmail.to/v0";
+
 export async function POST(req: Request) {
   try {
     const { userId: clerkId } = await auth();
@@ -65,18 +68,30 @@ export async function POST(req: Request) {
       );
     }
 
-    // Use AgentMail SDK to send from the shared Crate inbox
-    const { AgentMailClient } = await import("agentmail");
-    const client = new AgentMailClient({ apiKey: agentmailKey });
-
-    const CRATE_INBOX = "slack-rm@agentmail.to";
-
-    await client.inboxes.messages.send(CRATE_INBOX, {
-      to: Array.isArray(to) ? to : [to],
-      subject,
-      text: text || undefined,
-      html: html || undefined,
+    // Send via AgentMail REST API directly (no SDK — avoids @x402/fetch dep)
+    const recipients = Array.isArray(to) ? to : [to];
+    const res = await fetch(`${AGENTMAIL_API}/inboxes/${CRATE_INBOX}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${agentmailKey}`,
+      },
+      body: JSON.stringify({
+        to: recipients,
+        subject,
+        ...(text ? { text } : {}),
+        ...(html ? { html } : {}),
+      }),
     });
+
+    if (!res.ok) {
+      const errorBody = await res.text();
+      console.error("[POST /api/email] AgentMail error:", res.status, errorBody);
+      return NextResponse.json(
+        { error: `AgentMail API error: ${res.status}` },
+        { status: 502 },
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
