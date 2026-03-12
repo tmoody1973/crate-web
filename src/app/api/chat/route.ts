@@ -89,6 +89,23 @@ function preprocessSlashCommand(message: string): string {
         }
       }
 
+      // Extract metadata lines (DJ name, shift, guest) before treating rest as tracks
+      let prepDjName = "";
+      let prepShift = "evening";
+      let prepGuest = "";
+      trackLines = trackLines.filter((line: string) => {
+        const lower = line.toLowerCase();
+        const djMatch = line.match(/^dj:\s*(.+)/i);
+        if (djMatch) { prepDjName = djMatch[1]!.trim(); return false; }
+        const shiftMatch = line.match(/^shift:\s*(.+)/i);
+        if (shiftMatch) { prepShift = shiftMatch[1]!.trim(); return false; }
+        const guestMatch = line.match(/^(?:interviewing|guest:?)\s*(.+)/i);
+        if (guestMatch) { prepGuest = guestMatch[1]!.trim(); return false; }
+        // Skip lines that are clearly metadata, not tracks
+        if (lower.startsWith("dj ") || lower.startsWith("name:")) return false;
+        return true;
+      });
+
       const stationVoice = prepStation
         ? prepStation.toLowerCase().includes("hyfin")
           ? `STATION: HYFIN — Bold, culturally sharp, unapologetic. Music focus: urban alternative, neo-soul, progressive hip-hop, Afrobeats. Audience: young, culturally aware Milwaukee listeners invested in Black art and music. Voice: cultural context, movement-building, "here's why this matters." Preferred vocabulary: culture, movement, lineage, vibration, frequency. Avoid: "urban" standalone, "exotic", "ethnic".`
@@ -176,7 +193,9 @@ function preprocessSlashCommand(message: string): string {
       return [
         `Generate ${intentLabel} for a radio DJ.`,
         prepStation ? stationVoice : `Ask which station (88Nine, HYFIN, or Rhythm Lab) if not specified.`,
-        `Date: ${day}`,
+        prepDjName ? `DJ: ${prepDjName}` : ``,
+        `Date: ${day}, Shift: ${prepShift}`,
+        prepGuest ? `Interview guest: ${prepGuest}` : ``,
         ``,
         trackList ? `SETLIST:\n${trackList}` : wantsEvents ? `` : `No tracks provided — ask for the setlist.`,
         ``,
