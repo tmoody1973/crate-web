@@ -30,35 +30,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    let agentmailKey = "";
+    // AgentMail key resolution: env var first (most reliable), then user/org keys
+    let agentmailKey = process.env.AGENTMAIL_API_KEY ?? "";
 
-    // Check user's personal keys
-    if (user.encryptedKeys) {
-      const keys: Record<string, string> = JSON.parse(
-        decrypt(Buffer.from(new Uint8Array(user.encryptedKeys))),
-      );
-      if (keys.agentmail) agentmailKey = keys.agentmail;
-    }
-
-    // Fallback to org shared keys
     if (!agentmailKey) {
-      const emailDomain = user.email?.split("@")[1] ?? "";
-      if (emailDomain) {
-        const orgRecord = await convex.query(api.orgKeys.getByDomain, {
-          domain: emailDomain,
-        });
-        if (orgRecord?.encryptedKeys) {
-          const orgKeys: Record<string, string> = JSON.parse(
-            decrypt(Buffer.from(orgRecord.encryptedKeys)),
-          );
-          if (orgKeys.agentmail) agentmailKey = orgKeys.agentmail;
+      // Check user's personal keys
+      if (user.encryptedKeys) {
+        const keys: Record<string, string> = JSON.parse(
+          decrypt(Buffer.from(new Uint8Array(user.encryptedKeys))),
+        );
+        if (keys.agentmail) agentmailKey = keys.agentmail;
+      }
+
+      // Fallback to org shared keys
+      if (!agentmailKey) {
+        const emailDomain = user.email?.split("@")[1] ?? "";
+        if (emailDomain) {
+          const orgRecord = await convex.query(api.orgKeys.getByDomain, {
+            domain: emailDomain,
+          });
+          if (orgRecord?.encryptedKeys) {
+            const orgKeys: Record<string, string> = JSON.parse(
+              decrypt(Buffer.from(orgRecord.encryptedKeys)),
+            );
+            if (orgKeys.agentmail) agentmailKey = orgKeys.agentmail;
+          }
         }
       }
-    }
-
-    // Fallback to server-side env var (for team/embedded usage)
-    if (!agentmailKey && process.env.AGENTMAIL_API_KEY) {
-      agentmailKey = process.env.AGENTMAIL_API_KEY;
     }
 
     if (!agentmailKey) {
@@ -68,21 +66,24 @@ export async function POST(req: Request) {
       );
     }
 
-    // Send via AgentMail REST API directly (no SDK — avoids @x402/fetch dep)
+    // Send via AgentMail REST API — endpoint is /messages/send (not /messages)
     const recipients = Array.isArray(to) ? to : [to];
-    const res = await fetch(`${AGENTMAIL_API}/inboxes/${CRATE_INBOX}/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${agentmailKey}`,
+    const res = await fetch(
+      `${AGENTMAIL_API}/inboxes/${CRATE_INBOX}/messages/send`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${agentmailKey}`,
+        },
+        body: JSON.stringify({
+          to: recipients,
+          subject,
+          ...(text ? { text } : {}),
+          ...(html ? { html } : {}),
+        }),
       },
-      body: JSON.stringify({
-        to: recipients,
-        subject,
-        ...(text ? { text } : {}),
-        ...(html ? { html } : {}),
-      }),
-    });
+    );
 
     if (!res.ok) {
       const errorBody = await res.text();

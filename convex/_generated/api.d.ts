@@ -13,6 +13,7 @@ import type * as collection from "../collection.js";
 import type * as crates from "../crates.js";
 import type * as keys from "../keys.js";
 import type * as messages from "../messages.js";
+import type * as orgKeys from "../orgKeys.js";
 import type * as playlists from "../playlists.js";
 import type * as sessions from "../sessions.js";
 import type * as toolCalls from "../toolCalls.js";
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   crates: typeof crates;
   keys: typeof keys;
   messages: typeof messages;
+  orgKeys: typeof orgKeys;
   playlists: typeof playlists;
   sessions: typeof sessions;
   toolCalls: typeof toolCalls;

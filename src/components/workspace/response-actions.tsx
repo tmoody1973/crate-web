@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 
 interface ResponseActionsProps {
   content: string;
@@ -9,10 +10,20 @@ interface ResponseActionsProps {
 
 type ActionStatus = "idle" | "sending" | "sent" | "error";
 
+/** Slack button is only shown for these users. */
+const SLACK_ALLOWED_EMAILS = ["tarikjmoody@gmail.com"];
+const SLACK_ALLOWED_DOMAINS = ["radiomilwaukee.org"];
+
 export function ResponseActions({
   content,
   slackEmail = "y3v9l8q1c8s3d4n6@88nine.slack.com",
 }: ResponseActionsProps) {
+  const { user } = useUser();
+  const userEmail = user?.primaryEmailAddress?.emailAddress ?? "";
+  const emailDomain = userEmail.split("@")[1] ?? "";
+  const showSlack =
+    SLACK_ALLOWED_EMAILS.includes(userEmail.toLowerCase()) ||
+    SLACK_ALLOWED_DOMAINS.includes(emailDomain.toLowerCase());
   const [copied, setCopied] = useState(false);
   const [emailStatus, setEmailStatus] = useState<ActionStatus>("idle");
   const [slackStatus, setSlackStatus] = useState<ActionStatus>("idle");
@@ -32,6 +43,7 @@ export function ResponseActions({
 
   const sendEmail = async (to: string, status: ActionStatus, setStatus: (s: ActionStatus) => void) => {
     if (status === "sending") return;
+    console.log("[ResponseActions] sendEmail called:", { to, contentLength: content?.length });
     setStatus("sending");
     try {
       // Build a clean subject from first line of content
@@ -40,6 +52,7 @@ export function ResponseActions({
         ? firstLine.slice(0, 77) + "..."
         : firstLine || "Crate Research";
 
+      console.log("[ResponseActions] fetching /api/email...");
       const res = await fetch("/api/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,10 +63,12 @@ export function ResponseActions({
         }),
       });
       const data = await res.json();
+      console.log("[ResponseActions] response:", res.status, data);
       if (!res.ok) throw new Error(data.error);
       setStatus("sent");
       setTimeout(() => setStatus("idle"), 3000);
-    } catch {
+    } catch (err) {
+      console.error("[ResponseActions] sendEmail error:", err);
       setStatus("error");
       setTimeout(() => setStatus("idle"), 3000);
     }
@@ -87,22 +102,24 @@ export function ResponseActions({
         )}
       </button>
 
-      {/* Send to Slack */}
-      <button
-        onClick={handleSlack}
-        disabled={slackStatus === "sending"}
-        className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300 disabled:opacity-50"
-        title="Send to Slack"
-      >
-        <SlackIcon />
-        {slackStatus === "sending"
-          ? "Sending..."
-          : slackStatus === "sent"
-            ? "Sent!"
-            : slackStatus === "error"
-              ? "Failed"
-              : "Slack"}
-      </button>
+      {/* Send to Slack — only for allowed users/domains */}
+      {showSlack && (
+        <button
+          onClick={handleSlack}
+          disabled={slackStatus === "sending"}
+          className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300 disabled:opacity-50"
+          title="Send to Slack"
+        >
+          <SlackIcon />
+          {slackStatus === "sending"
+            ? "Sending..."
+            : slackStatus === "sent"
+              ? "Sent!"
+              : slackStatus === "error"
+                ? "Failed"
+                : "Slack"}
+        </button>
+      )}
 
       {/* Email */}
       <div className="relative">
