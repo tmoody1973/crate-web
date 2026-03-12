@@ -10,6 +10,7 @@ import {
   SampleConnection,
   TrackItem,
   TrackList,
+  AddToPlaylist,
 } from "./components";
 
 export const crateLibrary = createLibrary({
@@ -24,6 +25,7 @@ export const crateLibrary = createLibrary({
     SampleConnection,
     TrackItem,
     TrackList,
+    AddToPlaylist,
   ],
   componentGroups: [
     {
@@ -46,8 +48,11 @@ export const crateLibrary = createLibrary({
     },
     {
       name: "Playlists & Tracks",
-      components: ["TrackList", "TrackItem"],
-      notes: ["Use TrackList with TrackItem children for playlists."],
+      components: ["TrackList", "TrackItem", "AddToPlaylist"],
+      notes: [
+        "Use TrackList with TrackItem children for NEW playlists.",
+        "Use AddToPlaylist with TrackItem children to add tracks to an EXISTING playlist.",
+      ],
     },
   ],
 });

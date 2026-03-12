@@ -376,15 +376,25 @@ function AutoSavePlaylist({
 }) {
   const { userId: clerkId } = useAuth();
   const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
+  // Check if playlist already exists — prevents duplicate creation on re-renders
+  const existing = useQuery(
+    api.playlists.findByName,
+    user ? { userId: user._id, name: title } : "skip",
+  );
   const createPlaylist = useMutation(api.playlists.create);
   const addTracks = useMutation(api.playlists.addMultipleTracks);
-  const [status, setStatus] = useState<"pending" | "saving" | "saved" | "error">("pending");
-  const savedRef = useRef(false);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
-  // Auto-save on mount when user and tracks are available
   useEffect(() => {
-    if (savedRef.current || !user || tracks.length === 0 || status !== "pending") return;
-    savedRef.current = true;
+    // Wait for queries to resolve (existing is undefined while loading, null if not found)
+    if (status !== "idle" || !user || tracks.length === 0 || existing === undefined) return;
+
+    // Already exists — skip creating
+    if (existing !== null) {
+      setStatus("saved");
+      return;
+    }
+
     setStatus("saving");
 
     (async () => {
@@ -406,10 +416,9 @@ function AutoSavePlaylist({
         setStatus("saved");
       } catch {
         setStatus("error");
-        savedRef.current = false;
       }
     })();
-  }, [user, tracks, title, status, createPlaylist, addTracks]);
+  }, [user, tracks, title, status, existing, createPlaylist, addTracks]);
 
   if (status === "saving") {
     return <span className="text-xs text-zinc-500">Saving...</span>;
@@ -420,7 +429,7 @@ function AutoSavePlaylist({
   if (status === "error") {
     return (
       <button
-        onClick={() => setStatus("pending")}
+        onClick={() => setStatus("idle")}
         className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-red-400 transition hover:bg-zinc-700 hover:text-white"
       >
         Retry Save
@@ -429,6 +438,99 @@ function AutoSavePlaylist({
   }
   return null;
 }
+
+function AddToExistingPlaylist({
+  playlistName,
+  tracks,
+}: {
+  playlistName: string;
+  tracks: Array<{ name: string; artist: string; album?: string; year?: string; imageUrl?: string }>;
+}) {
+  const { userId: clerkId } = useAuth();
+  const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
+  const playlist = useQuery(
+    api.playlists.findByName,
+    user ? { userId: user._id, name: playlistName } : "skip",
+  );
+  const addTracks = useMutation(api.playlists.addMultipleTracks);
+  const [status, setStatus] = useState<"pending" | "saving" | "saved" | "error" | "not_found">("pending");
+  const savedRef = useRef(false);
+
+  useEffect(() => {
+    if (savedRef.current || !user || !playlist || tracks.length === 0 || status !== "pending") return;
+    savedRef.current = true;
+    setStatus("saving");
+
+    (async () => {
+      try {
+        await addTracks({
+          playlistId: playlist._id,
+          tracks: tracks.map((t) => ({
+            title: t.name,
+            artist: t.artist,
+            album: t.album,
+            year: t.year,
+            imageUrl: t.imageUrl,
+          })),
+        });
+        setStatus("saved");
+      } catch {
+        setStatus("error");
+        savedRef.current = false;
+      }
+    })();
+  }, [user, playlist, tracks, status, addTracks]);
+
+  // playlist query resolved to null — not found
+  useEffect(() => {
+    if (playlist === null && status === "pending") {
+      setStatus("not_found");
+    }
+  }, [playlist, status]);
+
+  if (status === "saving") return <span className="text-xs text-zinc-500">Adding to {playlistName}...</span>;
+  if (status === "saved") return <span className="text-xs text-green-500">Added to {playlistName}</span>;
+  if (status === "not_found") return <span className="text-xs text-yellow-400">Playlist &quot;{playlistName}&quot; not found</span>;
+  if (status === "error") {
+    return (
+      <button onClick={() => setStatus("pending")} className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-red-400 hover:bg-zinc-700 hover:text-white">
+        Retry
+      </button>
+    );
+  }
+  return null;
+}
+
+export const AddToPlaylist = defineComponent({
+  name: "AddToPlaylist",
+  description: "Adds tracks to an existing playlist by name. Use when user asks to add songs to a specific playlist.",
+  props: z.object({
+    playlistName: z.string().describe("Name of existing playlist to add to"),
+    tracks: z.array(TrackItem.ref).describe("Tracks to add"),
+  }),
+  component: ({ props, renderNode }) => {
+    const trackData = (props.tracks ?? []).map((ref: unknown) => {
+      const r = ref as { props?: { name?: string; artist?: string; album?: string; year?: string; imageUrl?: string } };
+      return {
+        name: r?.props?.name ?? "",
+        artist: r?.props?.artist ?? "",
+        album: r?.props?.album,
+        year: r?.props?.year,
+        imageUrl: r?.props?.imageUrl,
+      };
+    });
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">Adding to {props.playlistName}</h2>
+          <AddToExistingPlaylist playlistName={props.playlistName} tracks={trackData} />
+        </div>
+        <div className="space-y-1">{renderNode(props.tracks)}</div>
+      </div>
+    );
+  },
+});
 
 export const TrackList = defineComponent({
   name: "TrackList",

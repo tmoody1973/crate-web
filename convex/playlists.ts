@@ -19,6 +19,19 @@ export const get = query({
   },
 });
 
+export const findByName = query({
+  args: { userId: v.id("users"), name: v.string() },
+  handler: async (ctx, args) => {
+    const all = await ctx.db
+      .query("playlists")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    return all.find(
+      (p) => p.name.toLowerCase() === args.name.toLowerCase(),
+    ) ?? null;
+  },
+});
+
 export const getTracks = query({
   args: { playlistId: v.id("playlists") },
   handler: async (ctx, args) => {

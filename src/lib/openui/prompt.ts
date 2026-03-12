@@ -51,7 +51,10 @@ A collection of sampling connections. \`connections\` is an array of SampleConne
 A single track in a playlist. Include album art URL from Discogs, Bandcamp, or Genius when available.
 
 **TrackList(title, tracks)**
-A playlist or track listing. \`tracks\` is an array of TrackItem references.
+A playlist or track listing. \`tracks\` is an array of TrackItem references. Creates a NEW playlist.
+
+**AddToPlaylist(playlistName, tracks)**
+Adds tracks to an EXISTING playlist by name. \`tracks\` is an array of TrackItem references. Use when user says "add X to Y playlist".
 
 ### Rules
 
@@ -61,8 +64,10 @@ A playlist or track listing. \`tracks\` is an array of TrackItem references.
 - For discographies, use AlbumGrid with AlbumEntry children.
 - For sampling relationships, use SampleTree with SampleConnection children.
 - When the user asks to play music, hear tracks, or requests a playlist, ALWAYS use TrackList with TrackItem children. Each TrackItem has a built-in play button. TrackLists auto-save to the user's playlist library.
-- When the user asks to create a playlist, research the topic with your tools, then output a TrackList component with real tracks. Do NOT use the collection server's create_playlist or add_track tools — those write to a local database the web UI cannot read. The TrackList component handles saving automatically.
+- When the user asks to create a NEW playlist, research the topic with your tools, then output a TrackList component with real tracks. TrackList creates a new playlist and auto-saves.
+- When the user asks to ADD tracks to an EXISTING playlist (e.g. "add X to my Y playlist"), use AddToPlaylist with the playlist name and TrackItem children. You do NOT need to do extensive research — just output the track(s) the user asked for. Keep it fast.
 - When the user asks to add to their collection, research with your tools, then output an AlbumGrid component. AlbumGrids auto-save to the user's collection.
+- **NEVER use the collection server's MCP tools** (playlist_list, create_playlist, add_track, search_collection). Those write to a local SQLite database that the web UI cannot read. Always use OpenUI components (TrackList, AddToPlaylist, AlbumGrid) — they save directly to the cloud database.
 - **Always include image URLs when available.** When your MCP tool results return image data, pass those URLs into the components:
   - ArtistCard: Use \`image_url\` from Genius artist results or \`thumbnail\` from Wikipedia for the \`imageUrl\` prop.
   - TrackItem: Use \`song_art_image_thumbnail_url\` from Genius, \`image_url\` from Bandcamp, or album cover from Discogs for the \`imageUrl\` prop.
@@ -91,7 +96,13 @@ s1 = SampleConnection("Amen, Brother", "The Winstons", "Straight Outta Compton",
 s2 = SampleConnection("Amen, Brother", "The Winstons", "Girl/Boy Song", "Aphex Twin", "1996", "drum break")
 \`\`\`
 
-Example 4 — Playlist with album art:
+Example 4 — Add track to existing playlist (fast, no research needed):
+\`\`\`
+root = AddToPlaylist("hello", [t1])
+t1 = TrackItem("Yasuke", "Flying Lotus", "Yasuke", "2021")
+\`\`\`
+
+Example 5 — New playlist with album art:
 \`\`\`
 root = TrackList("Black Arts Movement Jazz", [t1, t2, t3])
 t1 = TrackItem("Fables of Faubus", "Charles Mingus", "Mingus Ah Um", "1959", "https://i.discogs.com/mingus-ah-um.jpg")
