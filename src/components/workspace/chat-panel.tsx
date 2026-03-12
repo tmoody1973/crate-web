@@ -330,37 +330,19 @@ function ShowPrepForm({ onSubmit, onCancel }: { onSubmit: (msg: string) => void;
   const isFullPrep = selectedOptions.size === 0;
 
   const handleSubmit = () => {
-    const parts: string[] = [];
+    // Encode form data as structured metadata the preprocessor can parse deterministically
+    const meta: Record<string, string> = {};
+    if (station) meta.station = station;
+    meta.shift = shift;
+    if (djName) meta.dj = djName;
+    if (guest) meta.guest = guest;
+    if (!isFullPrep) meta.include = [...selectedOptions].join(",");
 
-    // Station line
-    if (station) parts.push(station);
-
-    // Build intent prefix if specific options selected
-    if (!isFullPrep) {
-      const intents: string[] = [];
-      if (selectedOptions.has("context")) intents.push("track context");
-      if (selectedOptions.has("breaks")) intents.push("talk breaks");
-      if (selectedOptions.has("social")) intents.push("social copy");
-      if (selectedOptions.has("events")) intents.push("events this weekend");
-      if (selectedOptions.has("interview") && guest) intents.push(`interview prep for ${guest}`);
-      else if (selectedOptions.has("interview")) intents.push("interview prep");
-      parts.push(intents.join(" + "));
-    }
-
-    // Shift and DJ
-    if (shift !== "evening") parts.push(`shift: ${shift}`);
-    if (djName) parts.push(`DJ: ${djName}`);
-
-    // Guest (if full prep)
-    if (isFullPrep && guest) parts.push(`interviewing ${guest}`);
-
-    // Setlist
-    if (setlist.trim()) {
-      parts.push("");
-      parts.push(setlist.trim());
-    }
-
-    const message = `/prep ${parts.join("\n")}`;
+    // Build a clean /prep message with metadata header + setlist
+    const metaLine = Object.entries(meta).map(([k, v]) => `${k}=${v}`).join("|");
+    const message = setlist.trim()
+      ? `/prep [${metaLine}]\n${setlist.trim()}`
+      : `/prep [${metaLine}]`;
     onSubmit(message);
   };
 

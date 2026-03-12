@@ -68,173 +68,133 @@ function preprocessSlashCommand(message: string): string {
         return "Show prep — which station (88Nine, HYFIN, or Rhythm Lab) and what do you need? You can ask for:\n• Full show prep (paste your setlist)\n• Track context only\n• Talk breaks between tracks\n• Social media copy\n• Local events this weekend\n• Interview prep for a guest";
       }
 
-      // Parse station from the first word/line
-      const prepLines = arg.split("\n").map((l: string) => l.trim()).filter(Boolean);
+      // --- Parse structured metadata from form: /prep [station=HYFIN|shift=evening|dj=Tarik|include=context,breaks] ---
       let prepStation = "";
-      let trackLines = prepLines;
-
-      // Check if first line is a station name (with optional colon)
-      const firstLine = (prepLines[0] ?? "").replace(/:$/, "").trim().toLowerCase().replace(/\s+/g, "");
-      if (["88nine", "hyfin", "rhythmlab"].includes(firstLine)) {
-        prepStation = prepLines[0]!.replace(/:$/, "").trim();
-        trackLines = prepLines.slice(1);
-      }
-
-      // Check for inline "for STATION" pattern
-      if (!prepStation) {
-        const forMatch = arg.match(/\bfor\s+(88nine|hyfin|rhythm\s*lab)\b/i);
-        if (forMatch) {
-          prepStation = forMatch[1]!;
-          trackLines = prepLines.map((l: string) => l.replace(/\bfor\s+(88nine|hyfin|rhythm\s*lab)\b:?/i, "").trim()).filter(Boolean);
-        }
-      }
-
-      // Extract metadata lines (DJ name, shift, guest) before treating rest as tracks
-      let prepDjName = "";
       let prepShift = "evening";
+      let prepDjName = "";
       let prepGuest = "";
-      trackLines = trackLines.filter((line: string) => {
-        const lower = line.toLowerCase();
-        const djMatch = line.match(/^dj:\s*(.+)/i);
-        if (djMatch) { prepDjName = djMatch[1]!.trim(); return false; }
-        const shiftMatch = line.match(/^shift:\s*(.+)/i);
-        if (shiftMatch) { prepShift = shiftMatch[1]!.trim(); return false; }
-        const guestMatch = line.match(/^(?:interviewing|guest:?)\s*(.+)/i);
-        if (guestMatch) { prepGuest = guestMatch[1]!.trim(); return false; }
-        // Skip lines that are clearly metadata, not tracks
-        if (lower.startsWith("dj ") || lower.startsWith("name:")) return false;
-        return true;
-      });
+      let includeSet = new Set<string>(); // empty = full prep
+      let trackList = "";
 
-      const stationVoice = prepStation
-        ? prepStation.toLowerCase().includes("hyfin")
-          ? `STATION: HYFIN — Bold, culturally sharp, unapologetic. Music focus: urban alternative, neo-soul, progressive hip-hop, Afrobeats. Audience: young, culturally aware Milwaukee listeners invested in Black art and music. Voice: cultural context, movement-building, "here's why this matters." Preferred vocabulary: culture, movement, lineage, vibration, frequency. Avoid: "urban" standalone, "exotic", "ethnic".`
-          : prepStation.toLowerCase().includes("rhythm")
-            ? `STATION: Rhythm Lab — Curated, global perspective, deep knowledge. Music focus: global beats, electronic, jazz fusion, experimental, Afrobeats, dub. Audience: dedicated music heads, DJs, producers, crate diggers. Voice: influence tracing, crate-digging stories, "the thread connecting these sounds." Preferred vocabulary: lineage, crate, connection, thread, sonic, palette.`
-            : `STATION: 88Nine — Warm, eclectic, community-forward. Music focus: indie, alternative, world, electronic, hip-hop. Audience: Milwaukee music lovers who value discovery and local culture. Voice: discovery-oriented, "let me tell you about this artist." Preferred vocabulary: discover, connect, community, eclectic, homegrown.`
-        : "";
+      const metaMatch = arg.match(/^\[([^\]]+)\]\s*/);
+      if (metaMatch) {
+        // Structured form input
+        const metaStr = metaMatch[1]!;
+        const rest = arg.slice(metaMatch[0].length).trim();
+        for (const pair of metaStr.split("|")) {
+          const eq = pair.indexOf("=");
+          if (eq === -1) continue;
+          const key = pair.slice(0, eq).trim().toLowerCase();
+          const val = pair.slice(eq + 1).trim();
+          if (key === "station") prepStation = val;
+          else if (key === "shift") prepShift = val;
+          else if (key === "dj") prepDjName = val;
+          else if (key === "guest") prepGuest = val;
+          else if (key === "include") includeSet = new Set(val.split(",").map((s: string) => s.trim()));
+        }
+        trackList = rest;
+      } else {
+        // Freeform input: /prep HYFIN\nArtist - Track\n...
+        const prepLines = arg.split("\n").map((l: string) => l.trim()).filter(Boolean);
+        const firstLine = (prepLines[0] ?? "").replace(/:$/, "").trim().toLowerCase().replace(/\s+/g, "");
+        if (["88nine", "hyfin", "rhythmlab"].includes(firstLine)) {
+          prepStation = prepLines[0]!.replace(/:$/, "").trim();
+          prepLines.splice(0, 1);
+        } else {
+          const forMatch = arg.match(/\bfor\s+(88nine|hyfin|rhythm\s*lab)\b/i);
+          if (forMatch) prepStation = forMatch[1]!;
+        }
+        // Extract metadata lines
+        const tracks = prepLines.filter((line: string) => {
+          if (/^dj:\s*/i.test(line)) { prepDjName = line.replace(/^dj:\s*/i, "").trim(); return false; }
+          if (/^shift:\s*/i.test(line)) { prepShift = line.replace(/^shift:\s*/i, "").trim(); return false; }
+          if (/^(?:interviewing|guest:?)\s*/i.test(line)) { prepGuest = line.replace(/^(?:interviewing|guest:?)\s*/i, "").trim(); return false; }
+          return true;
+        });
+        trackList = tracks.filter((l: string) => l.length > 3 && (l.includes("-") || l.includes("–") || l.includes("—"))).join("\n");
+      }
+
+      const doFull = includeSet.size === 0;
+      const wantsContext = doFull || includeSet.has("context");
+      const wantsTalkBreaks = doFull || includeSet.has("breaks");
+      const wantsSocial = doFull || includeSet.has("social");
+      const wantsEvents = doFull || includeSet.has("events");
+      const wantsInterview = doFull || includeSet.has("interview");
+
+      const stationVoices: Record<string, string> = {
+        hyfin: `STATION: HYFIN — Bold, culturally sharp, unapologetic. Music: urban alternative, neo-soul, progressive hip-hop, Afrobeats. Audience: young, culturally aware Milwaukee listeners invested in Black art and music. Voice: cultural context, movement-building. Vocabulary: culture, movement, lineage, vibration, frequency.`,
+        "88nine": `STATION: 88Nine — Warm, eclectic, community-forward. Music: indie, alternative, world, electronic, hip-hop. Audience: Milwaukee music lovers who value discovery and local culture. Voice: discovery-oriented. Vocabulary: discover, connect, community, eclectic, homegrown.`,
+        rhythmlab: `STATION: Rhythm Lab — Curated, global perspective, deep knowledge. Music: global beats, electronic, jazz fusion, experimental, Afrobeats, dub. Audience: dedicated music heads, DJs, producers, crate diggers. Voice: influence tracing, crate-digging stories. Vocabulary: lineage, crate, connection, thread, sonic, palette.`,
+      };
+      const stationKey = prepStation.toLowerCase().replace(/\s+/g, "");
+      const stationVoice = stationVoices[stationKey] ?? "";
 
       const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
       const day = days[new Date().getDay()];
 
-      // Detect what the DJ is asking for
-      const lowerArg = arg.toLowerCase();
-      const wantsContext = /\b(context|background|story|about these|tell me about)\b/.test(lowerArg);
-      const wantsTalkBreaks = /\b(talk ?break|transition|segue|intro|back.?announce)\b/.test(lowerArg);
-      const wantsSocial = /\b(social|post|instagram|twitter|bluesky|copy)\b/.test(lowerArg);
-      const wantsEvents = /\b(event|show|concert|gig|this week|tonight|happening)\b/.test(lowerArg);
-      const wantsInterview = /\b(interview|guest|question|q&a)\b/.test(lowerArg);
-      const wantsFull = /\b(full prep|full show|everything|complete)\b/.test(lowerArg);
-
-      // If no specific intent detected and there are track lines, default to full prep
-      const hasSpecificIntent = wantsContext || wantsTalkBreaks || wantsSocial || wantsEvents || wantsInterview || wantsFull;
-      const doFull = wantsFull || !hasSpecificIntent;
-
-      // Filter out intent phrases from track lines so only Artist - Track remain
-      const intentPatterns = /\b(context|background|story|about these|tell me about|talk ?break|transition|segue|intro|back.?announce|social|post|instagram|twitter|bluesky|copy|event|show|concert|gig|this week|tonight|happening|interview|guest|question|q&a|full prep|full show|everything|complete|track context|talk breaks?|for these|only|just)\b/gi;
-      const cleanTrackLines = trackLines
-        .map((l: string) => l.replace(intentPatterns, "").trim())
-        .filter((l: string) => l.length > 3 && /[a-z]/i.test(l) && (l.includes("-") || l.includes("–") || l.includes("—")));
-      const trackList = cleanTrackLines.length > 0 ? cleanTrackLines.join("\n") : "";
-
-      // Build research steps based on what's needed
+      // Build research steps
       const researchSteps: string[] = [];
-      if (doFull || wantsContext || wantsTalkBreaks) {
+      if (wantsContext || wantsTalkBreaks) {
         researchSteps.push(
-          `1. MusicBrainz: search_recording + get_recording_credits for canonical metadata, producer, studio`,
-          `2. Discogs: search_discogs + get_release_full for release year, label, album context`,
-          `3. Genius: search_songs + get_song for annotations, artist commentary, production context`,
-          `4. Bandcamp: search_bandcamp for artist statements, liner notes, independent status`,
-          `5. Last.fm: get_track_info + get_similar_tracks for listener stats, similar tracks`,
+          `1. MusicBrainz: search_recording + get_recording_credits — metadata, producer, studio`,
+          `2. Discogs: search_discogs + get_release_full — release year, label, album context`,
+          `3. Genius: search_songs + get_song — annotations, artist commentary, production context`,
+          `4. Bandcamp: search_bandcamp — artist statements, liner notes`,
+          `5. Last.fm: get_track_info + get_similar_tracks — listener stats, tags`,
         );
       }
-      if (doFull || wantsEvents) {
-        researchSteps.push(
-          `${researchSteps.length + 1}. Ticketmaster: search_events for upcoming Milwaukee shows by these artists`,
-        );
+      if (wantsEvents) {
+        researchSteps.push(`${researchSteps.length + 1}. Ticketmaster: search_events — upcoming Milwaukee shows`);
       }
-      if (doFull || wantsContext) {
-        researchSteps.push(
-          `${researchSteps.length + 1}. Web search: check Milwaukee sources (milwaukeerecord.com, jsonline.com, urbanmilwaukee.com) for local tie-ins`,
-        );
+      if (wantsContext) {
+        researchSteps.push(`${researchSteps.length + 1}. Web search: Milwaukee sources (milwaukeerecord.com, jsonline.com) — local tie-ins`);
       }
 
-      // Build output format based on what's needed
-      const outputParts: string[] = [];
-      outputParts.push(
-        `You MUST output OpenUI Lang syntax — variable assignments like "root = ComponentName(...)". Do NOT output plain markdown or prose. The components will be rendered as interactive cards.`,
-        ``,
-      );
-      if (doFull) {
-        outputParts.push(
-          `Output a SINGLE ShowPrepPackage OpenUI component containing TrackContextCards, TalkBreakCards, SocialPostCards, and InterviewPrepCards (if guest mentioned).`,
-          ``,
-          `Example syntax:`,
-          `root = ShowPrepPackage("${prepStation || "HYFIN"}", "${day}", "${prepDjName || "DJ"}", "${prepShift}", [tc1, tc2], [tb1], [sp1])`,
-          `tc1 = TrackContextCard("Artist", "Track", "Origin story...", "Production notes...", "Connections...", "influence chain", "Lesser-known fact", "Why it matters", "high", "Local tie-in", "pronunciation", "imageUrl")`,
-          `tb1 = TalkBreakCard("transition", "Track 1", "Track 2", "Short version", "Medium version", "Long version", "key, phrases", "timing cue", "pronunciation")`,
-          `sp1 = SocialPostCard("Track", "Instagram copy", "Twitter copy", "Bluesky copy", "hashtags")`,
-        );
-      } else {
-        if (wantsContext) {
-          outputParts.push(
-            `Output TrackContextCards (one per track). Example:`,
-            `root = TrackContextCard("Artist", "Track", "Origin story...", "Production notes...", "Connections...", "influence chain", "Lesser-known fact", "Why it matters", "high", "Local tie-in", "pronunciation", "imageUrl")`,
-            `If multiple tracks, wrap in a container or output multiple root-level cards.`,
-          );
-        }
-        if (wantsTalkBreaks) {
-          outputParts.push(
-            `Output TalkBreakCards for transitions. Example:`,
-            `root = TalkBreakCard("transition", "Before Track", "After Track", "Short (10-15s)", "Medium (30-60s)", "Long (60-120s)", "key, phrases", "timing cue", "pronunciation")`,
-          );
-        }
-        if (wantsSocial) {
-          outputParts.push(
-            `Output SocialPostCards. Example:`,
-            `root = SocialPostCard("Track or Topic", "Instagram copy", "Twitter copy", "Bluesky copy", "#hashtag1, #hashtag2")`,
-          );
-        }
-        if (wantsEvents) {
-          outputParts.push(
-            `Search Ticketmaster for upcoming Milwaukee concerts/events. Output ConcertList with ConcertEvent children. Example:`,
-            `root = ConcertList("Milwaukee Events This Weekend", [e1, e2])`,
-            `e1 = ConcertEvent("Artist", "Saturday, March 15", "8:00 PM", "Venue", "Milwaukee", "$25-$50", "On Sale")`,
-          );
-        }
-        if (wantsInterview) {
-          outputParts.push(
-            `Output InterviewPrepCards. Example:`,
-            `root = InterviewPrepCard("Guest Name", "Warm-up Q1\\nWarm-up Q2", "Deep Q1\\nDeep Q2", "Local Q1", "Avoid Q1")`,
-          );
-        }
-      }
+      // Build the sections the agent should include
+      const sections: string[] = [];
+      if (wantsContext) sections.push("TrackContextCard (one per track)");
+      if (wantsTalkBreaks) sections.push("TalkBreakCard (one per transition between tracks)");
+      if (wantsSocial) sections.push("SocialPostCard (one per track or show overall)");
+      if (wantsEvents) sections.push("ConcertEvent entries for Milwaukee events");
+      if (wantsInterview && prepGuest) sections.push(`InterviewPrepCard for ${prepGuest}`);
 
-      const intentLabel = doFull ? "full radio show prep" :
-        [wantsContext && "track context", wantsTalkBreaks && "talk breaks", wantsSocial && "social copy", wantsEvents && "local events", wantsInterview && "interview prep"].filter(Boolean).join(" + ");
+      const intentLabel = doFull ? "full radio show prep" : sections.join(" + ");
 
       return [
         `Generate ${intentLabel} for a radio DJ.`,
-        prepStation ? stationVoice : `Ask which station (88Nine, HYFIN, or Rhythm Lab) if not specified.`,
+        stationVoice || `Ask which station (88Nine, HYFIN, or Rhythm Lab) if not specified.`,
         prepDjName ? `DJ: ${prepDjName}` : ``,
         `Date: ${day}, Shift: ${prepShift}`,
         prepGuest ? `Interview guest: ${prepGuest}` : ``,
         ``,
-        trackList ? `SETLIST:\n${trackList}` : wantsEvents ? `` : `No tracks provided — ask for the setlist.`,
+        trackList ? `SETLIST:\n${trackList}` : wantsEvents && !wantsContext ? `` : `No tracks provided — ask for the setlist.`,
         ``,
         researchSteps.length > 0 ? `RESEARCH STEPS:\n${researchSteps.join("\n")}` : ``,
         ``,
-        `OUTPUT FORMAT:`,
-        ...outputParts,
+        `OUTPUT FORMAT — CRITICAL:`,
+        `You MUST output OpenUI Lang syntax. This is a line-oriented format where each line assigns a component to a variable.`,
+        `Do NOT output plain markdown, prose, or bullet points. Output ONLY OpenUI Lang component assignments.`,
+        `The output will be rendered as interactive cards in the UI.`,
+        ``,
+        `Always use ShowPrepPackage as the root container, even for partial prep. Set unused child arrays to empty [].`,
+        ``,
+        `EXACT SYNTAX (follow this pattern, filling in real researched content):`,
+        `\`\`\``,
+        `root = ShowPrepPackage("${prepStation || "HYFIN"}", "${day}", "${prepDjName || "DJ"}", "${prepShift}", [${wantsContext ? "tc1, tc2, tc3" : ""}], [${wantsTalkBreaks ? "tb1, tb2" : ""}], [${wantsSocial ? "sp1" : ""}]${wantsEvents ? "" : ""})`,
+        wantsContext ? `tc1 = TrackContextCard("Artist Name", "Track Title", "2-3 sentence origin story of how this track came to be", "Key production details — studio, producer, instruments", "Genre connections, samples, influences", "influence chain: Artist A > Artist B > this track", "The detail listeners can't easily Google", "One sentence: why should THIS audience care right now?", "high", "Upcoming Milwaukee show or local connection", "pronunciation guide if needed", "image URL if found")` : ``,
+        wantsTalkBreaks ? `tb1 = TalkBreakCard("transition", "First Track Title", "Second Track Title", "Quick 10-15 sec context before vocal kicks in", "30-60 sec: That was [artist]... compelling detail... segue to next track", "60-120 sec: Fuller backstory connecting the two tracks with local tie-in", "bold these, key phrases, that land on air", "Hit before the beat drops at 0:04", "pronunciation guide")` : ``,
+        wantsSocial ? `sp1 = SocialPostCard("Track or Topic", "Instagram: visual-first, 1-2 sentences with station hashtags", "X/Twitter: punchy single line + hashtag", "Bluesky: conversational, community-oriented", "#HYFIN, #MKE, #hashtag")` : ``,
+        wantsInterview && prepGuest ? `ip1 = InterviewPrepCard("${prepGuest}", "Warm-up question 1\\nWarm-up question 2", "Deep-dive question 1\\nDeep-dive question 2", "Milwaukee connection question", "Overasked question to avoid")` : ``,
+        `\`\`\``,
         ``,
         `RULES:`,
-        `- Every piece must answer "why does the listener care?" — no slot filling`,
-        `- Talk breaks are starting points, not scripts — give DJs material to develop`,
-        `- Bold key phrases in talk breaks`,
-        `- Include pronunciation guides for unfamiliar names`,
+        `- Research each track thoroughly BEFORE generating output`,
+        `- Every piece must answer "why does the listener care?"`,
+        `- Talk breaks: bold **key phrases**, include pronunciation guides`,
         `- Rank by audience relevance (high/medium/low)`,
-        `- If the DJ only asked for one thing, give them exactly that — don't generate the full package`,
-      ].join("\n");
+        `- Fill in REAL content from your research — not placeholder text`,
+        `- Output the OpenUI Lang block with NO surrounding markdown, NO prose before or after`,
+      ].filter(Boolean).join("\n");
     }
 
     default:
