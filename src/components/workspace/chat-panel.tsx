@@ -797,10 +797,13 @@ export function ChatPanel() {
         .map((c) => c.text)
         .join("");
 
+      const model = getStoredModel();
+
+      // Single endpoint handles both chat and agent tiers
       return fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: messageText, model: getStoredModel() }),
+        body: JSON.stringify({ message: messageText, model }),
         signal: abortController.signal,
       });
     },
