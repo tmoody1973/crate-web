@@ -161,29 +161,52 @@ function preprocessSlashCommand(message: string): string {
 
       // Build output format based on what's needed
       const outputParts: string[] = [];
+      outputParts.push(
+        `You MUST output OpenUI Lang syntax — variable assignments like "root = ComponentName(...)". Do NOT output plain markdown or prose. The components will be rendered as interactive cards.`,
+        ``,
+      );
       if (doFull) {
         outputParts.push(
-          `Output a SINGLE ShowPrepPackage OpenUI component containing:`,
-          `- One TrackContextCard per track (with originStory, productionNotes, connections, lesserKnownFact, whyItMatters, audienceRelevance, localTieIn)`,
-          `- TalkBreakCards for transitions between tracks (short/medium/long variants in station voice)`,
-          `- SocialPostCards with platform-specific copy (Instagram, X, Bluesky) and station hashtags`,
-          `- InterviewPrepCards if any guest/interview is mentioned`,
+          `Output a SINGLE ShowPrepPackage OpenUI component containing TrackContextCards, TalkBreakCards, SocialPostCards, and InterviewPrepCards (if guest mentioned).`,
+          ``,
+          `Example syntax:`,
+          `root = ShowPrepPackage("${prepStation || "HYFIN"}", "${day}", "${prepDjName || "DJ"}", "${prepShift}", [tc1, tc2], [tb1], [sp1])`,
+          `tc1 = TrackContextCard("Artist", "Track", "Origin story...", "Production notes...", "Connections...", "influence chain", "Lesser-known fact", "Why it matters", "high", "Local tie-in", "pronunciation", "imageUrl")`,
+          `tb1 = TalkBreakCard("transition", "Track 1", "Track 2", "Short version", "Medium version", "Long version", "key, phrases", "timing cue", "pronunciation")`,
+          `sp1 = SocialPostCard("Track", "Instagram copy", "Twitter copy", "Bluesky copy", "hashtags")`,
         );
       } else {
         if (wantsContext) {
-          outputParts.push(`Output TrackContextCards (one per track) with originStory, productionNotes, connections, lesserKnownFact, whyItMatters, audienceRelevance, localTieIn.`);
+          outputParts.push(
+            `Output TrackContextCards (one per track). Example:`,
+            `root = TrackContextCard("Artist", "Track", "Origin story...", "Production notes...", "Connections...", "influence chain", "Lesser-known fact", "Why it matters", "high", "Local tie-in", "pronunciation", "imageUrl")`,
+            `If multiple tracks, wrap in a container or output multiple root-level cards.`,
+          );
         }
         if (wantsTalkBreaks) {
-          outputParts.push(`Output TalkBreakCards for transitions between tracks with short/medium/long variants in station voice. Bold key phrases. Include pronunciation guides.`);
+          outputParts.push(
+            `Output TalkBreakCards for transitions. Example:`,
+            `root = TalkBreakCard("transition", "Before Track", "After Track", "Short (10-15s)", "Medium (30-60s)", "Long (60-120s)", "key, phrases", "timing cue", "pronunciation")`,
+          );
         }
         if (wantsSocial) {
-          outputParts.push(`Output SocialPostCards with platform-specific copy (Instagram, X, Bluesky) and station hashtags.`);
+          outputParts.push(
+            `Output SocialPostCards. Example:`,
+            `root = SocialPostCard("Track or Topic", "Instagram copy", "Twitter copy", "Bluesky copy", "#hashtag1, #hashtag2")`,
+          );
         }
         if (wantsEvents) {
-          outputParts.push(`Search Ticketmaster for upcoming Milwaukee concerts/events. Present results using ConcertList with ConcertEvent children. Focus on events relevant to the station's audience.`);
+          outputParts.push(
+            `Search Ticketmaster for upcoming Milwaukee concerts/events. Output ConcertList with ConcertEvent children. Example:`,
+            `root = ConcertList("Milwaukee Events This Weekend", [e1, e2])`,
+            `e1 = ConcertEvent("Artist", "Saturday, March 15", "8:00 PM", "Venue", "Milwaukee", "$25-$50", "On Sale")`,
+          );
         }
         if (wantsInterview) {
-          outputParts.push(`Output InterviewPrepCards with warm-up questions, deep-dive questions, local/Milwaukee questions, and questions to avoid.`);
+          outputParts.push(
+            `Output InterviewPrepCards. Example:`,
+            `root = InterviewPrepCard("Guest Name", "Warm-up Q1\\nWarm-up Q2", "Deep Q1\\nDeep Q2", "Local Q1", "Avoid Q1")`,
+          );
         }
       }
 
