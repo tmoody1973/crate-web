@@ -76,11 +76,12 @@ export async function POST(req: Request) {
   }
 
   const hasAnthropic = !!rawKeys.anthropic;
+  const hasOpenRouter = !!rawKeys.openrouter;
 
-  if (!hasAnthropic) {
+  if (!hasAnthropic && !hasOpenRouter) {
     return new Response(
       JSON.stringify({
-        error: "An Anthropic API key is required. Add one in Settings.",
+        error: "An Anthropic or OpenRouter API key is required. Add one in Settings.",
       }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
@@ -112,21 +113,25 @@ export async function POST(req: Request) {
     );
   }
 
-  // Claude Agent SDK only supports Anthropic models directly.
-  // Non-Claude models (OpenRouter) are not yet supported — the SDK spawns
-  // a Claude Code subprocess that only speaks Anthropic's API format.
+  // Non-Anthropic models require OpenRouter
   const isThirdPartyModel = model && !model.startsWith("claude-");
-  if (isThirdPartyModel) {
+  if (isThirdPartyModel && !hasOpenRouter) {
     return new Response(
       JSON.stringify({
-        error: "Non-Claude models are not yet supported in Crate Web. The Claude Agent SDK only works with Anthropic models. Select Claude Sonnet 4.6 or Haiku 4.5 from the model picker.",
+        error: "An OpenRouter key is required for non-Anthropic models. Add one in Settings.",
       }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
 
-  // Set Anthropic API key for the SDK subprocess
-  if (userEnvKeys.ANTHROPIC_API_KEY) {
+  // Configure SDK auth per OpenRouter docs:
+  // https://openrouter.ai/docs/guides/community/anthropic-agent-sdk
+  if (hasOpenRouter && (isThirdPartyModel || !hasAnthropic)) {
+    process.env.ANTHROPIC_BASE_URL = "https://openrouter.ai/api";
+    process.env.ANTHROPIC_AUTH_TOKEN = rawKeys.openrouter;
+    process.env.ANTHROPIC_API_KEY = ""; // Must be explicitly empty for OpenRouter
+  } else if (userEnvKeys.ANTHROPIC_API_KEY) {
+    // Direct Anthropic: clear any previous OpenRouter config
     delete process.env.ANTHROPIC_BASE_URL;
     delete process.env.ANTHROPIC_AUTH_TOKEN;
     process.env.ANTHROPIC_API_KEY = userEnvKeys.ANTHROPIC_API_KEY;
