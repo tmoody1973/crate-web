@@ -11,6 +11,11 @@ import {
   TrackItem,
   TrackList,
   AddToPlaylist,
+  TrackContextCard,
+  TalkBreakCard,
+  SocialPostCard,
+  InterviewPrepCard,
+  ShowPrepPackage,
 } from "./components";
 
 export const crateLibrary = createLibrary({
@@ -26,6 +31,11 @@ export const crateLibrary = createLibrary({
     TrackItem,
     TrackList,
     AddToPlaylist,
+    TrackContextCard,
+    TalkBreakCard,
+    SocialPostCard,
+    InterviewPrepCard,
+    ShowPrepPackage,
   ],
   componentGroups: [
     {
@@ -54,6 +64,19 @@ export const crateLibrary = createLibrary({
         "Use AddToPlaylist with TrackItem children to add tracks to an EXISTING playlist.",
       ],
     },
+    {
+      name: "Show Prep",
+      components: ["ShowPrepPackage", "TrackContextCard", "TalkBreakCard", "SocialPostCard", "InterviewPrepCard"],
+      notes: [
+        "ShowPrepPackage is the top-level container for all show prep output.",
+        "Always use ShowPrepPackage as root, even for partial prep — set unused child arrays to [].",
+        "TrackContextCard: one per track with origin story, production notes, connections.",
+        "TalkBreakCard: one per transition between tracks with short/medium/long variants.",
+        "SocialPostCard: platform-specific copy for Instagram, X, Bluesky.",
+        "InterviewPrepCard: question categories for guest interviews.",
+        "ShowPrepPackage also accepts optional events (ConcertEvent refs) for local events.",
+      ],
+    },
   ],
 });
 
@@ -66,6 +89,7 @@ export const cratePromptOptions: PromptOptions = {
     "For concert/event data, always use ConcertList with ConcertEvent children.",
     "For discographies, use AlbumGrid with AlbumEntry children.",
     "For sampling relationships, use SampleTree with SampleConnection children.",
+    "For show prep requests, ALWAYS use ShowPrepPackage as root containing TrackContextCards, TalkBreakCards, SocialPostCards. Include ConcertEvent refs in events array for local events.",
     "Do not wrap simple text responses in components.",
   ],
   examples: [
@@ -80,6 +104,11 @@ s2 = SampleConnection("Amen, Brother", "The Winstons", "Girl/Boy Song", "Aphex T
 t1 = TrackItem("So What", "Miles Davis", "Kind of Blue", "1959")
 t2 = TrackItem("A Love Supreme Pt. 1", "John Coltrane", "A Love Supreme", "1965")
 t3 = TrackItem("Maiden Voyage", "Herbie Hancock", "Maiden Voyage", "1965")`,
+    `root = ShowPrepPackage("HYFIN", "Thursday", "Tarik", "evening", [tc1], [tb1], [sp1], [], [ev1])
+tc1 = TrackContextCard("Khruangbin", "Time (You and I)", "Born from the trio's deep immersion in 1960s Thai funk cassettes.", "Recorded at their rural Texas barn studio with vintage Fender Rhodes.", "Thai funk, surf rock, psychedelic soul", "Thai funk cassettes > Khruangbin > modern psych-soul", "The band learned Thai from their Houston neighbor.", "Khruangbin proves deep connections cross every border.", "high", "Playing Riverside Theatre March 22", "crew-ANG-bin")
+tb1 = TalkBreakCard("transition", "Time (You and I)", "Gorilla", "From Texas barn funk to London grime.", "That was Khruangbin taking you to Thailand via Texas. Now Little Simz turned down every label twice.", "Khruangbin learned their sound from Thai funk cassettes. Little Simz learned hers watching Lauryn Hill. Two paths to uncompromising art.", "Texas barn funk, Thai cassettes, Mercury Prize", "Hit before the beat drops at 0:04", "crew-ANG-bin")
+sp1 = SocialPostCard("Khruangbin > Little Simz", "From Thai funk to London grime. Tonight's HYFIN set traces Khruangbin's Texas barn to Little Simz's independence.", "Thai funk > Texas barn > London grime > Mercury Prize. Tonight on HYFIN.", "Tonight on HYFIN: how Thai funk cassettes and a London rapper's refusal to sign connect across oceans.", "#HYFIN, #MKE, #Khruangbin, #LittleSimz")
+ev1 = ConcertEvent("Khruangbin", "Saturday, March 22", "8:00 PM", "Riverside Theatre", "Milwaukee", "$45-$75", "On Sale")`,
   ],
 };
 
