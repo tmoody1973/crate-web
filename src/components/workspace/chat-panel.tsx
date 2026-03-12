@@ -252,14 +252,97 @@ function ChatMessages() {
   );
 }
 
+const SLASH_COMMANDS = [
+  { command: "/news", description: "Daily music news segment", usage: "/news [station] [count]", example: "/news hyfin 3" },
+  { command: "/show-prep", description: "Show preparation package", usage: "/show-prep [station]: [setlist]", example: "/show-prep HYFIN: Khruangbin - Time" },
+  { command: "/prep", description: "Show prep (shorthand)", usage: "/prep [station]: [setlist]", example: "/prep rhythmlab: BADBADNOTGOOD - Time Moves Slow" },
+];
+
+function SlashCommandMenu({
+  filter,
+  onSelect,
+  selectedIndex,
+}: {
+  filter: string;
+  onSelect: (cmd: string) => void;
+  selectedIndex: number;
+}) {
+  const filtered = SLASH_COMMANDS.filter(
+    (c) => c.command.startsWith(filter.toLowerCase()) || c.description.toLowerCase().includes(filter.slice(1).toLowerCase()),
+  );
+
+  if (filtered.length === 0) return null;
+
+  return (
+    <div className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
+      {filtered.map((cmd, i) => (
+        <button
+          key={cmd.command}
+          type="button"
+          onClick={() => onSelect(cmd.command + " ")}
+          className={`flex w-full items-start gap-3 px-4 py-2.5 text-left transition first:rounded-t-lg last:rounded-b-lg ${
+            i === selectedIndex ? "bg-zinc-800" : "hover:bg-zinc-800/50"
+          }`}
+        >
+          <span className="shrink-0 font-mono text-sm font-medium text-cyan-400">{cmd.command}</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-zinc-300">{cmd.description}</p>
+            <p className="text-xs text-zinc-600">{cmd.usage}</p>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ChatInput() {
   const [input, setInput] = useState("");
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const { processMessage, isRunning } = useThread();
   const isLoading = isRunning;
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Show menu when input starts with "/" and has no space yet (still typing command)
+  const slashFilter = input.startsWith("/") && !input.includes(" ") ? input : "";
+
+  useEffect(() => {
+    setShowSlashMenu(slashFilter.length > 0);
+    setSelectedIndex(0);
+  }, [slashFilter]);
+
+  const filteredCommands = SLASH_COMMANDS.filter(
+    (c) => c.command.startsWith(slashFilter.toLowerCase()) || c.description.toLowerCase().includes(slashFilter.slice(1).toLowerCase()),
+  );
+
+  const handleSelect = (cmd: string) => {
+    setInput(cmd);
+    setShowSlashMenu(false);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSlashMenu) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) => Math.min(prev + 1, filteredCommands.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === "Tab" || (e.key === "Enter" && filteredCommands.length > 0 && !input.includes(" "))) {
+      e.preventDefault();
+      const selected = filteredCommands[selectedIndex];
+      if (selected) handleSelect(selected.command + " ");
+    } else if (e.key === "Escape") {
+      setShowSlashMenu(false);
+    }
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+    setShowSlashMenu(false);
     processMessage({
       role: "user",
       content: [{ type: "text", text: input.trim() }],
@@ -270,10 +353,19 @@ function ChatInput() {
   return (
     <form onSubmit={handleSubmit} className="border-t border-zinc-800 p-4">
       <div className="relative">
+        {showSlashMenu && (
+          <SlashCommandMenu
+            filter={slashFilter}
+            onSelect={handleSelect}
+            selectedIndex={selectedIndex}
+          />
+        )}
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={isLoading ? "Crate is researching..." : "Ask about any artist, track, or genre..."}
+          onKeyDown={handleKeyDown}
+          placeholder={isLoading ? "Crate is researching..." : "Ask about any artist, track, or genre... (/ for commands)"}
           className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none disabled:opacity-50"
           disabled={isLoading}
         />
