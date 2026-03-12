@@ -295,9 +295,191 @@ function SlashCommandMenu({
   );
 }
 
+const STATIONS = ["88Nine", "HYFIN", "Rhythm Lab"] as const;
+const SHIFTS = ["morning", "midday", "afternoon", "evening", "overnight"] as const;
+const PREP_OPTIONS = [
+  { key: "context", label: "Track Context", desc: "Origin stories, production notes, connections" },
+  { key: "breaks", label: "Talk Breaks", desc: "Short/medium/long transition scripts" },
+  { key: "social", label: "Social Copy", desc: "Instagram, X, Bluesky posts" },
+  { key: "events", label: "Local Events", desc: "Milwaukee concerts & shows" },
+  { key: "interview", label: "Interview Prep", desc: "Questions for a guest" },
+] as const;
+
+function ShowPrepForm({ onSubmit, onCancel }: { onSubmit: (msg: string) => void; onCancel: () => void }) {
+  const [station, setStation] = useState<string>("");
+  const [shift, setShift] = useState<string>("evening");
+  const [djName, setDjName] = useState("");
+  const [setlist, setSetlist] = useState("");
+  const [guest, setGuest] = useState("");
+  const [selectedOptions, setSelectedOptions] = useState<Set<string>>(new Set());
+  const setlistRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setlistRef.current?.focus();
+  }, []);
+
+  const toggleOption = (key: string) => {
+    setSelectedOptions((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const isFullPrep = selectedOptions.size === 0;
+
+  const handleSubmit = () => {
+    const parts: string[] = [];
+
+    // Station line
+    if (station) parts.push(station);
+
+    // Build intent prefix if specific options selected
+    if (!isFullPrep) {
+      const intents: string[] = [];
+      if (selectedOptions.has("context")) intents.push("track context");
+      if (selectedOptions.has("breaks")) intents.push("talk breaks");
+      if (selectedOptions.has("social")) intents.push("social copy");
+      if (selectedOptions.has("events")) intents.push("events this weekend");
+      if (selectedOptions.has("interview") && guest) intents.push(`interview prep for ${guest}`);
+      else if (selectedOptions.has("interview")) intents.push("interview prep");
+      parts.push(intents.join(" + "));
+    }
+
+    // Shift and DJ
+    if (shift !== "evening") parts.push(`shift: ${shift}`);
+    if (djName) parts.push(`DJ: ${djName}`);
+
+    // Guest (if full prep)
+    if (isFullPrep && guest) parts.push(`interviewing ${guest}`);
+
+    // Setlist
+    if (setlist.trim()) {
+      parts.push("");
+      parts.push(setlist.trim());
+    }
+
+    const message = `/prep ${parts.join("\n")}`;
+    onSubmit(message);
+  };
+
+  return (
+    <div className="border-t border-zinc-800 bg-zinc-950 p-4">
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-white">Show Prep</h3>
+          <button type="button" onClick={onCancel} className="text-xs text-zinc-500 hover:text-zinc-300">
+            Cancel
+          </button>
+        </div>
+
+        {/* Station + Shift row */}
+        <div className="mb-3 flex gap-3">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs text-zinc-500">Station</label>
+            <select
+              value={station}
+              onChange={(e) => setStation(e.target.value)}
+              className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+            >
+              <option value="">Select station...</option>
+              {STATIONS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs text-zinc-500">Shift</label>
+            <select
+              value={shift}
+              onChange={(e) => setShift(e.target.value)}
+              className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+            >
+              {SHIFTS.map((s) => (
+                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs text-zinc-500">DJ Name <span className="text-zinc-600">(optional)</span></label>
+            <input
+              type="text"
+              value={djName}
+              onChange={(e) => setDjName(e.target.value)}
+              placeholder="Your name"
+              className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-cyan-500 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Setlist */}
+        <div className="mb-3">
+          <label className="mb-1 block text-xs text-zinc-500">Setlist <span className="text-zinc-600">(Artist - Track, one per line)</span></label>
+          <textarea
+            ref={setlistRef}
+            value={setlist}
+            onChange={(e) => setSetlist(e.target.value)}
+            rows={4}
+            placeholder={"Khruangbin - Time (You and I)\nLittle Simz - Gorilla\nThundercat - Them Changes"}
+            className="w-full resize-none rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-cyan-500 focus:outline-none"
+          />
+        </div>
+
+        {/* What do you need? */}
+        <div className="mb-3">
+          <label className="mb-1 block text-xs text-zinc-500">What do you need? <span className="text-zinc-600">(leave all unchecked for full prep)</span></label>
+          <div className="flex flex-wrap gap-2">
+            {PREP_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => toggleOption(opt.key)}
+                className={`rounded-full border px-3 py-1 text-xs transition ${
+                  selectedOptions.has(opt.key)
+                    ? "border-cyan-500 bg-cyan-500/10 text-cyan-400"
+                    : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                }`}
+                title={opt.desc}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Guest (shows if interview selected or full prep) */}
+        {(isFullPrep || selectedOptions.has("interview")) && (
+          <div className="mb-4">
+            <label className="mb-1 block text-xs text-zinc-500">Interview Guest <span className="text-zinc-600">(optional)</span></label>
+            <input
+              type="text"
+              value={guest}
+              onChange={(e) => setGuest(e.target.value)}
+              placeholder="Guest artist name"
+              className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-cyan-500 focus:outline-none"
+            />
+          </div>
+        )}
+
+        {/* Submit */}
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!station && !setlist.trim()}
+          className="w-full rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {isFullPrep ? "Generate Full Show Prep" : `Generate ${[...selectedOptions].map((k) => PREP_OPTIONS.find((o) => o.key === k)?.label).join(" + ")}`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ChatInput() {
   const [input, setInput] = useState("");
   const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [showPrepForm, setShowPrepForm] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const { processMessage, isRunning } = useThread();
   const isLoading = isRunning;
@@ -324,6 +506,14 @@ function ChatInput() {
   );
 
   const handleSelect = (cmd: string) => {
+    // If selecting /show-prep or /prep, open the form instead of filling input
+    const trimmed = cmd.trim();
+    if (trimmed === "/show-prep" || trimmed === "/prep") {
+      setShowPrepForm(true);
+      setShowSlashMenu(false);
+      setInput("");
+      return;
+    }
     setInput(cmd);
     setShowSlashMenu(false);
     inputRef.current?.focus();
@@ -355,6 +545,14 @@ function ChatInput() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (!input.trim() || isLoading) return;
+      // If just "/prep" or "/show-prep" with no args, open the form
+      const trimmedInput = input.trim().toLowerCase();
+      if (trimmedInput === "/prep" || trimmedInput === "/show-prep" || trimmedInput === "/showprep") {
+        setShowPrepForm(true);
+        setShowSlashMenu(false);
+        setInput("");
+        return;
+      }
       setShowSlashMenu(false);
       processMessage({
         role: "user",
@@ -367,6 +565,26 @@ function ChatInput() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
   };
+
+  const handlePrepSubmit = (msg: string) => {
+    setShowPrepForm(false);
+    processMessage({
+      role: "user",
+      content: [{ type: "text", text: msg }],
+    });
+  };
+
+  if (showPrepForm) {
+    return (
+      <ShowPrepForm
+        onSubmit={handlePrepSubmit}
+        onCancel={() => {
+          setShowPrepForm(false);
+          inputRef.current?.focus();
+        }}
+      />
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="border-t border-zinc-800 p-4">
