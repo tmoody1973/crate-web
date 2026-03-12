@@ -54,9 +54,12 @@ function stripCodeFences(content: string): string {
   return content.replace(/```(?:\w*)\n?([\s\S]*?)```/g, "$1");
 }
 
+/** OpenUI assignment pattern: `varName = ComponentName(...)` */
+const OPENUI_PATTERN = /\b(\w+\s*=\s*[A-Z]\w*\()/;
+
 /** Try to detect if content contains OpenUI Lang (has component assignments). */
 function containsOpenUILang(content: string): boolean {
-  return /^\w+\s*=\s*\w+\(/m.test(stripCodeFences(content));
+  return OPENUI_PATTERN.test(stripCodeFences(content));
 }
 
 /** Check if a line is an OpenUI Lang assignment: `varName = ComponentName(...)` */
@@ -64,10 +67,20 @@ function isOpenUILine(line: string): boolean {
   return /^\w+\s*=\s*[A-Z]\w*\(/.test(line.trim());
 }
 
+/**
+ * Pre-process content to ensure OpenUI assignments start on their own line.
+ * Handles cases like "some prose:root = ShowPrepPackage(...)" by splitting
+ * at the assignment boundary.
+ */
+function normalizeOpenUIBoundaries(content: string): string {
+  // Split lines where OpenUI starts mid-line (e.g. "prose text:root = Component(...)")
+  return content.replace(/([^\n])(\b(?:root|[a-z]\w*)\s*=\s*[A-Z]\w*\()/g, "$1\n$2");
+}
+
 /** Split content into markdown sections and OpenUI Lang blocks. */
 function splitContent(content: string): Array<{ type: "markdown" | "openui"; text: string }> {
-  // First, unwrap any code fences around OpenUI blocks
-  const unwrapped = stripCodeFences(content);
+  // First, unwrap code fences and normalize boundaries
+  const unwrapped = normalizeOpenUIBoundaries(stripCodeFences(content));
 
   if (!containsOpenUILang(unwrapped)) {
     return [{ type: "markdown", text: content }];
@@ -90,13 +103,10 @@ function splitContent(content: string): Array<{ type: "markdown" | "openui"; tex
     const lineIsOpenUI = isOpenUILine(line);
 
     if (lineIsOpenUI && currentType !== "openui") {
-      // Switching from markdown to openui
       flush();
       currentType = "openui";
       currentLines.push(line);
     } else if (!lineIsOpenUI && currentType === "openui") {
-      // Could be an empty line within OpenUI block — peek ahead behavior:
-      // Keep empty lines, but non-empty non-OpenUI lines end the block
       if (line.trim() === "") {
         currentLines.push(line);
       } else {
@@ -192,13 +202,17 @@ function ChatMessages() {
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
     if (!lastAssistant) return;
     const parts = getContentParts(lastAssistant.content);
+    // Collect ALL OpenUI sections across all content parts
+    const allOpenUI: string[] = [];
     for (const part of parts) {
       if (part.type !== "text" || !part.text) continue;
       const sections = splitContent(part.text);
-      const openuiSection = sections.find((s) => s.type === "openui");
-      if (openuiSection) {
-        pushArtifact(openuiSection.text);
+      for (const s of sections) {
+        if (s.type === "openui") allOpenUI.push(s.text);
       }
+    }
+    if (allOpenUI.length > 0) {
+      pushArtifact(allOpenUI.join("\n"));
     }
   }, [messages, isRunning, pushArtifact]);
 
