@@ -130,15 +130,12 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
   );
 
   const selectArtifact = useCallback((id: string) => {
-    setHistory((prev) => {
-      const found = prev.find((a) => a.id === id);
-      if (found) {
-        setCurrent(found);
-        setShowPanel(true);
-      }
-      return prev;
-    });
-  }, []);
+    const found = history.find((a: Artifact) => a.id === id);
+    if (found) {
+      setCurrent(found);
+      setShowPanel(true);
+    }
+  }, [history]);
 
   const clear = useCallback(() => {
     setCurrent(null);

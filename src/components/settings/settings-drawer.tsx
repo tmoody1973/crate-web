@@ -35,6 +35,7 @@ const TIER_2_SERVICES = [
   { id: "exa", name: "Exa.ai", description: "Neural/semantic web search" },
   { id: "tumblr", name: "Tumblr", description: "Publish to your blog" },
   { id: "mem0", name: "Mem0", description: "Agent memory across sessions" },
+  { id: "agentmail", name: "AgentMail", description: "Send research to Slack or email" },
 ];
 
 interface SettingsDrawerProps {

@@ -24,6 +24,7 @@ import { crateStreamAdapter } from "@/lib/openui/stream-adapter";
 import { useArtifact } from "./artifact-provider";
 import { getToolLabel, type ToolStep } from "@/lib/tool-labels";
 import { ModelSelector, getStoredModel } from "./model-selector";
+import { ResponseActions } from "./response-actions";
 
 // --- Tool activity context ---
 const ToolActivityContext = createContext<{ steps: ToolStep[] }>({ steps: [] });
@@ -213,25 +214,35 @@ function ChatMessages() {
               )}
             </div>
           ) : (
-            <div className="prose prose-invert prose-sm mt-1 max-w-none overflow-hidden break-words">
-              {getContentParts(m.content).flatMap((c, ci) => {
-                if (c.type !== "text") return [];
-                const text = c.text ?? "";
-                const sections = splitContent(text);
-                return sections.map((section, si) =>
-                  section.type === "openui" ? (
-                    <Renderer
-                      key={`${ci}-${si}`}
-                      library={crateLibrary}
-                      response={section.text}
-                      isStreaming={isRunning && ci === getContentParts(m.content).length - 1}
-                    />
-                  ) : (
-                    <MarkdownContent key={`${ci}-${si}`} content={section.text} />
-                  ),
-                );
-              })}
-            </div>
+            <>
+              <div className="prose prose-invert prose-sm mt-1 max-w-none overflow-hidden break-words">
+                {getContentParts(m.content).flatMap((c, ci) => {
+                  if (c.type !== "text") return [];
+                  const text = c.text ?? "";
+                  const sections = splitContent(text);
+                  return sections.map((section, si) =>
+                    section.type === "openui" ? (
+                      <Renderer
+                        key={`${ci}-${si}`}
+                        library={crateLibrary}
+                        response={section.text}
+                        isStreaming={isRunning && ci === getContentParts(m.content).length - 1}
+                      />
+                    ) : (
+                      <MarkdownContent key={`${ci}-${si}`} content={section.text} />
+                    ),
+                  );
+                })}
+              </div>
+              {!isRunning && (
+                <ResponseActions
+                  content={getContentParts(m.content)
+                    .filter((c): c is { type: "text"; text: string } => c.type === "text")
+                    .map((c) => c.text)
+                    .join("")}
+                />
+              )}
+            </>
           )}
         </div>
       ))}
