@@ -254,8 +254,8 @@ function ChatMessages() {
 
 const SLASH_COMMANDS = [
   { command: "/news", description: "Daily music news segment", usage: "/news [station] [count]", example: "/news hyfin 3" },
-  { command: "/show-prep", description: "Show preparation package", usage: "/show-prep [station]: [setlist]", example: "/show-prep HYFIN: Khruangbin - Time" },
-  { command: "/prep", description: "Show prep (shorthand)", usage: "/prep [station]: [setlist]", example: "/prep rhythmlab: BADBADNOTGOOD - Time Moves Slow" },
+  { command: "/show-prep", description: "Full show prep or specific pieces", usage: "/show-prep [station]: [request or setlist]", example: "/show-prep HYFIN: Khruangbin - Time" },
+  { command: "/prep", description: "Show prep (shorthand)", usage: "/prep [station]: [request]", example: "/prep 88nine: talk breaks for Khruangbin > Simz" },
 ];
 
 function SlashCommandMenu({

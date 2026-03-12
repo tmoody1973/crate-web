@@ -65,7 +65,7 @@ function preprocessSlashCommand(message: string): string {
     case "showprep":
     case "prep": {
       if (!arg) {
-        return "Show prep — which station (88Nine, HYFIN, or Rhythm Lab) and what's your setlist?";
+        return "Show prep — which station (88Nine, HYFIN, or Rhythm Lab) and what do you need? You can ask for:\n• Full show prep (paste your setlist)\n• Track context only\n• Talk breaks between tracks\n• Social media copy\n• Local events this weekend\n• Interview prep for a guest";
       }
 
       // Parse station from the first word/line
@@ -99,30 +99,91 @@ function preprocessSlashCommand(message: string): string {
 
       const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
       const day = days[new Date().getDay()];
-      const trackList = trackLines.length > 0 ? trackLines.join("\n") : "";
+
+      // Detect what the DJ is asking for
+      const lowerArg = arg.toLowerCase();
+      const wantsContext = /\b(context|background|story|about these|tell me about)\b/.test(lowerArg);
+      const wantsTalkBreaks = /\b(talk ?break|transition|segue|intro|back.?announce)\b/.test(lowerArg);
+      const wantsSocial = /\b(social|post|instagram|twitter|bluesky|copy)\b/.test(lowerArg);
+      const wantsEvents = /\b(event|show|concert|gig|this week|tonight|happening)\b/.test(lowerArg);
+      const wantsInterview = /\b(interview|guest|question|q&a)\b/.test(lowerArg);
+      const wantsFull = /\b(full prep|full show|everything|complete)\b/.test(lowerArg);
+
+      // If no specific intent detected and there are track lines, default to full prep
+      const hasSpecificIntent = wantsContext || wantsTalkBreaks || wantsSocial || wantsEvents || wantsInterview || wantsFull;
+      const doFull = wantsFull || !hasSpecificIntent;
+
+      // Filter out intent phrases from track lines so only Artist - Track remain
+      const intentPatterns = /\b(context|background|story|about these|tell me about|talk ?break|transition|segue|intro|back.?announce|social|post|instagram|twitter|bluesky|copy|event|show|concert|gig|this week|tonight|happening|interview|guest|question|q&a|full prep|full show|everything|complete|track context|talk breaks?|for these|only|just)\b/gi;
+      const cleanTrackLines = trackLines
+        .map((l: string) => l.replace(intentPatterns, "").trim())
+        .filter((l: string) => l.length > 3 && /[a-z]/i.test(l) && (l.includes("-") || l.includes("–") || l.includes("—")));
+      const trackList = cleanTrackLines.length > 0 ? cleanTrackLines.join("\n") : "";
+
+      // Build research steps based on what's needed
+      const researchSteps: string[] = [];
+      if (doFull || wantsContext || wantsTalkBreaks) {
+        researchSteps.push(
+          `1. MusicBrainz: search_recording + get_recording_credits for canonical metadata, producer, studio`,
+          `2. Discogs: search_discogs + get_release_full for release year, label, album context`,
+          `3. Genius: search_songs + get_song for annotations, artist commentary, production context`,
+          `4. Bandcamp: search_bandcamp for artist statements, liner notes, independent status`,
+          `5. Last.fm: get_track_info + get_similar_tracks for listener stats, similar tracks`,
+        );
+      }
+      if (doFull || wantsEvents) {
+        researchSteps.push(
+          `${researchSteps.length + 1}. Ticketmaster: search_events for upcoming Milwaukee shows by these artists`,
+        );
+      }
+      if (doFull || wantsContext) {
+        researchSteps.push(
+          `${researchSteps.length + 1}. Web search: check Milwaukee sources (milwaukeerecord.com, jsonline.com, urbanmilwaukee.com) for local tie-ins`,
+        );
+      }
+
+      // Build output format based on what's needed
+      const outputParts: string[] = [];
+      if (doFull) {
+        outputParts.push(
+          `Output a SINGLE ShowPrepPackage OpenUI component containing:`,
+          `- One TrackContextCard per track (with originStory, productionNotes, connections, lesserKnownFact, whyItMatters, audienceRelevance, localTieIn)`,
+          `- TalkBreakCards for transitions between tracks (short/medium/long variants in station voice)`,
+          `- SocialPostCards with platform-specific copy (Instagram, X, Bluesky) and station hashtags`,
+          `- InterviewPrepCards if any guest/interview is mentioned`,
+        );
+      } else {
+        if (wantsContext) {
+          outputParts.push(`Output TrackContextCards (one per track) with originStory, productionNotes, connections, lesserKnownFact, whyItMatters, audienceRelevance, localTieIn.`);
+        }
+        if (wantsTalkBreaks) {
+          outputParts.push(`Output TalkBreakCards for transitions between tracks with short/medium/long variants in station voice. Bold key phrases. Include pronunciation guides.`);
+        }
+        if (wantsSocial) {
+          outputParts.push(`Output SocialPostCards with platform-specific copy (Instagram, X, Bluesky) and station hashtags.`);
+        }
+        if (wantsEvents) {
+          outputParts.push(`Search Ticketmaster for upcoming Milwaukee concerts/events. Present results using ConcertList with ConcertEvent children. Focus on events relevant to the station's audience.`);
+        }
+        if (wantsInterview) {
+          outputParts.push(`Output InterviewPrepCards with warm-up questions, deep-dive questions, local/Milwaukee questions, and questions to avoid.`);
+        }
+      }
+
+      const intentLabel = doFull ? "full radio show prep" :
+        [wantsContext && "track context", wantsTalkBreaks && "talk breaks", wantsSocial && "social copy", wantsEvents && "local events", wantsInterview && "interview prep"].filter(Boolean).join(" + ");
 
       return [
-        `Generate a complete radio show prep package.`,
+        `Generate ${intentLabel} for a radio DJ.`,
         prepStation ? stationVoice : `Ask which station (88Nine, HYFIN, or Rhythm Lab) if not specified.`,
         `Date: ${day}`,
         ``,
-        trackList ? `SETLIST:\n${trackList}` : `No tracks provided — ask for the setlist.`,
+        trackList ? `SETLIST:\n${trackList}` : wantsEvents ? `` : `No tracks provided — ask for the setlist.`,
         ``,
-        `RESEARCH STEPS (for each track in the setlist):`,
-        `1. MusicBrainz: search_recording + get_recording_credits for canonical metadata, producer, studio`,
-        `2. Discogs: search_discogs + get_release_full for release year, label, album context`,
-        `3. Genius: search_songs + get_song for annotations, artist commentary, production context`,
-        `4. Bandcamp: search_bandcamp for artist statements, liner notes, independent status`,
-        `5. Last.fm: get_track_info + get_similar_tracks for listener stats, similar tracks`,
-        `6. Ticketmaster: search_events for upcoming Milwaukee shows by this artist`,
-        `7. Web search: check Milwaukee sources (milwaukeerecord.com, jsonline.com, urbanmilwaukee.com) for local tie-ins`,
+        researchSteps.length > 0 ? `RESEARCH STEPS:\n${researchSteps.join("\n")}` : ``,
         ``,
         `OUTPUT FORMAT:`,
-        `Output a SINGLE ShowPrepPackage OpenUI component containing:`,
-        `- One TrackContextCard per track (with originStory, productionNotes, connections, lesserKnownFact, whyItMatters, audienceRelevance, localTieIn)`,
-        `- TalkBreakCards for transitions between tracks (short/medium/long variants in station voice)`,
-        `- SocialPostCards with platform-specific copy (Instagram, X, Bluesky) and station hashtags`,
-        `- InterviewPrepCards if any guest/interview is mentioned`,
+        ...outputParts,
         ``,
         `RULES:`,
         `- Every piece must answer "why does the listener care?" — no slot filling`,
@@ -130,6 +191,7 @@ function preprocessSlashCommand(message: string): string {
         `- Bold key phrases in talk breaks`,
         `- Include pronunciation guides for unfamiliar names`,
         `- Rank by audience relevance (high/medium/low)`,
+        `- If the DJ only asked for one thing, give them exactly that — don't generate the full package`,
       ].join("\n");
     }
 
