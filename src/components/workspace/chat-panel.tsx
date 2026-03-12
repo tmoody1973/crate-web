@@ -301,10 +301,18 @@ function ChatInput() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const { processMessage, isRunning } = useThread();
   const isLoading = isRunning;
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea to fit content (1 row min, 6 rows max)
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [input]);
 
   // Show menu when input starts with "/" and has no space yet (still typing command)
-  const slashFilter = input.startsWith("/") && !input.includes(" ") ? input : "";
+  const slashFilter = input.startsWith("/") && !input.includes(" ") && !input.includes("\n") ? input : "";
 
   useEffect(() => {
     setShowSlashMenu(slashFilter.length > 0);
@@ -322,32 +330,42 @@ function ChatInput() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!showSlashMenu) return;
+    // Slash menu navigation
+    if (showSlashMenu) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((prev) => Math.min(prev + 1, filteredCommands.length - 1));
+        return;
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((prev) => Math.max(prev - 1, 0));
+        return;
+      } else if (e.key === "Tab" || (e.key === "Enter" && filteredCommands.length > 0 && !input.includes(" "))) {
+        e.preventDefault();
+        const selected = filteredCommands[selectedIndex];
+        if (selected) handleSelect(selected.command + " ");
+        return;
+      } else if (e.key === "Escape") {
+        setShowSlashMenu(false);
+        return;
+      }
+    }
 
-    if (e.key === "ArrowDown") {
+    // Enter submits, Shift+Enter inserts newline
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      setSelectedIndex((prev) => Math.min(prev + 1, filteredCommands.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelectedIndex((prev) => Math.max(prev - 1, 0));
-    } else if (e.key === "Tab" || (e.key === "Enter" && filteredCommands.length > 0 && !input.includes(" "))) {
-      e.preventDefault();
-      const selected = filteredCommands[selectedIndex];
-      if (selected) handleSelect(selected.command + " ");
-    } else if (e.key === "Escape") {
+      if (!input.trim() || isLoading) return;
       setShowSlashMenu(false);
+      processMessage({
+        role: "user",
+        content: [{ type: "text", text: input.trim() }],
+      });
+      setInput("");
     }
   };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    setShowSlashMenu(false);
-    processMessage({
-      role: "user",
-      content: [{ type: "text", text: input.trim() }],
-    });
-    setInput("");
   };
 
   return (
@@ -360,13 +378,14 @@ function ChatInput() {
             selectedIndex={selectedIndex}
           />
         )}
-        <input
+        <textarea
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
+          rows={1}
           placeholder={isLoading ? "Crate is researching..." : "Ask about any artist, track, or genre... (/ for commands)"}
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none disabled:opacity-50"
+          className="w-full resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none disabled:opacity-50"
           disabled={isLoading}
         />
         {isLoading && (
