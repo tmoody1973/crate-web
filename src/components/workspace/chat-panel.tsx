@@ -12,7 +12,7 @@ import {
   useContext,
   FormEvent,
 } from "react";
-import { MarkdownHooks as ReactMarkdown } from "react-markdown";
+import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
@@ -32,7 +32,7 @@ function useToolActivity() {
 
 function MarkdownContent({ content }: { content: string }) {
   return (
-    <ReactMarkdown
+    <Markdown
       remarkPlugins={[remarkGfm]}
       components={{
         a: ({ href, children, ...props }) => (
@@ -43,7 +43,7 @@ function MarkdownContent({ content }: { content: string }) {
       }}
     >
       {content}
-    </ReactMarkdown>
+    </Markdown>
   );
 }
 
@@ -193,7 +193,7 @@ function ChatMessages() {
   }, [messages, isRunning, pushArtifact]);
 
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+    <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4">
       {messages.length === 0 && (
         <p className="text-zinc-500">
           Ask about any artist, track, sample, or genre...
@@ -212,7 +212,7 @@ function ChatMessages() {
               )}
             </div>
           ) : (
-            <div className="prose prose-invert prose-sm mt-1 max-w-none">
+            <div className="prose prose-invert prose-sm mt-1 max-w-none overflow-hidden break-words">
               {getContentParts(m.content).flatMap((c, ci) => {
                 if (c.type !== "text") return [];
                 const text = c.text ?? "";
