@@ -9,8 +9,11 @@ function preprocessSlashCommand(message: string): string {
   const trimmed = message.trim();
   if (!trimmed.startsWith("/")) return message;
 
-  const [cmd, ...rest] = trimmed.slice(1).split(/\s+/);
-  const arg = rest.join(" ");
+  const spaceIdx = trimmed.indexOf(" ");
+  const nlIdx = trimmed.indexOf("\n");
+  const firstBreak = spaceIdx === -1 ? nlIdx : nlIdx === -1 ? spaceIdx : Math.min(spaceIdx, nlIdx);
+  const cmd = firstBreak === -1 ? trimmed.slice(1) : trimmed.slice(1, firstBreak);
+  const arg = firstBreak === -1 ? "" : trimmed.slice(firstBreak + 1);
 
   switch (cmd.toLowerCase()) {
     case "news": {
