@@ -65,25 +65,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Use AgentMail SDK to send
+    // Use AgentMail SDK to send from the shared Crate inbox
     const { AgentMailClient } = await import("agentmail");
     const client = new AgentMailClient({ apiKey: agentmailKey });
 
-    // Get or create an inbox for this user
-    const inboxes = await client.inboxes.list();
-    let inboxId: string;
+    const CRATE_INBOX = "slack-rm@agentmail.to";
 
-    if (inboxes.inboxes && inboxes.inboxes.length > 0) {
-      inboxId = inboxes.inboxes[0].inboxId;
-    } else {
-      const inbox = await client.inboxes.create({
-        displayName: "Crate Research",
-      });
-      inboxId = inbox.inboxId;
-    }
-
-    // Send the email
-    await client.inboxes.messages.send(inboxId, {
+    await client.inboxes.messages.send(CRATE_INBOX, {
       to: Array.isArray(to) ? to : [to],
       subject,
       text: text || undefined,
