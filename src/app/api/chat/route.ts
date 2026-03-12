@@ -197,6 +197,7 @@ function preprocessSlashCommand(message: string): string {
         `- Talk breaks: bold **key phrases**, include pronunciation guides`,
         `- Rank by audience relevance (high/medium/low)`,
         `- Fill in REAL content from your research — not placeholder text`,
+        `- IMAGES: For each TrackContextCard, include an imageUrl. Get images from: Discogs (cover_image or images[0].uri from get_release_full), Genius (song_art_image_thumbnail_url from search_songs), or Bandcamp (image_url). Prioritize Discogs covers > Genius art > Bandcamp.`,
         `- Output the OpenUI Lang block with NO surrounding markdown, NO prose before or after`,
       ].filter(Boolean).join("\n");
     }
