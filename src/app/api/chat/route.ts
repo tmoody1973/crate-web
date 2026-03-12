@@ -4,6 +4,99 @@ import { api } from "../../../../convex/_generated/api";
 import { decrypt } from "@/lib/encryption";
 import { createAgent } from "@/lib/agent";
 
+/** Simple chat-tier classifier — returns true for greetings and short conversational messages. */
+function isChatTier(message: string): boolean {
+  const lower = message.toLowerCase().trim();
+  // Greetings, thanks, simple questions
+  const chatPatterns = [
+    /^(hi|hey|hello|yo|sup|what'?s up|howdy|greetings)\b/,
+    /^(thanks?|thank you|thx|ty)\b/,
+    /^(ok|okay|got it|cool|nice|great|awesome|perfect)\b/,
+    /^(yes|no|yep|nope|yeah|nah)\b/,
+    /^(bye|goodbye|see ya|later)\b/,
+    /^what (can|do) you do/,
+    /^who are you/,
+    /^help\b/,
+  ];
+  if (chatPatterns.some((p) => p.test(lower))) return true;
+  // Very short messages without music-specific keywords
+  if (lower.split(/\s+/).length <= 4 && !/artist|album|track|song|sample|genre|vinyl|record|concert|tour/i.test(lower)) return true;
+  return false;
+}
+
+/** Fast direct API call for chat-tier messages — no subprocess, ~1-2s response. */
+async function streamChatDirect(
+  message: string,
+  apiKey: string,
+  modelId: string,
+): Promise<Response> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: modelId,
+      max_tokens: 1024,
+      stream: true,
+      system: "You are Crate, an AI music research assistant. For casual conversation, be friendly and brief. Mention that you can help with music research — artists, samples, vinyl, concerts, genres, and more.",
+      messages: [{ role: "user", content: message }],
+    }),
+  });
+
+  if (!res.ok || !res.body) {
+    const err = await res.text();
+    return new Response(
+      `data: ${JSON.stringify({ type: "error", message: `API error: ${res.status}` })}\n\ndata: [DONE]\n\n`,
+      { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" } },
+    );
+  }
+
+  // Transform Anthropic SSE → Crate SSE format
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const reader = res.body.getReader();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      let buffer = "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.type === "content_block_delta" && parsed.delta?.text) {
+                const event = { type: "answer_token", token: parsed.delta.text };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+              }
+            } catch { /* skip unparseable lines */ }
+          }
+        }
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", totalMs: 0, toolsUsed: [], toolCallCount: 0, costUsd: 0 })}\n\n`));
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      } catch (err) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", message: err instanceof Error ? err.message : "Stream error" })}\n\n`));
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" },
+  });
+}
+
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 /** Map user-facing key names to env var names expected by CrateAgent servers. */
@@ -111,6 +204,12 @@ export async function POST(req: Request) {
       JSON.stringify({ error: "message field is required" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
+  }
+
+  // Fast path: chat-tier messages bypass the full agent subprocess (~1-2s vs 13s)
+  const modelId = model || "claude-haiku-4-5-20251001";
+  if (isChatTier(message) && hasAnthropic) {
+    return streamChatDirect(message, rawKeys.anthropic, modelId);
   }
 
   // Non-Anthropic models require OpenRouter
