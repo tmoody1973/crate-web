@@ -76,6 +76,7 @@ export function PlaylistsSection() {
   const playlists = useQuery(api.playlists.list, user ? { userId: user._id } : "skip");
   const createPlaylist = useMutation(api.playlists.create);
   const removePlaylist = useMutation(api.playlists.remove);
+  const removeAll = useMutation(api.playlists.removeAll);
 
   const handleCreate = async () => {
     if (!user || !newName.trim()) return;
@@ -92,6 +93,21 @@ export function PlaylistsSection() {
       >
         <span>Playlists</span>
         <div className="flex items-center gap-1">
+          {expanded && playlists && playlists.length > 1 && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                if (user && confirm(`Delete all ${playlists.length} playlists?`)) {
+                  removeAll({ userId: user._id });
+                  setExpandedPlaylist(null);
+                }
+              }}
+              className="cursor-pointer text-[10px] text-zinc-700 hover:text-red-400"
+              title="Delete all playlists"
+            >
+              Clear
+            </span>
+          )}
           {expanded && (
             <span
               onClick={(e) => {
@@ -153,9 +169,12 @@ export function PlaylistsSection() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    removePlaylist({ id: pl._id });
+                    if (confirm(`Delete "${pl.name}" and all its tracks?`)) {
+                      removePlaylist({ id: pl._id });
+                      if (expandedPlaylist === pl._id) setExpandedPlaylist(null);
+                    }
                   }}
-                  className="hidden text-xs text-zinc-600 hover:text-red-400 group-hover:block"
+                  className="shrink-0 text-xs text-zinc-700 opacity-0 transition hover:text-red-400 group-hover:opacity-100"
                   title="Delete playlist"
                 >
                   ×

@@ -165,7 +165,6 @@ export const rename = mutation({
 export const remove = mutation({
   args: { id: v.id("playlists") },
   handler: async (ctx, args) => {
-    // Delete all tracks in the playlist
     const tracks = await ctx.db
       .query("playlistTracks")
       .withIndex("by_playlist", (q) => q.eq("playlistId", args.id))
@@ -174,5 +173,25 @@ export const remove = mutation({
       await ctx.db.delete(track._id);
     }
     await ctx.db.delete(args.id);
+  },
+});
+
+export const removeAll = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const playlists = await ctx.db
+      .query("playlists")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    for (const pl of playlists) {
+      const tracks = await ctx.db
+        .query("playlistTracks")
+        .withIndex("by_playlist", (q) => q.eq("playlistId", pl._id))
+        .collect();
+      for (const track of tracks) {
+        await ctx.db.delete(track._id);
+      }
+      await ctx.db.delete(pl._id);
+    }
   },
 });
