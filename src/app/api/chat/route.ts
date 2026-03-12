@@ -52,10 +52,27 @@ export async function POST(req: Request) {
     return new Response("User not found", { status: 404 });
   }
 
-  // Decrypt user's API keys (encryptedKeys is ArrayBuffer from Convex bytes)
+  // Decrypt user's personal API keys
   let rawKeys: Record<string, string> = {};
   if (user.encryptedKeys) {
     rawKeys = JSON.parse(decrypt(Buffer.from(user.encryptedKeys)));
+  }
+
+  // Check for org shared keys (fallback for team members)
+  const emailDomain = user.email?.split("@")[1] ?? "";
+  if (emailDomain) {
+    const orgRecord = await convex.query(api.orgKeys.getByDomain, { domain: emailDomain });
+    if (orgRecord?.encryptedKeys) {
+      const orgRawKeys: Record<string, string> = JSON.parse(
+        decrypt(Buffer.from(orgRecord.encryptedKeys)),
+      );
+      // Org keys fill gaps — user's own keys take priority
+      for (const [key, value] of Object.entries(orgRawKeys)) {
+        if (!rawKeys[key]) {
+          rawKeys[key] = value;
+        }
+      }
+    }
   }
 
   const hasAnthropic = !!rawKeys.anthropic;

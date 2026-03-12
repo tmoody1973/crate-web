@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { KeyEntry } from "./key-entry";
+import { TeamSharing } from "./team-sharing";
 
 const TIER_1_SERVICES = [
   {
@@ -109,6 +110,8 @@ export function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps) {
             onSaved={refreshKeys}
           />
         ))}
+
+        <TeamSharing refreshKey={refreshKey} />
       </div>
     </div>
   );

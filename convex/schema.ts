@@ -130,4 +130,12 @@ export default defineSchema({
       searchField: "title",
       filterFields: ["userId"],
     }),
+
+  orgKeys: defineTable({
+    domain: v.string(),
+    encryptedKeys: v.bytes(),
+    adminUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_domain", ["domain"]),
 });

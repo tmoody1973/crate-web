@@ -35,17 +35,33 @@ export async function GET() {
     }
 
     const user = await getOrCreateUser(clerkId);
-    if (!user?.encryptedKeys) {
-      return NextResponse.json({ keys: {} });
+
+    // Start with user's personal keys
+    const masked: Record<string, string> = {};
+    if (user?.encryptedKeys) {
+      const decrypted = JSON.parse(
+        decrypt(Buffer.from(new Uint8Array(user.encryptedKeys))),
+      );
+      for (const [key, value] of Object.entries(decrypted)) {
+        const v = value as string;
+        masked[key] = v.length > 6 ? "••••••" + v.slice(-4) : "••••••";
+      }
     }
 
-    const decrypted = JSON.parse(
-      decrypt(Buffer.from(new Uint8Array(user.encryptedKeys))),
-    );
-    const masked: Record<string, string> = {};
-    for (const [key, value] of Object.entries(decrypted)) {
-      const v = value as string;
-      masked[key] = v.length > 6 ? "••••••" + v.slice(-4) : "••••••";
+    // Check for org shared keys (show as "Shared" for services user hasn't configured)
+    const emailDomain = user?.email?.split("@")[1] ?? "";
+    if (emailDomain) {
+      const orgRecord = await convex.query(api.orgKeys.getByDomain, { domain: emailDomain });
+      if (orgRecord?.encryptedKeys) {
+        const orgDecrypted = JSON.parse(
+          decrypt(Buffer.from(orgRecord.encryptedKeys)),
+        );
+        for (const key of Object.keys(orgDecrypted)) {
+          if (!masked[key]) {
+            masked[key] = "Shared by team";
+          }
+        }
+      }
     }
 
     return NextResponse.json({ keys: masked });
