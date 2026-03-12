@@ -52,7 +52,6 @@ export function useArtifact() {
 
 export function ArtifactProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<Artifact | null>(null);
-  const [history, setHistory] = useState<Artifact[]>([]);
   const [showPanel, setShowPanel] = useState(false);
 
   const params = useParams();
@@ -66,19 +65,31 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
   );
   const createArtifact = useMutation(api.artifacts.create);
   const openedFromUrlRef = useRef(false);
+  // Track content hashes we've already saved to Convex to prevent duplicates
+  const savedHashesRef = useRef(new Set<string>());
 
-  // Hydrate history from Convex on mount
+  // Convex artifacts ARE the history — single source of truth
+  const history: Artifact[] = (convexArtifacts ?? []).map((a) => ({
+    id: a._id,
+    label: a.label,
+    content: a.data,
+    timestamp: a.createdAt,
+  }));
+
+  // Seed saved hashes from Convex artifacts so we never re-save them
   useEffect(() => {
-    if (!convexArtifacts || convexArtifacts.length === 0) return;
-    const hydrated: Artifact[] = convexArtifacts.map((a) => ({
-      id: a._id,
-      label: a.label,
-      content: a.data,
-      timestamp: a.createdAt,
-    }));
-    setHistory(hydrated);
-    setCurrent(hydrated[hydrated.length - 1]);
+    if (!convexArtifacts) return;
+    for (const a of convexArtifacts) {
+      if (a.contentHash) savedHashesRef.current.add(a.contentHash);
+    }
   }, [convexArtifacts]);
+
+  // Auto-select latest artifact when history changes
+  useEffect(() => {
+    if (history.length > 0 && !current) {
+      setCurrent(history[history.length - 1]);
+    }
+  }, [history, current]);
 
   // Open specific artifact from URL param (e.g. /w/session?artifact=id)
   useEffect(() => {
@@ -94,23 +105,21 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
 
   const setArtifact = useCallback(
     (content: string) => {
-      const artifact: Artifact = {
-        id: crypto.randomUUID(),
-        label: extractLabel(content),
-        content,
-        timestamp: Date.now(),
-      };
-      setCurrent(artifact);
-      setHistory((prev) => [...prev, artifact]);
+      // Show immediately in the panel
+      const label = extractLabel(content);
+      setCurrent({ id: "pending", label, content, timestamp: Date.now() });
       setShowPanel(true);
 
+      // Save to Convex only if we haven't already saved this content
       if (sessionId && user) {
         hashContent(content).then((contentHash) => {
+          if (savedHashesRef.current.has(contentHash)) return;
+          savedHashesRef.current.add(contentHash);
           createArtifact({
             sessionId,
             userId: user._id,
             type: "openui",
-            label: artifact.label,
+            label,
             data: content,
             contentHash,
           });
