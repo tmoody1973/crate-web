@@ -5,8 +5,14 @@
 import { EventType } from "@ag-ui/core";
 import type { StreamProtocolAdapter, AGUIEvent } from "@openuidev/react-headless";
 
+export interface ToolActivityCallbacks {
+  onToolStart?: (info: { tool: string; server: string; input: unknown }) => void;
+  onToolEnd?: (info: { tool: string; server: string; durationMs: number }) => void;
+  onStreamEnd?: () => void;
+}
+
 /** Parse CrateEvent SSE stream into AG-UI events for OpenUI. */
-export function crateStreamAdapter(): StreamProtocolAdapter {
+export function crateStreamAdapter(callbacks?: ToolActivityCallbacks): StreamProtocolAdapter {
   return {
     async *parse(response: Response): AsyncIterable<AGUIEvent> {
       const reader = response.body!.getReader();
@@ -54,6 +60,11 @@ export function crateStreamAdapter(): StreamProtocolAdapter {
             }
 
             case "tool_start": {
+              callbacks?.onToolStart?.({
+                tool: event.tool as string,
+                server: event.server as string,
+                input: event.input,
+              });
               yield {
                 type: EventType.TOOL_CALL_START,
                 toolCallId: `${event.server}__${event.tool}__${Date.now()}`,
@@ -63,6 +74,11 @@ export function crateStreamAdapter(): StreamProtocolAdapter {
             }
 
             case "tool_end": {
+              callbacks?.onToolEnd?.({
+                tool: event.tool as string,
+                server: event.server as string,
+                durationMs: (event.durationMs as number) ?? 0,
+              });
               yield {
                 type: EventType.TOOL_CALL_END,
                 toolCallId: `${event.server}__${event.tool}`,
@@ -103,6 +119,7 @@ export function crateStreamAdapter(): StreamProtocolAdapter {
           messageId,
         } as AGUIEvent;
       }
+      callbacks?.onStreamEnd?.();
     },
   };
 }

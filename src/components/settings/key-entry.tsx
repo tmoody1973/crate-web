@@ -13,9 +13,10 @@ interface KeyEntryProps {
   service: Service;
   maskedValue?: string;
   tier: "required" | "tier1" | "tier2";
+  onSaved?: () => void;
 }
 
-export function KeyEntry({ service, maskedValue, tier }: KeyEntryProps) {
+export function KeyEntry({ service, maskedValue, tier, onSaved }: KeyEntryProps) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
@@ -39,6 +40,7 @@ export function KeyEntry({ service, maskedValue, tier }: KeyEntryProps) {
       }
       setEditing(false);
       setValue("");
+      onSaved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
     } finally {

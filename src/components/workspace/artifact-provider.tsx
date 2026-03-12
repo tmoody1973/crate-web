@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { useParams } from "next/navigation";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
@@ -39,6 +39,7 @@ interface ArtifactContextValue {
   clear: () => void;
   showPanel: boolean;
   dismissPanel: () => void;
+  openPanel: () => void;
 }
 
 const ArtifactContext = createContext<ArtifactContextValue | null>(null);
@@ -55,6 +56,7 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
   const [showPanel, setShowPanel] = useState(false);
 
   const params = useParams();
+  const searchParams = useSearchParams();
   const sessionId = params?.sessionId as Id<"sessions"> | undefined;
   const { userId: clerkId } = useAuth();
   const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
@@ -63,6 +65,7 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
     sessionId ? { sessionId } : "skip",
   );
   const createArtifact = useMutation(api.artifacts.create);
+  const openedFromUrlRef = useRef(false);
 
   // Hydrate history from Convex on mount
   useEffect(() => {
@@ -76,6 +79,18 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
     setHistory(hydrated);
     setCurrent(hydrated[hydrated.length - 1]);
   }, [convexArtifacts]);
+
+  // Open specific artifact from URL param (e.g. /w/session?artifact=id)
+  useEffect(() => {
+    const artifactId = searchParams?.get("artifact");
+    if (!artifactId || openedFromUrlRef.current || history.length === 0) return;
+    const found = history.find((a) => a.id === artifactId);
+    if (found) {
+      openedFromUrlRef.current = true;
+      setCurrent(found);
+      setShowPanel(true);
+    }
+  }, [searchParams, history]);
 
   const setArtifact = useCallback(
     (content: string) => {
@@ -124,9 +139,16 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
     setShowPanel(false);
   }, []);
 
+  const openPanel = useCallback(() => {
+    if (history.length > 0) {
+      if (!current) setCurrent(history[history.length - 1]);
+      setShowPanel(true);
+    }
+  }, [history, current]);
+
   return (
     <ArtifactContext.Provider
-      value={{ current, history, setArtifact, selectArtifact, clear, showPanel, dismissPanel }}
+      value={{ current, history, setArtifact, selectArtifact, clear, showPanel, dismissPanel, openPanel }}
     >
       {children}
     </ArtifactContext.Provider>

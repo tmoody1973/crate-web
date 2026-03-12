@@ -86,4 +86,48 @@ export default defineSchema({
     ),
     currentIndex: v.number(),
   }).index("by_session", ["sessionId"]),
+
+  playlists: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    coverUrl: v.optional(v.string()),
+    trackCount: v.number(),
+    totalDurationMs: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  playlistTracks: defineTable({
+    playlistId: v.id("playlists"),
+    title: v.string(),
+    artist: v.string(),
+    album: v.optional(v.string()),
+    year: v.optional(v.string()),
+    source: v.union(v.literal("youtube"), v.literal("bandcamp"), v.literal("unknown")),
+    sourceId: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    position: v.number(),
+    addedAt: v.number(),
+  }).index("by_playlist", ["playlistId", "position"]),
+
+  collection: defineTable({
+    userId: v.id("users"),
+    title: v.string(),
+    artist: v.string(),
+    label: v.optional(v.string()),
+    year: v.optional(v.string()),
+    format: v.optional(v.string()),
+    genre: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    discogsId: v.optional(v.string()),
+    rating: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .searchIndex("search_collection", {
+      searchField: "title",
+      filterFields: ["userId"],
+    }),
 });

@@ -29,7 +29,7 @@ export function ArtifactsSection() {
           {artifacts.map((a) => (
             <button
               key={a._id}
-              onClick={() => router.push(`/w/${a.sessionId}`)}
+              onClick={() => router.push(`/w/${a.sessionId}?artifact=${a._id}`)}
               className="flex w-full flex-col rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-zinc-900"
             >
               <span className="truncate text-zinc-300">{a.label}</span>

@@ -119,6 +119,41 @@ export const toggleShare = mutation({
   },
 });
 
+export const remove = mutation({
+  args: { id: v.id("sessions") },
+  handler: async (ctx, args) => {
+    // Delete all messages for this session
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.id))
+      .collect();
+    for (const m of messages) {
+      await ctx.db.delete(m._id);
+    }
+
+    // Delete all artifacts for this session
+    const artifacts = await ctx.db
+      .query("artifacts")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.id))
+      .collect();
+    for (const a of artifacts) {
+      await ctx.db.delete(a._id);
+    }
+
+    // Delete all tool calls for this session
+    const toolCalls = await ctx.db
+      .query("toolCalls")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.id))
+      .collect();
+    for (const t of toolCalls) {
+      await ctx.db.delete(t._id);
+    }
+
+    // Delete the session itself
+    await ctx.db.delete(args.id);
+  },
+});
+
 export const touchLastMessage = mutation({
   args: { id: v.id("sessions") },
   handler: async (ctx, args) => {

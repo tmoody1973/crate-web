@@ -35,8 +35,8 @@ A single concert/event entry.
 **ConcertList(title, events)**
 A list of concerts/events. \`events\` is an array of ConcertEvent references.
 
-**AlbumEntry(title, year?, label?, format?)**
-A single album entry.
+**AlbumEntry(title, year?, label?, format?, imageUrl?)**
+A single album entry. Include cover art URL from Discogs or Bandcamp when available.
 
 **AlbumGrid(artist, albums)**
 A discography grid. \`albums\` is an array of AlbumEntry references.
@@ -47,8 +47,11 @@ Shows a sampling relationship between tracks.
 **SampleTree(title, connections)**
 A collection of sampling connections. \`connections\` is an array of SampleConnection references.
 
+**TrackItem(name, artist, album?, year?, imageUrl?)**
+A single track in a playlist. Include album art URL from Discogs, Bandcamp, or Genius when available.
+
 **TrackList(title, tracks)**
-A playlist or track listing. \`tracks\` is an array of inline objects: [{"name": "...", "artist": "...", "album": "...", "year": "..."}]
+A playlist or track listing. \`tracks\` is an array of TrackItem references.
 
 ### Rules
 
@@ -57,6 +60,14 @@ A playlist or track listing. \`tracks\` is an array of inline objects: [{"name":
 - For concert/event data, always use ConcertList with ConcertEvent children.
 - For discographies, use AlbumGrid with AlbumEntry children.
 - For sampling relationships, use SampleTree with SampleConnection children.
+- When the user asks to play music, hear tracks, or requests a playlist, ALWAYS use TrackList with TrackItem children. Each TrackItem has a built-in play button. TrackLists auto-save to the user's playlist library.
+- When the user asks to create a playlist, research the topic with your tools, then output a TrackList component with real tracks. Do NOT use the collection server's create_playlist or add_track tools — those write to a local database the web UI cannot read. The TrackList component handles saving automatically.
+- When the user asks to add to their collection, research with your tools, then output an AlbumGrid component. AlbumGrids auto-save to the user's collection.
+- **Always include image URLs when available.** When your MCP tool results return image data, pass those URLs into the components:
+  - ArtistCard: Use \`image_url\` from Genius artist results or \`thumbnail\` from Wikipedia for the \`imageUrl\` prop.
+  - TrackItem: Use \`song_art_image_thumbnail_url\` from Genius, \`image_url\` from Bandcamp, or album cover from Discogs for the \`imageUrl\` prop.
+  - AlbumEntry: Use \`cover_image\` or \`images[0].uri\` from Discogs, \`image_url\` from Bandcamp for the \`imageUrl\` prop.
+  - Prioritize high-quality images: Discogs covers > Bandcamp images > Genius artwork > Wikipedia thumbnails.
 - Do not wrap simple text responses in components.
 
 ### Examples
@@ -68,9 +79,9 @@ e1 = ConcertEvent("Dark Star Orchestra", "Friday, March 13", "7:30 PM", "Riversi
 e2 = ConcertEvent("Hieroglyphics", "Friday, March 13", "8:00 PM", "Turner Hall Ballroom", "Milwaukee", "$25–$45", "On Sale")
 \`\`\`
 
-Example 2 — Artist card:
+Example 2 — Artist card with photo:
 \`\`\`
-root = ArtistCard("Miles Davis", ["Jazz", "Fusion", "Modal Jazz"], "1944–1991", "Alton, Illinois")
+root = ArtistCard("Miles Davis", ["Jazz", "Fusion", "Modal Jazz"], "1944–1991", "Alton, Illinois", "https://images.genius.com/miles-davis.jpg")
 \`\`\`
 
 Example 3 — Sample tree:
@@ -78,6 +89,14 @@ Example 3 — Sample tree:
 root = SampleTree("Amen Break Samples", [s1, s2])
 s1 = SampleConnection("Amen, Brother", "The Winstons", "Straight Outta Compton", "N.W.A", "1988", "drum break")
 s2 = SampleConnection("Amen, Brother", "The Winstons", "Girl/Boy Song", "Aphex Twin", "1996", "drum break")
+\`\`\`
+
+Example 4 — Playlist with album art:
+\`\`\`
+root = TrackList("Black Arts Movement Jazz", [t1, t2, t3])
+t1 = TrackItem("Fables of Faubus", "Charles Mingus", "Mingus Ah Um", "1959", "https://i.discogs.com/mingus-ah-um.jpg")
+t2 = TrackItem("Mississippi Goddam", "Nina Simone", "Nina Simone in Concert", "1964")
+t3 = TrackItem("Ghosts: First Variation", "Albert Ayler Trio", "Spiritual Unity", "1965", "https://f4.bcbits.com/spiritual-unity.jpg")
 \`\`\`
 `.trim();
 

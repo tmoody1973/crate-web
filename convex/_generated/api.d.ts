@@ -9,9 +9,11 @@
  */
 
 import type * as artifacts from "../artifacts.js";
+import type * as collection from "../collection.js";
 import type * as crates from "../crates.js";
 import type * as keys from "../keys.js";
 import type * as messages from "../messages.js";
+import type * as playlists from "../playlists.js";
 import type * as sessions from "../sessions.js";
 import type * as toolCalls from "../toolCalls.js";
 import type * as users from "../users.js";
@@ -24,9 +26,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   artifacts: typeof artifacts;
+  collection: typeof collection;
   crates: typeof crates;
   keys: typeof keys;
   messages: typeof messages;
+  playlists: typeof playlists;
   sessions: typeof sessions;
   toolCalls: typeof toolCalls;
   users: typeof users;

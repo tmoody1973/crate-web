@@ -28,8 +28,12 @@ const TIER_2_SERVICES = [
     description: "AI research agent (required)",
     required: true,
   },
+  { id: "openrouter", name: "OpenRouter", description: "Use any AI model (GPT-4o, Gemini, Llama, etc.)" },
   { id: "genius", name: "Genius", description: "Lyrics, annotations" },
+  { id: "tavily", name: "Tavily", description: "Web search for influence mapping" },
+  { id: "exa", name: "Exa.ai", description: "Neural/semantic web search" },
   { id: "tumblr", name: "Tumblr", description: "Publish to your blog" },
+  { id: "mem0", name: "Mem0", description: "Agent memory across sessions" },
 ];
 
 interface SettingsDrawerProps {
@@ -39,6 +43,9 @@ interface SettingsDrawerProps {
 
 export function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps) {
   const [userKeys, setUserKeys] = useState<Record<string, string>>({});
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshKeys = () => setRefreshKey((k) => k + 1);
 
   useEffect(() => {
     if (isOpen) {
@@ -46,7 +53,7 @@ export function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps) {
         .then((r) => r.json())
         .then((data) => setUserKeys(data.keys ?? {}));
     }
-  }, [isOpen]);
+  }, [isOpen, refreshKey]);
 
   if (!isOpen) return null;
 
@@ -73,6 +80,7 @@ export function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps) {
             service={service}
             maskedValue={userKeys[service.id]}
             tier="required"
+            onSaved={refreshKeys}
           />
         ))}
 
@@ -85,6 +93,7 @@ export function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps) {
             service={service}
             maskedValue={userKeys[service.id]}
             tier="tier1"
+            onSaved={refreshKeys}
           />
         ))}
 
@@ -97,6 +106,7 @@ export function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps) {
             service={service}
             maskedValue={userKeys[service.id]}
             tier="tier2"
+            onSaved={refreshKeys}
           />
         ))}
       </div>

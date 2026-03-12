@@ -9,6 +9,7 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 /** Map user-facing key names to env var names expected by CrateAgent servers. */
 const KEY_ENV_MAP: Record<string, string> = {
   anthropic: "ANTHROPIC_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
   discogs_key: "DISCOGS_KEY",
   discogs_secret: "DISCOGS_SECRET",
   lastfm: "LASTFM_API_KEY",
@@ -33,6 +34,10 @@ function getEmbeddedKeys(): Record<string, string> {
     embedded.DISCOGS_KEY = process.env.EMBEDDED_DISCOGS_KEY;
   if (process.env.EMBEDDED_DISCOGS_SECRET)
     embedded.DISCOGS_SECRET = process.env.EMBEDDED_DISCOGS_SECRET;
+  if (process.env.EMBEDDED_TAVILY_KEY)
+    embedded.TAVILY_API_KEY = process.env.EMBEDDED_TAVILY_KEY;
+  if (process.env.EMBEDDED_EXA_KEY)
+    embedded.EXA_API_KEY = process.env.EMBEDDED_EXA_KEY;
   return embedded;
 }
 
@@ -53,10 +58,13 @@ export async function POST(req: Request) {
     rawKeys = JSON.parse(decrypt(Buffer.from(user.encryptedKeys)));
   }
 
-  if (!rawKeys.anthropic) {
+  const hasAnthropic = !!rawKeys.anthropic;
+  const hasOpenRouter = !!rawKeys.openrouter;
+
+  if (!hasAnthropic && !hasOpenRouter) {
     return new Response(
       JSON.stringify({
-        error: "Anthropic API key required. Add it in Settings.",
+        error: "An Anthropic or OpenRouter API key is required. Add one in Settings.",
       }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
@@ -88,14 +96,24 @@ export async function POST(req: Request) {
     );
   }
 
-  // Pass user's Anthropic key to process.env so the Claude Agent SDK picks it up.
-  // The SDK spawns a `claude` subprocess which reads ANTHROPIC_API_KEY from env.
-  if (userEnvKeys.ANTHROPIC_API_KEY) {
+  // Configure SDK auth: OpenRouter or direct Anthropic
+  if (hasOpenRouter) {
+    // OpenRouter compatibility: redirect SDK to OpenRouter endpoint
+    process.env.ANTHROPIC_BASE_URL = "https://openrouter.ai/api";
+    process.env.ANTHROPIC_AUTH_TOKEN = rawKeys.openrouter;
+    process.env.ANTHROPIC_API_KEY = rawKeys.anthropic || "";
+  } else if (userEnvKeys.ANTHROPIC_API_KEY) {
+    // Direct Anthropic: clear any previous OpenRouter config
+    delete process.env.ANTHROPIC_BASE_URL;
+    delete process.env.ANTHROPIC_AUTH_TOKEN;
     process.env.ANTHROPIC_API_KEY = userEnvKeys.ANTHROPIC_API_KEY;
   }
 
   // Create agent with user's keys + embedded fallbacks
   const agent = createAgent(userEnvKeys, getEmbeddedKeys());
+
+  // Load user memories from Mem0 (if key is configured)
+  await agent.startSession();
 
   // Stream CrateEvents as SSE
   const encoder = new TextEncoder();
@@ -116,6 +134,8 @@ export async function POST(req: Request) {
           encoder.encode(`data: ${JSON.stringify(errorEvent)}\n\n`),
         );
       } finally {
+        // Note: endSession() skipped — each request creates a fresh agent with <6 messages.
+        // The AI uses remember_about_user / update_user_memory tools directly during research.
         controller.close();
       }
     },

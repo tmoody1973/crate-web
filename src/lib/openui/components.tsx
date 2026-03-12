@@ -1,7 +1,12 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { defineComponent } from "@openuidev/react-lang";
 import { z } from "zod";
+import { useMutation, useQuery } from "convex/react";
+import { useAuth } from "@clerk/nextjs";
+import { api } from "../../../convex/_generated/api";
+import { usePlayer } from "@/components/player/player-provider";
 
 // ── Crate Music Research Components ──────────────────────────────
 
@@ -126,10 +131,18 @@ export const AlbumEntry = defineComponent({
     year: z.string().optional().describe("Release year"),
     label: z.string().optional().describe("Record label"),
     format: z.string().optional().describe("e.g. LP, CD, Digital"),
+    imageUrl: z.string().optional().describe("Album cover art URL"),
   }),
   component: ({ props }) => (
-    <div className="flex items-center justify-between border-b border-zinc-800 py-2">
-      <div>
+    <div className="flex items-center gap-3 border-b border-zinc-800 py-2">
+      {props.imageUrl && (
+        <img
+          src={props.imageUrl}
+          alt=""
+          className="h-10 w-10 shrink-0 rounded object-cover"
+        />
+      )}
+      <div className="min-w-0 flex-1">
         <p className="font-medium text-white">{props.title}</p>
         <p className="text-xs text-zinc-500">
           {[props.year, props.label, props.format].filter(Boolean).join(" · ")}
@@ -146,14 +159,30 @@ export const AlbumGrid = defineComponent({
     artist: z.string().describe("Artist name"),
     albums: z.array(AlbumEntry.ref).describe("List of albums"),
   }),
-  component: ({ props, renderNode }) => (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-      <h2 className="mb-2 text-lg font-bold text-white">
-        {props.artist} — Discography
-      </h2>
-      <div>{renderNode(props.albums)}</div>
-    </div>
-  ),
+  component: ({ props, renderNode }) => {
+    const albumData = (props.albums ?? []).map((ref: unknown) => {
+      const r = ref as { props?: { title?: string; year?: string; label?: string; format?: string; imageUrl?: string } };
+      return {
+        title: r?.props?.title ?? "",
+        year: r?.props?.year,
+        label: r?.props?.label,
+        format: r?.props?.format,
+        imageUrl: r?.props?.imageUrl,
+      };
+    });
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">
+            {props.artist} — Discography
+          </h2>
+          <SaveToCollectionButton artist={props.artist} albums={albumData} />
+        </div>
+        <div>{renderNode(props.albums)}</div>
+      </div>
+    );
+  },
 });
 
 export const SampleConnection = defineComponent({
@@ -203,41 +232,232 @@ export const SampleTree = defineComponent({
   ),
 });
 
-export const TrackList = defineComponent({
-  name: "TrackList",
-  description: "A playlist or track listing.",
+function SaveToCollectionButton({
+  artist,
+  albums,
+}: {
+  artist: string;
+  albums: Array<{ title: string; year?: string; label?: string; format?: string; imageUrl?: string }>;
+}) {
+  const { userId: clerkId } = useAuth();
+  const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
+  const addMultiple = useMutation(api.collection.addMultiple);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!user || saving) return;
+    setSaving(true);
+    try {
+      await addMultiple({
+        userId: user._id,
+        items: albums.map((a) => ({
+          title: a.title,
+          artist,
+          label: a.label,
+          year: a.year,
+          format: a.format,
+          imageUrl: a.imageUrl,
+        })),
+      });
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (saved) {
+    return <span className="text-xs text-green-500">✓ Added</span>;
+  }
+
+  return (
+    <button
+      onClick={handleSave}
+      disabled={saving || !user}
+      className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400 transition hover:bg-zinc-700 hover:text-white disabled:opacity-50"
+    >
+      {saving ? "Adding..." : "Add to Collection"}
+    </button>
+  );
+}
+
+function PlayButton({ name, artist }: { name: string; artist: string }) {
+  const { play } = usePlayer();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const handlePlay = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch(
+        `/api/youtube?q=${encodeURIComponent(`${name} ${artist}`)}`,
+      );
+      if (!res.ok) {
+        setError(true);
+        return;
+      }
+      const data = await res.json();
+      play({
+        title: name,
+        artist,
+        source: "youtube",
+        sourceId: data.videoId,
+        imageUrl: data.thumbnail,
+      });
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handlePlay}
+      disabled={loading}
+      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition disabled:opacity-50 ${
+        error
+          ? "text-red-400 hover:bg-red-900/30"
+          : "text-zinc-500 hover:bg-zinc-700 hover:text-white"
+      }`}
+      title={error ? "Playback unavailable" : `Play ${name}`}
+    >
+      {loading ? (
+        <span className="h-3 w-3 animate-spin rounded-full border border-zinc-500 border-t-transparent" />
+      ) : error ? (
+        <span className="text-[10px]">!</span>
+      ) : (
+        <span className="text-xs">▶</span>
+      )}
+    </button>
+  );
+}
+
+export const TrackItem = defineComponent({
+  name: "TrackItem",
+  description: "A single track in a playlist with play button.",
   props: z.object({
-    title: z.string().describe("Playlist or list title"),
-    tracks: z.array(
-      z.object({
-        name: z.string(),
-        artist: z.string(),
-        album: z.string().optional(),
-        year: z.string().optional(),
-      }),
-    ).describe("List of tracks"),
+    name: z.string().describe("Track name"),
+    artist: z.string().describe("Artist name"),
+    album: z.string().optional().describe("Album name"),
+    year: z.string().optional().describe("Release year"),
+    imageUrl: z.string().optional().describe("Album art or thumbnail URL"),
   }),
   component: ({ props }) => (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-      <h2 className="mb-2 text-lg font-bold text-white">{props.title}</h2>
-      <div className="space-y-1">
-        {props.tracks.map((t, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-between border-b border-zinc-800 py-1.5"
-          >
-            <div>
-              <span className="text-sm text-white">{t.name}</span>
-              <span className="ml-2 text-xs text-zinc-500">{t.artist}</span>
-            </div>
-            {(t.album || t.year) && (
-              <span className="text-xs text-zinc-600">
-                {[t.album, t.year].filter(Boolean).join(" · ")}
-              </span>
-            )}
-          </div>
-        ))}
+    <div className="group flex items-center gap-2 border-b border-zinc-800 py-1.5">
+      <PlayButton name={props.name} artist={props.artist} />
+      {props.imageUrl && (
+        <img
+          src={props.imageUrl}
+          alt=""
+          className="h-8 w-8 shrink-0 rounded object-cover"
+        />
+      )}
+      <div className="min-w-0 flex-1">
+        <span className="text-sm text-white">{props.name}</span>
+        <span className="ml-2 text-xs text-zinc-500">{props.artist}</span>
       </div>
+      {(props.album || props.year) && (
+        <span className="shrink-0 text-xs text-zinc-600">
+          {[props.album, props.year].filter(Boolean).join(" · ")}
+        </span>
+      )}
     </div>
   ),
+});
+
+function AutoSavePlaylist({
+  title,
+  tracks,
+}: {
+  title: string;
+  tracks: Array<{ name: string; artist: string; album?: string; year?: string; imageUrl?: string }>;
+}) {
+  const { userId: clerkId } = useAuth();
+  const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
+  const createPlaylist = useMutation(api.playlists.create);
+  const addTracks = useMutation(api.playlists.addMultipleTracks);
+  const [status, setStatus] = useState<"pending" | "saving" | "saved" | "error">("pending");
+  const savedRef = useRef(false);
+
+  // Auto-save on mount when user and tracks are available
+  useEffect(() => {
+    if (savedRef.current || !user || tracks.length === 0 || status !== "pending") return;
+    savedRef.current = true;
+    setStatus("saving");
+
+    (async () => {
+      try {
+        const playlistId = await createPlaylist({
+          userId: user._id,
+          name: title,
+        });
+        await addTracks({
+          playlistId,
+          tracks: tracks.map((t) => ({
+            title: t.name,
+            artist: t.artist,
+            album: t.album,
+            year: t.year,
+            imageUrl: t.imageUrl,
+          })),
+        });
+        setStatus("saved");
+      } catch {
+        setStatus("error");
+        savedRef.current = false;
+      }
+    })();
+  }, [user, tracks, title, status, createPlaylist, addTracks]);
+
+  if (status === "saving") {
+    return <span className="text-xs text-zinc-500">Saving...</span>;
+  }
+  if (status === "saved") {
+    return <span className="text-xs text-green-500">Saved to Playlists</span>;
+  }
+  if (status === "error") {
+    return (
+      <button
+        onClick={() => setStatus("pending")}
+        className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-red-400 transition hover:bg-zinc-700 hover:text-white"
+      >
+        Retry Save
+      </button>
+    );
+  }
+  return null;
+}
+
+export const TrackList = defineComponent({
+  name: "TrackList",
+  description: "A playlist or track listing with playable tracks. Uses TrackItem children.",
+  props: z.object({
+    title: z.string().describe("Playlist or list title"),
+    tracks: z.array(TrackItem.ref).describe("List of TrackItem references"),
+  }),
+  component: ({ props, renderNode }) => {
+    // Extract track data from children for the save button
+    const trackData = (props.tracks ?? []).map((ref: unknown) => {
+      const r = ref as { props?: { name?: string; artist?: string; album?: string; year?: string; imageUrl?: string } };
+      return {
+        name: r?.props?.name ?? "",
+        artist: r?.props?.artist ?? "",
+        album: r?.props?.album,
+        year: r?.props?.year,
+        imageUrl: r?.props?.imageUrl,
+      };
+    });
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">{props.title}</h2>
+          <AutoSavePlaylist title={props.title} tracks={trackData} />
+        </div>
+        <div className="space-y-1">{renderNode(props.tracks)}</div>
+      </div>
+    );
+  },
 });

@@ -8,6 +8,7 @@ import {
   AlbumEntry,
   SampleTree,
   SampleConnection,
+  TrackItem,
   TrackList,
 } from "./components";
 
@@ -21,6 +22,7 @@ export const crateLibrary = createLibrary({
     AlbumEntry,
     SampleTree,
     SampleConnection,
+    TrackItem,
     TrackList,
   ],
   componentGroups: [
@@ -44,8 +46,8 @@ export const crateLibrary = createLibrary({
     },
     {
       name: "Playlists & Tracks",
-      components: ["TrackList"],
-      notes: ["Use for curated playlists or track listings."],
+      components: ["TrackList", "TrackItem"],
+      notes: ["Use TrackList with TrackItem children for playlists."],
     },
   ],
 });
@@ -69,6 +71,10 @@ e2 = ConcertEvent("Hieroglyphics", "Friday, March 13", "8:00 PM", "Turner Hall B
     `root = SampleTree("Amen Break Samples", [s1, s2])
 s1 = SampleConnection("Amen, Brother", "The Winstons", "Straight Outta Compton", "N.W.A", "1988", "drum break")
 s2 = SampleConnection("Amen, Brother", "The Winstons", "Girl/Boy Song", "Aphex Twin", "1996", "drum break")`,
+    `root = TrackList("Essential Jazz Playlist", [t1, t2, t3])
+t1 = TrackItem("So What", "Miles Davis", "Kind of Blue", "1959")
+t2 = TrackItem("A Love Supreme Pt. 1", "John Coltrane", "A Love Supreme", "1965")
+t3 = TrackItem("Maiden Voyage", "Herbie Hancock", "Maiden Voyage", "1965")`,
   ],
 };
 

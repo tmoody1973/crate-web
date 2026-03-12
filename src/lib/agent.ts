@@ -1,13 +1,14 @@
 import { CrateAgent } from "crate-cli/dist/agent/index.js";
 import type { CrateEvent } from "crate-cli/dist/agent/events.js";
 import { getCrateOpenUIPrompt } from "./openui/prompt";
+import { CRATE_SOUL } from "./soul";
 
 export type { CrateEvent };
 
 /**
  * Create a CrateAgent with user's API keys + embedded fallbacks.
  * Uses the keys constructor option -- no process.env mutation, concurrency-safe.
- * Injects OpenUI Lang system prompt so the LLM can generate structured UI components.
+ * Injects SOUL.md identity + OpenUI Lang prompt so the LLM generates structured UI.
  */
 export function createAgent(
   userKeys: Record<string, string>,
@@ -19,6 +20,6 @@ export function createAgent(
     keys: allKeys,
     skipPlanning: true,
   });
-  agent.setPromptSuffix(getCrateOpenUIPrompt());
+  agent.setPromptSuffix(`${CRATE_SOUL}\n\n${getCrateOpenUIPrompt()}`);
   return agent;
 }

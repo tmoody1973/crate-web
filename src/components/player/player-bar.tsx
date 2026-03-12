@@ -20,6 +20,7 @@ export function PlayerBar() {
     next,
     previous,
     setVolume,
+    seek,
   } = usePlayer();
 
   if (!currentTrack) return null;
@@ -66,7 +67,15 @@ export function PlayerBar() {
         {/* Progress bar */}
         <div className="flex w-full max-w-md items-center gap-2">
           <span className="text-xs text-zinc-500">{formatTime(currentTime)}</span>
-          <div className="relative h-1 flex-1 rounded-full bg-zinc-700">
+          <div
+            className="relative h-1 flex-1 cursor-pointer rounded-full bg-zinc-700"
+            onClick={(e) => {
+              if (duration <= 0) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const pct = (e.clientX - rect.left) / rect.width;
+              seek(pct * duration);
+            }}
+          >
             <div
               className="absolute h-full rounded-full bg-white"
               style={{ width: `${progress}%` }}

@@ -2,7 +2,16 @@
 
 import { ChatProvider, useThread } from "@openuidev/react-headless";
 import { Renderer } from "@openuidev/react-lang";
-import { useState, useRef, useEffect, useCallback, FormEvent } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  createContext,
+  useContext,
+  FormEvent,
+} from "react";
 import { MarkdownHooks as ReactMarkdown } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useParams } from "next/navigation";
@@ -13,6 +22,13 @@ import { Id } from "../../../convex/_generated/dataModel";
 import { crateLibrary } from "@/lib/openui/library";
 import { crateStreamAdapter } from "@/lib/openui/stream-adapter";
 import { useArtifact } from "./artifact-provider";
+import { getToolLabel, type ToolStep } from "@/lib/tool-labels";
+
+// --- Tool activity context ---
+const ToolActivityContext = createContext<{ steps: ToolStep[] }>({ steps: [] });
+function useToolActivity() {
+  return useContext(ToolActivityContext);
+}
 
 function MarkdownContent({ content }: { content: string }) {
   return (
@@ -95,6 +111,45 @@ function getContentParts(
   if (typeof content === "string") return [{ type: "text", text: content }];
   if (Array.isArray(content)) return content;
   return [];
+}
+
+function ResearchSteps() {
+  const { steps } = useToolActivity();
+  const activeSteps = steps.filter((s) => s.status === "active");
+  const doneSteps = steps.filter((s) => s.status === "done");
+
+  return (
+    <div className="mb-4">
+      <span className="text-xs font-semibold uppercase text-zinc-500">
+        Crate
+      </span>
+      <div className="mt-1 space-y-1">
+        {doneSteps.map((step) => (
+          <div key={step.id} className="flex items-center gap-2 text-zinc-600 text-sm">
+            <span className="text-green-500">✓</span>
+            <span>{step.label}</span>
+          </div>
+        ))}
+        {activeSteps.length > 0 ? (
+          activeSteps.map((step) => (
+            <div key={step.id} className="flex items-center gap-2 text-zinc-400 text-sm">
+              <span className="inline-flex w-4 justify-center">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-500" />
+              </span>
+              <span>{step.label}</span>
+            </div>
+          ))
+        ) : (
+          <div className="flex items-center gap-2 text-zinc-500 text-sm">
+            <span className="inline-flex w-4 justify-center">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-500" />
+            </span>
+            <span>Thinking...</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function ChatMessages() {
@@ -180,21 +235,7 @@ function ChatMessages() {
         </div>
       ))}
 
-      {isRunning && (
-        <div className="mb-4">
-          <span className="text-xs font-semibold uppercase text-zinc-500">
-            Crate
-          </span>
-          <div className="mt-1 flex items-center gap-2 text-zinc-500">
-            <span className="inline-flex gap-1">
-              <span className="animate-bounce" style={{ animationDelay: "0ms" }}>.</span>
-              <span className="animate-bounce" style={{ animationDelay: "150ms" }}>.</span>
-              <span className="animate-bounce" style={{ animationDelay: "300ms" }}>.</span>
-            </span>
-            <span className="text-sm">Researching</span>
-          </div>
-        </div>
-      )}
+      {isRunning && <ResearchSteps />}
     </div>
   );
 }
@@ -234,6 +275,51 @@ function ChatInput() {
   );
 }
 
+/** Load saved messages from Convex into the ChatProvider on mount / session change. */
+function ChatHydration() {
+  const { setMessages } = useThread();
+  const params = useParams();
+  const sessionId = params?.sessionId as Id<"sessions"> | undefined;
+  const saved = useQuery(
+    api.messages.list,
+    sessionId ? { sessionId } : "skip",
+  );
+  // Track which session we've already hydrated to avoid re-hydrating
+  // AND to properly reset when navigating between sessions
+  const hydratedSessionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!sessionId || !saved) return;
+    // Already hydrated this session
+    if (hydratedSessionRef.current === sessionId) return;
+
+    if (saved.length === 0) {
+      // New session or empty session — mark hydrated so we don't keep checking
+      hydratedSessionRef.current = sessionId;
+      return;
+    }
+
+    hydratedSessionRef.current = sessionId;
+
+    const hydrated = saved.map((m) =>
+      m.role === "user"
+        ? {
+            id: m._id as string,
+            role: "user" as const,
+            content: [{ type: "text" as const, text: m.content }],
+          }
+        : {
+            id: m._id as string,
+            role: "assistant" as const,
+            content: m.content,
+          },
+    );
+    setMessages(hydrated);
+  }, [saved, sessionId, setMessages]);
+
+  return null;
+}
+
 function ChatPersistence() {
   const { messages, isRunning } = useThread();
   const params = useParams();
@@ -244,12 +330,29 @@ function ChatPersistence() {
   const updateTitle = useMutation(api.sessions.updateTitle);
   const persistedRef = useRef(new Set<string>());
   const titleSetRef = useRef(false);
+  const prevSessionRef = useRef<string | null>(null);
+
+  // Reset persistence tracking when session changes
+  useEffect(() => {
+    if (sessionId && sessionId !== prevSessionRef.current) {
+      prevSessionRef.current = sessionId;
+      persistedRef.current = new Set<string>();
+      titleSetRef.current = false;
+    }
+  }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId || !user) return;
 
     for (const m of messages) {
       if (persistedRef.current.has(m.id)) continue;
+
+      // Messages hydrated from Convex already have Convex IDs — skip them
+      // Convex IDs don't contain dashes (UUIDs do)
+      if (!m.id.includes("-")) {
+        persistedRef.current.add(m.id);
+        continue;
+      }
 
       // Persist user messages immediately
       if (m.role === "user") {
@@ -289,31 +392,69 @@ function ChatPersistence() {
 }
 
 export function ChatPanel() {
-  return (
-    <ChatProvider
-      processMessage={async ({ messages, abortController }) => {
-        // Extract the last user message text
-        const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
-        const parts = getContentParts(lastUserMsg?.content);
-        const messageText = parts
-          .filter((c): c is { type: "text"; text: string } => c.type === "text")
-          .map((c) => c.text)
-          .join("");
+  const [steps, setSteps] = useState<ToolStep[]>([]);
 
-        return fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: messageText }),
-          signal: abortController.signal,
-        });
-      }}
-      streamProtocol={crateStreamAdapter()}
-    >
-      <div className="flex h-full flex-col bg-zinc-950">
-        <ChatMessages />
-        <ChatInput />
-        <ChatPersistence />
-      </div>
-    </ChatProvider>
+  const onToolStartRef = useRef<((info: { tool: string; server: string; input: unknown }) => void) | null>(null);
+  const onToolEndRef = useRef<((info: { tool: string; server: string }) => void) | null>(null);
+
+  onToolStartRef.current = ({ tool, server, input }) => {
+    const id = `${server}__${tool}__${Date.now()}`;
+    const label = getToolLabel(tool, server, input);
+    setSteps((prev) => [...prev, { id, tool, server, label, status: "active" }]);
+  };
+
+  onToolEndRef.current = ({ tool, server }) => {
+    setSteps((prev) =>
+      prev.map((s) =>
+        s.tool === tool && s.server === server && s.status === "active"
+          ? { ...s, status: "done" as const }
+          : s,
+      ),
+    );
+  };
+
+  const adapter = useMemo(
+    () =>
+      crateStreamAdapter({
+        onToolStart: (info) => onToolStartRef.current?.(info),
+        onToolEnd: (info) => onToolEndRef.current?.(info),
+        onStreamEnd: () => setSteps([]),
+      }),
+    [],
+  );
+
+  const processMessage = useCallback(
+    async ({ messages, abortController }: { threadId: string; messages: Array<{ role: string; content?: unknown }>; abortController: AbortController }) => {
+      // Clear steps from any previous run
+      setSteps([]);
+
+      const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+      const parts = getContentParts(lastUserMsg?.content);
+      const messageText = parts
+        .filter((c): c is { type: "text"; text: string } => c.type === "text")
+        .map((c) => c.text)
+        .join("");
+
+      return fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: messageText }),
+        signal: abortController.signal,
+      });
+    },
+    [],
+  );
+
+  return (
+    <ToolActivityContext.Provider value={{ steps }}>
+      <ChatProvider processMessage={processMessage} streamProtocol={adapter}>
+        <div className="flex h-full flex-col bg-zinc-950">
+          <ChatHydration />
+          <ChatMessages />
+          <ChatInput />
+          <ChatPersistence />
+        </div>
+      </ChatProvider>
+    </ToolActivityContext.Provider>
   );
 }

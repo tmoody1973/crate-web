@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
 
 interface Track {
   title: string;
@@ -29,6 +29,7 @@ interface PlayerContextValue extends PlayerState {
   addToQueue: (track: Track) => void;
   setVolume: (volume: number) => void;
   seek: (time: number) => void;
+  registerSeek: (fn: (time: number) => void) => void;
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
   setIsPlaying: (playing: boolean) => void;
@@ -109,8 +110,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, volume }));
   }, []);
 
-  const seek = useCallback((_time: number) => {
-    // YouTube player seek handled via ref in youtube-embed
+  const seekCallbackRef = useRef<((time: number) => void) | null>(null);
+
+  const registerSeek = useCallback((fn: (time: number) => void) => {
+    seekCallbackRef.current = fn;
+  }, []);
+
+  const seek = useCallback((time: number) => {
+    seekCallbackRef.current?.(time);
+    setState((prev) => ({ ...prev, currentTime: time }));
   }, []);
 
   const setCurrentTime = useCallback((currentTime: number) => {
@@ -137,6 +145,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         addToQueue,
         setVolume,
         seek,
+        registerSeek,
         setCurrentTime,
         setDuration,
         setIsPlaying,
