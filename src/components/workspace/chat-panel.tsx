@@ -49,9 +49,14 @@ function MarkdownContent({ content }: { content: string }) {
   );
 }
 
+/** Strip markdown code fences that might wrap OpenUI Lang output. */
+function stripCodeFences(content: string): string {
+  return content.replace(/```(?:\w*)\n?([\s\S]*?)```/g, "$1");
+}
+
 /** Try to detect if content contains OpenUI Lang (has component assignments). */
 function containsOpenUILang(content: string): boolean {
-  return /^\w+\s*=\s*\w+\(/m.test(content);
+  return /^\w+\s*=\s*\w+\(/m.test(stripCodeFences(content));
 }
 
 /** Check if a line is an OpenUI Lang assignment: `varName = ComponentName(...)` */
@@ -61,11 +66,14 @@ function isOpenUILine(line: string): boolean {
 
 /** Split content into markdown sections and OpenUI Lang blocks. */
 function splitContent(content: string): Array<{ type: "markdown" | "openui"; text: string }> {
-  if (!containsOpenUILang(content)) {
+  // First, unwrap any code fences around OpenUI blocks
+  const unwrapped = stripCodeFences(content);
+
+  if (!containsOpenUILang(unwrapped)) {
     return [{ type: "markdown", text: content }];
   }
 
-  const lines = content.split("\n");
+  const lines = unwrapped.split("\n");
   const result: Array<{ type: "markdown" | "openui"; text: string }> = [];
   let currentLines: string[] = [];
   let currentType: "markdown" | "openui" = "markdown";

@@ -68,8 +68,8 @@ Social media copy with platform tabs. hashtags is comma-separated.
 **InterviewPrepCard(guestName, warmUpQuestions, deepDiveQuestions, localQuestions, avoidQuestions)**
 Interview prep with question categories. Each question field has one question per line.
 
-**ShowPrepPackage(station, date, dj, shift, tracks, talkBreaks, socialPosts, interviewPreps?)**
-Top-level show prep container. \`tracks\` is array of TrackContextCard refs. \`talkBreaks\` is array of TalkBreakCard refs. \`socialPosts\` is array of SocialPostCard refs. \`interviewPreps\` is optional array of InterviewPrepCard refs.
+**ShowPrepPackage(station, date, dj, shift, tracks, talkBreaks, socialPosts, interviewPreps?, events?)**
+Top-level show prep container. \`tracks\` is array of TrackContextCard refs. \`talkBreaks\` is array of TalkBreakCard refs. \`socialPosts\` is array of SocialPostCard refs. \`interviewPreps\` is optional array of InterviewPrepCard refs. \`events\` is optional array of ConcertEvent refs for local events.
 
 ### Rules
 

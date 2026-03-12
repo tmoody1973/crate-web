@@ -870,6 +870,7 @@ export const ShowPrepPackage = defineComponent({
     talkBreaks: z.array(TalkBreakCard.ref).describe("Talk break cards"),
     socialPosts: z.array(SocialPostCard.ref).describe("Social media post cards"),
     interviewPreps: z.array(InterviewPrepCard.ref).optional().describe("Interview prep cards (if guest mentioned)"),
+    events: z.array(ConcertEvent.ref).optional().describe("Local concert/event cards"),
   }),
   component: ({ props, renderNode }) => {
     const stationColor: Record<string, string> = {
@@ -912,6 +913,13 @@ export const ShowPrepPackage = defineComponent({
           <div>
             <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Social Copy</h2>
             <div className="space-y-2">{renderNode(props.socialPosts)}</div>
+          </div>
+        )}
+
+        {props.events && (
+          <div>
+            <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Local Events</h2>
+            <div className="space-y-2">{renderNode(props.events)}</div>
           </div>
         )}
 
