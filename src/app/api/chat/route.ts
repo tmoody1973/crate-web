@@ -67,7 +67,70 @@ function preprocessSlashCommand(message: string): string {
       if (!arg) {
         return "Show prep — which station (88Nine, HYFIN, or Rhythm Lab) and what's your setlist?";
       }
-      return `Prep my show: ${arg}`;
+
+      // Parse station from the first word/line
+      const prepLines = arg.split("\n").map((l: string) => l.trim()).filter(Boolean);
+      let prepStation = "";
+      let trackLines = prepLines;
+
+      // Check if first line is a station name (with optional colon)
+      const firstLine = (prepLines[0] ?? "").replace(/:$/, "").trim().toLowerCase().replace(/\s+/g, "");
+      if (["88nine", "hyfin", "rhythmlab"].includes(firstLine)) {
+        prepStation = prepLines[0]!.replace(/:$/, "").trim();
+        trackLines = prepLines.slice(1);
+      }
+
+      // Check for inline "for STATION" pattern
+      if (!prepStation) {
+        const forMatch = arg.match(/\bfor\s+(88nine|hyfin|rhythm\s*lab)\b/i);
+        if (forMatch) {
+          prepStation = forMatch[1]!;
+          trackLines = prepLines.map((l: string) => l.replace(/\bfor\s+(88nine|hyfin|rhythm\s*lab)\b:?/i, "").trim()).filter(Boolean);
+        }
+      }
+
+      const stationVoice = prepStation
+        ? prepStation.toLowerCase().includes("hyfin")
+          ? `STATION: HYFIN — Bold, culturally sharp, unapologetic. Music focus: urban alternative, neo-soul, progressive hip-hop, Afrobeats. Audience: young, culturally aware Milwaukee listeners invested in Black art and music. Voice: cultural context, movement-building, "here's why this matters." Preferred vocabulary: culture, movement, lineage, vibration, frequency. Avoid: "urban" standalone, "exotic", "ethnic".`
+          : prepStation.toLowerCase().includes("rhythm")
+            ? `STATION: Rhythm Lab — Curated, global perspective, deep knowledge. Music focus: global beats, electronic, jazz fusion, experimental, Afrobeats, dub. Audience: dedicated music heads, DJs, producers, crate diggers. Voice: influence tracing, crate-digging stories, "the thread connecting these sounds." Preferred vocabulary: lineage, crate, connection, thread, sonic, palette.`
+            : `STATION: 88Nine — Warm, eclectic, community-forward. Music focus: indie, alternative, world, electronic, hip-hop. Audience: Milwaukee music lovers who value discovery and local culture. Voice: discovery-oriented, "let me tell you about this artist." Preferred vocabulary: discover, connect, community, eclectic, homegrown.`
+        : "";
+
+      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const day = days[new Date().getDay()];
+      const trackList = trackLines.length > 0 ? trackLines.join("\n") : "";
+
+      return [
+        `Generate a complete radio show prep package.`,
+        prepStation ? stationVoice : `Ask which station (88Nine, HYFIN, or Rhythm Lab) if not specified.`,
+        `Date: ${day}`,
+        ``,
+        trackList ? `SETLIST:\n${trackList}` : `No tracks provided — ask for the setlist.`,
+        ``,
+        `RESEARCH STEPS (for each track in the setlist):`,
+        `1. MusicBrainz: search_recording + get_recording_credits for canonical metadata, producer, studio`,
+        `2. Discogs: search_discogs + get_release_full for release year, label, album context`,
+        `3. Genius: search_songs + get_song for annotations, artist commentary, production context`,
+        `4. Bandcamp: search_bandcamp for artist statements, liner notes, independent status`,
+        `5. Last.fm: get_track_info + get_similar_tracks for listener stats, similar tracks`,
+        `6. Ticketmaster: search_events for upcoming Milwaukee shows by this artist`,
+        `7. Web search: check Milwaukee sources (milwaukeerecord.com, jsonline.com, urbanmilwaukee.com) for local tie-ins`,
+        ``,
+        `OUTPUT FORMAT:`,
+        `Output a SINGLE ShowPrepPackage OpenUI component containing:`,
+        `- One TrackContextCard per track (with originStory, productionNotes, connections, lesserKnownFact, whyItMatters, audienceRelevance, localTieIn)`,
+        `- TalkBreakCards for transitions between tracks (short/medium/long variants in station voice)`,
+        `- SocialPostCards with platform-specific copy (Instagram, X, Bluesky) and station hashtags`,
+        `- InterviewPrepCards if any guest/interview is mentioned`,
+        ``,
+        `RULES:`,
+        `- Every piece must answer "why does the listener care?" — no slot filling`,
+        `- Talk breaks are starting points, not scripts — give DJs material to develop`,
+        `- Bold key phrases in talk breaks`,
+        `- Include pronunciation guides for unfamiliar names`,
+        `- Rank by audience relevance (high/medium/low)`,
+      ].join("\n");
     }
 
     default:
