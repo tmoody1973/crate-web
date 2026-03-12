@@ -134,15 +134,15 @@ function ResearchSteps() {
         Crate
       </span>
       <div className="mt-1 space-y-1">
-        {doneSteps.map((step) => (
-          <div key={step.id} className="flex items-center gap-2 text-zinc-600 text-sm">
+        {doneSteps.map((step, i) => (
+          <div key={`${step.id}-${i}`} className="flex items-center gap-2 text-zinc-600 text-sm">
             <span className="text-green-500">✓</span>
             <span>{step.label}</span>
           </div>
         ))}
         {activeSteps.length > 0 ? (
-          activeSteps.map((step) => (
-            <div key={step.id} className="flex items-center gap-2 text-zinc-400 text-sm">
+          activeSteps.map((step, i) => (
+            <div key={`${step.id}-${i}`} className="flex items-center gap-2 text-zinc-400 text-sm">
               <span className="inline-flex w-4 justify-center">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-500" />
               </span>
