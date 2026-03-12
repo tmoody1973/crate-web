@@ -10,28 +10,20 @@ export interface ModelOption {
 }
 
 const MODELS: ModelOption[] = [
-  // Anthropic (works with both direct Anthropic key and OpenRouter)
+  // Anthropic — supported by Claude Agent SDK
   { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", provider: "Anthropic", description: "Best coding model — fast, accurate" },
   { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5", provider: "Anthropic", description: "Lightweight, 3x cheaper" },
-  // OpenRouter-only models (require OpenRouter key)
-  { id: "openai/gpt-4o", name: "GPT-4o", provider: "OpenAI", description: "Multimodal, fast" },
-  { id: "openai/gpt-4.1", name: "GPT-4.1", provider: "OpenAI", description: "Latest GPT model" },
-  { id: "google/gemini-2.5-flash-preview", name: "Gemini 2.5 Flash", provider: "Google", description: "Fast, efficient" },
-  { id: "google/gemini-2.5-pro-preview", name: "Gemini 2.5 Pro", provider: "Google", description: "Most capable Gemini" },
-  { id: "meta-llama/llama-4-maverick", name: "Llama 4 Maverick", provider: "Meta", description: "Open source, powerful" },
-  { id: "deepseek/deepseek-r1", name: "DeepSeek R1", provider: "DeepSeek", description: "Reasoning model" },
-  { id: "mistralai/mistral-large-2411", name: "Mistral Large", provider: "Mistral", description: "European AI leader" },
 ];
 
 const STORAGE_KEY = "crate-model";
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
 export function getStoredModel(): string {
   if (typeof window === "undefined") return DEFAULT_MODEL;
   return localStorage.getItem(STORAGE_KEY) || DEFAULT_MODEL;
 }
 
-export function ModelSelector({ hasOpenRouter }: { hasOpenRouter: boolean }) {
+export function ModelSelector({ hasOpenRouter: _hasOpenRouter }: { hasOpenRouter: boolean }) {
   const [selected, setSelected] = useState(DEFAULT_MODEL);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -50,9 +42,7 @@ export function ModelSelector({ hasOpenRouter }: { hasOpenRouter: boolean }) {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const available = hasOpenRouter
-    ? MODELS
-    : MODELS.filter((m) => m.provider === "Anthropic");
+  const available = MODELS;
 
   const current = MODELS.find((m) => m.id === selected) ?? MODELS[0];
 
