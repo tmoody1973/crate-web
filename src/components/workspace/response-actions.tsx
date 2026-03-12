@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
+import { marked } from "marked";
 
 interface ResponseActionsProps {
   content: string;
@@ -52,6 +53,10 @@ export function ResponseActions({
         ? firstLine.slice(0, 77) + "..."
         : firstLine || "Crate Research";
 
+      // Convert markdown to styled HTML for email clients
+      const rawHtml = await marked.parse(content, { gfm: true, breaks: true });
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#1a1a1a;line-height:1.6"><style>table{border-collapse:collapse;width:100%;margin:16px 0}th,td{border:1px solid #ddd;padding:8px 12px;text-align:left}th{background:#f5f5f5;font-weight:600}tr:nth-child(even){background:#fafafa}h1,h2,h3{margin-top:24px;margin-bottom:8px}h1{font-size:24px;border-bottom:2px solid #eee;padding-bottom:8px}h2{font-size:20px}h3{font-size:16px}blockquote{border-left:4px solid #ddd;margin:16px 0;padding:8px 16px;color:#555}code{background:#f5f5f5;padding:2px 6px;border-radius:3px;font-size:0.9em}pre{background:#f5f5f5;padding:16px;border-radius:6px;overflow-x:auto}a{color:#2563eb}ul,ol{padding-left:24px}hr{border:none;border-top:1px solid #eee;margin:24px 0}</style>${rawHtml}<hr style="margin-top:32px"><p style="font-size:12px;color:#999">Sent from <a href="https://crate.fm" style="color:#999">Crate</a> — AI music research</p></body></html>`;
+
       console.log("[ResponseActions] fetching /api/email...");
       const res = await fetch("/api/email", {
         method: "POST",
@@ -60,6 +65,7 @@ export function ResponseActions({
           to,
           subject: `[Crate] ${subject}`,
           text: content,
+          html,
         }),
       });
       const data = await res.json();

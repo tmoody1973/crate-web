@@ -4,6 +4,78 @@ import { api } from "../../../../convex/_generated/api";
 import { decrypt } from "@/lib/encryption";
 import { createAgent } from "@/lib/agent";
 
+/** Slash command preprocessor — transforms /commands into research prompts for the agent. */
+function preprocessSlashCommand(message: string): string {
+  const trimmed = message.trim();
+  if (!trimmed.startsWith("/")) return message;
+
+  const [cmd, ...rest] = trimmed.slice(1).split(/\s+/);
+  const arg = rest.join(" ");
+
+  switch (cmd.toLowerCase()) {
+    case "news": {
+      const parts = arg?.split(/\s+/) ?? [];
+      let count = 5;
+      let station = "";
+
+      for (const part of parts) {
+        const num = parseInt(part, 10);
+        if (!isNaN(num) && num >= 1 && num <= 5) {
+          count = num;
+        } else if (["88nine", "hyfin", "rhythmlab"].includes(part.toLowerCase().replace(/\s+/g, ""))) {
+          station = part;
+        }
+      }
+
+      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const day = days[new Date().getDay()];
+
+      const stationContext = station
+        ? [
+            ``,
+            `STATION VOICE: This segment is for ${station}. Match the station's voice, music focus, and audience:`,
+            station.toLowerCase().includes("hyfin")
+              ? `- HYFIN: Bold, culturally sharp. Focus on hip-hop, neo-soul, Afrobeats, cultural context. Audience: young, culturally aware Milwaukee listeners.`
+              : station.toLowerCase().includes("rhythm")
+                ? `- Rhythm Lab: Curated, global perspective, deep knowledge. Focus on global beats, electronic, jazz fusion. Audience: dedicated music heads and crate diggers.`
+                : `- 88Nine: Warm, eclectic, community-forward. Focus on indie, alternative, world, electronic. Audience: Milwaukee music lovers who value discovery.`,
+            `- Prioritize stories relevant to this station's audience and music focus.`,
+            `- Use Milwaukee local sources (milwaukeerecord.com, jsonline.com, urbanmilwaukee.com) for local angles.`,
+          ].join("\n")
+        : "";
+
+      return [
+        `Generate a Radio Milwaukee daily music news segment for ${day}.`,
+        `Find ${count} current music stories from TODAY or the past 24-48 hours.`,
+        ``,
+        `RESEARCH STEPS:`,
+        `1. Use search_music_news to scan RSS feeds for breaking stories`,
+        `2. Use search_web (Tavily, topic="news", time_range="day") to find additional breaking music news not in RSS`,
+        `3. Use search_web (Exa) for any trending music stories or scene coverage the keyword search missed`,
+        `4. Cross-reference and pick the ${count} most compelling, newsworthy stories`,
+        `5. For each story, verify facts using available tools (MusicBrainz, Discogs, Bandcamp, etc.)`,
+        stationContext,
+        ``,
+        `FORMAT — follow the Music News Segment Format rules in your instructions exactly.`,
+        `Output "For ${day}:" then ${count} numbered stories with source citations.`,
+      ].join("\n");
+    }
+
+    case "show-prep":
+    case "showprep":
+    case "prep": {
+      if (!arg) {
+        return "Show prep — which station (88Nine, HYFIN, or Rhythm Lab) and what's your setlist?";
+      }
+      return `Prep my show: ${arg}`;
+    }
+
+    default:
+      // Unknown slash command — pass through as-is
+      return message;
+  }
+}
+
 /** Simple chat-tier classifier — returns true for greetings and short conversational messages. */
 function isChatTier(message: string): boolean {
   const lower = message.toLowerCase().trim();
@@ -131,6 +203,8 @@ function getEmbeddedKeys(): Record<string, string> {
     embedded.TAVILY_API_KEY = process.env.EMBEDDED_TAVILY_KEY;
   if (process.env.EMBEDDED_EXA_KEY)
     embedded.EXA_API_KEY = process.env.EMBEDDED_EXA_KEY;
+  if (process.env.EMBEDDED_KERNEL_KEY)
+    embedded.KERNEL_API_KEY = process.env.EMBEDDED_KERNEL_KEY;
   return embedded;
 }
 
@@ -198,13 +272,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const { message, model } = body;
-  if (!message || typeof message !== "string") {
+  const { message: rawMessage, model } = body;
+  if (!rawMessage || typeof rawMessage !== "string") {
     return new Response(
       JSON.stringify({ error: "message field is required" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
+
+  // Slash command preprocessing — transform commands into research prompts
+  const message = preprocessSlashCommand(rawMessage);
 
   // Fast path: chat-tier messages bypass the full agent subprocess (~1-2s vs 13s)
   const modelId = model || "claude-haiku-4-5-20251001";
@@ -250,6 +327,14 @@ export async function POST(req: Request) {
   // Unset CLAUDECODE to prevent "cannot launch inside another session" error
   // when dev server was started from a Claude Code terminal session
   delete process.env.CLAUDECODE;
+
+  // Set all user keys on process.env so third-party SDKs (Kernel, etc.) can find them.
+  // The keys dict tells CrateAgent which servers to register, but the SDKs themselves
+  // read from process.env (e.g. @onkernel/sdk reads KERNEL_API_KEY).
+  const mergedKeys = { ...getEmbeddedKeys(), ...userEnvKeys };
+  for (const [envVar, value] of Object.entries(mergedKeys)) {
+    if (value) process.env[envVar] = value;
+  }
 
   // Create agent with user's keys + embedded fallbacks
   const agent = createAgent(userEnvKeys, getEmbeddedKeys(), agentModel);

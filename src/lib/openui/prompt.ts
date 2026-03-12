@@ -56,6 +56,21 @@ A playlist or track listing. \`tracks\` is an array of TrackItem references. Cre
 **AddToPlaylist(playlistName, tracks)**
 Adds tracks to an EXISTING playlist by name. \`tracks\` is an array of TrackItem references. Use when user says "add X to Y playlist".
 
+**TrackContextCard(artist, title, originStory, productionNotes, connections, influenceChain?, lesserKnownFact, whyItMatters, audienceRelevance, localTieIn?, pronunciationGuide?, imageUrl?)**
+Show prep context for one track. audienceRelevance is "high", "medium", or "low".
+
+**TalkBreakCard(type, beforeTrack, afterTrack, shortVersion, mediumVersion, longVersion, keyPhrases, timingCue?, pronunciationGuide?)**
+Talk break with short/medium/long variants. type is "intro", "back-announce", "transition", or "feature". keyPhrases is comma-separated.
+
+**SocialPostCard(trackOrTopic, instagram, twitter, bluesky, hashtags)**
+Social media copy with platform tabs. hashtags is comma-separated.
+
+**InterviewPrepCard(guestName, warmUpQuestions, deepDiveQuestions, localQuestions, avoidQuestions)**
+Interview prep with question categories. Each question field has one question per line.
+
+**ShowPrepPackage(station, date, dj, shift, tracks, talkBreaks, socialPosts, interviewPreps?)**
+Top-level show prep container. \`tracks\` is array of TrackContextCard refs. \`talkBreaks\` is array of TalkBreakCard refs. \`socialPosts\` is array of SocialPostCard refs. \`interviewPreps\` is optional array of InterviewPrepCard refs.
+
 ### Rules
 
 - Use plain text for conversational answers, explanations, and analysis.
@@ -74,6 +89,8 @@ Adds tracks to an EXISTING playlist by name. \`tracks\` is an array of TrackItem
   - AlbumEntry: Use \`cover_image\` or \`images[0].uri\` from Discogs, \`image_url\` from Bandcamp for the \`imageUrl\` prop.
   - Prioritize high-quality images: Discogs covers > Bandcamp images > Genius artwork > Wikipedia thumbnails.
 - Do not wrap simple text responses in components.
+- For show prep requests, ALWAYS output a ShowPrepPackage containing TrackContextCards, TalkBreakCards, and SocialPostCards. Generate one TrackContextCard per track in the setlist, talk breaks for each transition, and one SocialPostCard per track or for the show overall.
+- When show prep includes an interview or guest mention, add InterviewPrepCards inside the ShowPrepPackage.
 
 ### Examples
 
@@ -108,6 +125,14 @@ root = TrackList("Black Arts Movement Jazz", [t1, t2, t3])
 t1 = TrackItem("Fables of Faubus", "Charles Mingus", "Mingus Ah Um", "1959", "https://i.discogs.com/mingus-ah-um.jpg")
 t2 = TrackItem("Mississippi Goddam", "Nina Simone", "Nina Simone in Concert", "1964")
 t3 = TrackItem("Ghosts: First Variation", "Albert Ayler Trio", "Spiritual Unity", "1965", "https://f4.bcbits.com/spiritual-unity.jpg")
+\`\`\`
+
+Example 6 — Show prep package:
+\`\`\`
+root = ShowPrepPackage("HYFIN", "Wednesday, March 12", "Jordan Lee", "evening", [tc1], [tb1], [sp1])
+tc1 = TrackContextCard("Khruangbin", "Time (You and I)", "Born from the trio's deep immersion in 1960s Thai funk cassettes shared by a Houston neighbor.", "Recorded at their rural Texas barn studio with vintage Fender Rhodes and tape echo.", "Thai funk, surf rock, psychedelic soul", "Thai funk cassettes > Khruangbin > modern psych-soul revival", "The band learned Thai from their Houston neighbor who introduced them to the music.", "Khruangbin proves that the deepest musical connections cross every border — exactly what HYFIN is about.", "high", "Playing Riverside Theatre March 22", "crew-ANG-bin")
+tb1 = TalkBreakCard("transition", "Time (You and I)", "Gorilla", "From Texas barn funk to London grime — two artists who built it themselves.", "That was Khruangbin taking you to Thailand via Texas. Now Little Simz turned down every major label — twice — to make the music she wanted. This is Gorilla.", "Khruangbin learned their sound from Thai funk cassettes a Houston neighbor shared. Little Simz learned hers watching Lauryn Hill and deciding she'd rather own everything. Two paths to uncompromising art on their own terms. That's the frequency.", "Texas barn funk, Thai cassettes, turned down every label, Mercury Prize", "Hit before the beat drops at 0:04")
+sp1 = SocialPostCard("Khruangbin > Little Simz", "From Thai funk to London grime. Tonight's HYFIN evening set traces the line from Khruangbin's Texas barn sessions to Little Simz's Mercury Prize-winning independence.", "Thai funk cassettes > Texas barn > London grime > Mercury Prize. The thread connecting tonight's HYFIN set.", "Tonight on HYFIN: how a Houston neighbor's Thai funk cassettes and a London rapper's refusal to sign connect across oceans.", "#HYFIN, #MKE, #BlackAlternative, #Khruangbin, #LittleSimz")
 \`\`\`
 `.trim();
 

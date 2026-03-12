@@ -114,7 +114,17 @@ export function getToolLabel(
 
     // WhoSampled
     case "search_whosampled":
-      return `Looking up samples for "${inp.query}"`;
+      return `Searching WhoSampled for "${inp.artist} – ${inp.track}"`;
+    case "get_track_samples":
+      return "Fetching sample relationships from WhoSampled";
+    case "get_artist_connections":
+      return `Fetching sampling connections for "${inp.artist}"`;
+
+    // Browser (Kernel)
+    case "browse_url":
+      return `Reading page: ${inp.url}`;
+    case "screenshot_url":
+      return `Taking screenshot: ${inp.url}`;
 
     // Events
     case "search_events":

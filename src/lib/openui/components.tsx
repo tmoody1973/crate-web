@@ -563,3 +563,365 @@ export const TrackList = defineComponent({
     );
   },
 });
+
+// ── Show Prep Components ────────────────────────────────────────
+
+export const TrackContextCard = defineComponent({
+  name: "TrackContextCard",
+  description:
+    "Show prep context card for a single track — origin story, production notes, talk break suggestions, local tie-in, and audience relevance.",
+  props: z.object({
+    artist: z.string().describe("Artist name"),
+    title: z.string().describe("Track title"),
+    originStory: z.string().describe("2-3 sentence backstory of how this track came to be"),
+    productionNotes: z.string().describe("Key production details — studio, producer, notable instruments"),
+    connections: z.string().describe("Influences, samples, collaborations, genre lineage"),
+    influenceChain: z.string().optional().describe("Musical lineage chain, e.g. 'Thai funk > Khruangbin > modern psych-soul'"),
+    lesserKnownFact: z.string().describe("Detail listeners can't easily Google"),
+    whyItMatters: z.string().describe("One sentence: why should the listener care about this right now?"),
+    audienceRelevance: z.enum(["high", "medium", "low"]).describe("How well this track fits the station's audience"),
+    localTieIn: z.string().optional().describe("Milwaukee-specific connection — upcoming shows, local artist tie-in"),
+    pronunciationGuide: z.string().optional().describe("Pronunciation help for unfamiliar names"),
+    imageUrl: z.string().optional().describe("Album art URL"),
+  }),
+  component: ({ props }) => {
+    const [expanded, setExpanded] = useState(false);
+    const relevanceColor = {
+      high: "bg-green-500/20 text-green-400",
+      medium: "bg-yellow-500/20 text-yellow-400",
+      low: "bg-zinc-500/20 text-zinc-400",
+    }[props.audienceRelevance];
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
+        <div className="flex items-start gap-3">
+          {props.imageUrl && (
+            <img src={props.imageUrl} alt="" className="h-16 w-16 shrink-0 rounded object-cover" />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <PlayButton name={props.title} artist={props.artist} />
+              <h3 className="font-bold text-white">{props.artist} — {props.title}</h3>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${relevanceColor}`}>
+                {props.audienceRelevance}
+              </span>
+            </div>
+            <p className="mt-1 text-sm font-medium text-cyan-400">{props.whyItMatters}</p>
+            {props.pronunciationGuide && (
+              <p className="mt-0.5 text-xs italic text-zinc-500">{props.pronunciationGuide}</p>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-2 text-xs text-zinc-500 hover:text-zinc-300"
+        >
+          {expanded ? "Hide details" : "Origin / Production / Connections"}
+        </button>
+
+        {expanded && (
+          <div className="mt-2 space-y-3 border-t border-zinc-700 pt-3">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Origin Story</p>
+              <p className="mt-0.5 text-sm text-zinc-300">{props.originStory}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Production Notes</p>
+              <p className="mt-0.5 text-sm text-zinc-300">{props.productionNotes}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Connections</p>
+              <p className="mt-0.5 text-sm text-zinc-300">{props.connections}</p>
+            </div>
+            {props.influenceChain && (
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Influence Chain</p>
+                <p className="mt-0.5 text-sm text-zinc-300">{props.influenceChain}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Lesser-Known Fact</p>
+              <p className="mt-0.5 text-sm text-zinc-300">{props.lesserKnownFact}</p>
+            </div>
+            {props.localTieIn && (
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Milwaukee Connection</p>
+                <p className="mt-0.5 text-sm text-cyan-400/80">{props.localTieIn}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  },
+});
+
+export const TalkBreakCard = defineComponent({
+  name: "TalkBreakCard",
+  description:
+    "Talk break card with short/medium/long variants. Type badge shows intro, back-announce, transition, or feature.",
+  props: z.object({
+    type: z.enum(["intro", "back-announce", "transition", "feature"]).describe("Break type"),
+    beforeTrack: z.string().describe("Track playing before this break"),
+    afterTrack: z.string().describe("Track playing after this break"),
+    shortVersion: z.string().describe("10-15 second version — quick hook"),
+    mediumVersion: z.string().describe("30-60 second version — fuller context"),
+    longVersion: z.string().describe("60-120 second version — deep backstory"),
+    keyPhrases: z.string().describe("Comma-separated key phrases to emphasize on air"),
+    timingCue: z.string().optional().describe("e.g. 'Hit this before the vocal at 0:08'"),
+    pronunciationGuide: z.string().optional().describe("Pronunciation help for names"),
+  }),
+  component: ({ props }) => {
+    const [tab, setTab] = useState<"short" | "medium" | "long">("medium");
+    const [copied, setCopied] = useState(false);
+
+    const typeBadge = {
+      intro: "bg-blue-500/20 text-blue-400",
+      "back-announce": "bg-green-500/20 text-green-400",
+      transition: "bg-purple-500/20 text-purple-400",
+      feature: "bg-amber-500/20 text-amber-400",
+    }[props.type];
+
+    const content = { short: props.shortVersion, medium: props.mediumVersion, long: props.longVersion }[tab];
+
+    const handleCopy = async () => {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeBadge}`}>
+              {props.type}
+            </span>
+            <span className="text-xs text-zinc-500">
+              {props.beforeTrack} → {props.afterTrack}
+            </span>
+          </div>
+          <button onClick={handleCopy} className="text-[10px] text-zinc-500 hover:text-white">
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+
+        <div className="mt-2 flex gap-1">
+          {(["short", "medium", "long"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`rounded px-2 py-0.5 text-[10px] ${tab === t ? "bg-zinc-700 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+            >
+              {t === "short" ? "15s" : t === "medium" ? "60s" : "120s"}
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-2 text-sm text-zinc-300">{content}</p>
+
+        {props.keyPhrases && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {props.keyPhrases.split(",").map((phrase) => (
+              <span key={phrase.trim()} className="rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                {phrase.trim()}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {props.timingCue && (
+          <p className="mt-1 text-[10px] text-amber-400/70">{props.timingCue}</p>
+        )}
+        {props.pronunciationGuide && (
+          <p className="mt-0.5 text-[10px] italic text-zinc-500">{props.pronunciationGuide}</p>
+        )}
+      </div>
+    );
+  },
+});
+
+export const SocialPostCard = defineComponent({
+  name: "SocialPostCard",
+  description:
+    "Social media copy card with platform tabs (Instagram, X, Bluesky). Copy button per platform. Station-specific hashtags.",
+  props: z.object({
+    trackOrTopic: z.string().describe("Track name or topic this post is about"),
+    instagram: z.string().describe("Instagram post copy"),
+    twitter: z.string().describe("X/Twitter post copy"),
+    bluesky: z.string().describe("Bluesky post copy"),
+    hashtags: z.string().describe("Comma-separated hashtags"),
+  }),
+  component: ({ props }) => {
+    const [tab, setTab] = useState<"instagram" | "twitter" | "bluesky">("instagram");
+    const [copied, setCopied] = useState(false);
+
+    const content = { instagram: props.instagram, twitter: props.twitter, bluesky: props.bluesky }[tab];
+
+    const handleCopy = async () => {
+      const hashtagStr = props.hashtags.split(",").map((h) => h.trim()).join(" ");
+      await navigator.clipboard.writeText(`${content}\n\n${hashtagStr}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-zinc-400">{props.trackOrTopic}</span>
+          <button onClick={handleCopy} className="text-[10px] text-zinc-500 hover:text-white">
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+
+        <div className="mt-1.5 flex gap-1">
+          {(["instagram", "twitter", "bluesky"] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setTab(p)}
+              className={`rounded px-2 py-0.5 text-[10px] ${tab === p ? "bg-zinc-700 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+            >
+              {p === "twitter" ? "X" : p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-2 text-sm text-zinc-300">{content}</p>
+
+        <div className="mt-2 flex flex-wrap gap-1">
+          {props.hashtags.split(",").map((tag) => (
+            <span key={tag.trim()} className="rounded-full bg-zinc-700/50 px-2 py-0.5 text-[10px] text-zinc-400">
+              {tag.trim()}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  },
+});
+
+export const InterviewPrepCard = defineComponent({
+  name: "InterviewPrepCard",
+  description:
+    "Interview preparation card with warm-up, deep-dive, and local questions. Flags overasked questions to avoid.",
+  props: z.object({
+    guestName: z.string().describe("Guest artist or interviewee name"),
+    warmUpQuestions: z.string().describe("Easy personality-revealing openers, one per line"),
+    deepDiveQuestions: z.string().describe("Questions about craft, process, specific tracks, one per line"),
+    localQuestions: z.string().describe("Milwaukee connection angles, one per line"),
+    avoidQuestions: z.string().describe("Common overasked questions to skip, one per line"),
+  }),
+  component: ({ props }) => {
+    const [section, setSection] = useState<"warmup" | "deep" | "local" | "avoid">("warmup");
+
+    const renderQuestions = (text: string, color: string) => (
+      <ul className="mt-2 space-y-1.5">
+        {text.split("\n").filter(Boolean).map((q, i) => (
+          <li key={i} className={`text-sm ${color}`}>{q.replace(/^[-•]\s*/, "")}</li>
+        ))}
+      </ul>
+    );
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
+        <h3 className="font-bold text-white">Interview Prep: {props.guestName}</h3>
+
+        <div className="mt-2 flex gap-1">
+          {([
+            ["warmup", "Warm-up"],
+            ["deep", "Deep Dive"],
+            ["local", "Milwaukee"],
+            ["avoid", "Avoid"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setSection(key)}
+              className={`rounded px-2 py-0.5 text-[10px] ${
+                section === key
+                  ? key === "avoid" ? "bg-red-900/30 text-red-400" : "bg-zinc-700 text-white"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {section === "warmup" && renderQuestions(props.warmUpQuestions, "text-zinc-300")}
+        {section === "deep" && renderQuestions(props.deepDiveQuestions, "text-zinc-300")}
+        {section === "local" && renderQuestions(props.localQuestions, "text-cyan-400/80")}
+        {section === "avoid" && renderQuestions(props.avoidQuestions, "text-red-400/70")}
+      </div>
+    );
+  },
+});
+
+export const ShowPrepPackage = defineComponent({
+  name: "ShowPrepPackage",
+  description:
+    "Top-level show prep container. Station badge, date, DJ name, shift. Children are TrackContextCards, TalkBreakCards, SocialPostCards, and optionally InterviewPrepCards.",
+  props: z.object({
+    station: z.string().describe("Station name: 88Nine, HYFIN, or Rhythm Lab"),
+    date: z.string().describe("Show date, e.g. 'Wednesday, March 12'"),
+    dj: z.string().describe("DJ name"),
+    shift: z.string().describe("Shift: morning, midday, afternoon, evening, overnight"),
+    tracks: z.array(TrackContextCard.ref).describe("Track context cards"),
+    talkBreaks: z.array(TalkBreakCard.ref).describe("Talk break cards"),
+    socialPosts: z.array(SocialPostCard.ref).describe("Social media post cards"),
+    interviewPreps: z.array(InterviewPrepCard.ref).optional().describe("Interview prep cards (if guest mentioned)"),
+  }),
+  component: ({ props, renderNode }) => {
+    const stationColor: Record<string, string> = {
+      "88Nine": "bg-blue-500/20 text-blue-400 border-blue-500/30",
+      "HYFIN": "bg-amber-500/20 text-amber-400 border-amber-500/30",
+      "Rhythm Lab": "bg-purple-500/20 text-purple-400 border-purple-500/30",
+    };
+    const colorClass = stationColor[props.station] || "bg-zinc-500/20 text-zinc-400 border-zinc-500/30";
+
+    return (
+      <div className="space-y-4 rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+        <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+          <div>
+            <span className={`rounded-full border px-3 py-1 text-sm font-bold ${colorClass}`}>
+              {props.station}
+            </span>
+            <span className="ml-3 text-sm text-zinc-400">{props.shift} shift</span>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-white">{props.dj}</p>
+            <p className="text-xs text-zinc-500">{props.date}</p>
+          </div>
+        </div>
+
+        {props.tracks && (
+          <div>
+            <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Track Context</h2>
+            <div className="space-y-3">{renderNode(props.tracks)}</div>
+          </div>
+        )}
+
+        {props.talkBreaks && (
+          <div>
+            <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Talk Breaks</h2>
+            <div className="space-y-3">{renderNode(props.talkBreaks)}</div>
+          </div>
+        )}
+
+        {props.socialPosts && (
+          <div>
+            <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Social Copy</h2>
+            <div className="space-y-2">{renderNode(props.socialPosts)}</div>
+          </div>
+        )}
+
+        {props.interviewPreps && (
+          <div>
+            <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Interview Prep</h2>
+            <div className="space-y-3">{renderNode(props.interviewPreps)}</div>
+          </div>
+        )}
+      </div>
+    );
+  },
+});
