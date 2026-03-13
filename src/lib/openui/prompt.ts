@@ -77,7 +77,7 @@ A review source card with publication badge, linked title, snippet, and mentione
 **ArtistProfileCard(name, genres, origin?, activeYears?, imageUrl?, influenceCount?, topInfluences)**
 Enhanced artist card with influence summary. \`topInfluences\` is a JSON string of [{name, weight}].
 
-**InfluenceChain(artist, connections)**
+**InfluenceChain(artist, connections, summary?)**
 Vertical influence timeline with weight-colored dots. \`connections\` is a JSON array string. Use for /influence and deep influence mapping.
 
 **InfluenceCard(artist, genres, imageUrl?, influences, sources)**
