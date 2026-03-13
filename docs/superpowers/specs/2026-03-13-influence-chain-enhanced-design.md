@@ -57,10 +57,29 @@ If grouping produces only one non-empty bucket, skip tabs and render flat list (
 
 ### Lineage Arc Extraction Algorithm
 ```
-roots = connections.filter(c => ROOTS_SET.has(c.relationship)).sortByWeight().take(2)
-legacy = connections.filter(c => LEGACY_SET.has(c.relationship)).sortByWeight().take(2)
+// Normalize relationship before lookup (lowercase + trim)
+rel = conn.relationship.toLowerCase().trim()
+
+// Use ensureNumber() on weight before sorting
+roots = connections
+  .filter(c => ROOTS_SET.has(c.relationship.toLowerCase().trim()))
+  .sort((a, b) => ensureNumber(b.weight) - ensureNumber(a.weight))
+  .slice(0, 2)
+
+legacy = connections
+  .filter(c => LEGACY_SET.has(c.relationship.toLowerCase().trim()))
+  .sort((a, b) => ensureNumber(b.weight) - ensureNumber(a.weight))
+  .slice(0, 2)
+
 arc = [...roots.reverse(), centralArtist, ...legacy]  // max 5 nodes
+// If arc has fewer than 3 nodes (just central artist), hide the arc entirely
 ```
+
+### Implementation Notes
+- Apply `.toLowerCase().trim()` to `relationship` before set lookup to handle agent output variations
+- Use `ensureNumber(conn.weight)` during sort/filter, not just at display time
+- `summary` prop is a plain string — no JSON parsing needed, just pass-through
+- Use ARIA `role="tablist"` / `role="tab"` / `role="tabpanel"` for accessibility
 
 ## Token Impact
 
