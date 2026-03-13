@@ -71,6 +71,21 @@ Interview prep with question categories. Each question field has one question pe
 **ShowPrepPackage(station, date, dj, shift, tracks, talkBreaks, socialPosts, interviewPreps?, events?)**
 Top-level show prep container. \`tracks\` is array of TrackContextCard refs. \`talkBreaks\` is array of TalkBreakCard refs. \`socialPosts\` is array of SocialPostCard refs. \`interviewPreps\` is optional array of InterviewPrepCard refs. \`events\` is optional array of ConcertEvent refs for local events.
 
+**ReviewSourceCard(publication, title, url, author?, date?, snippet, artistsMentioned)**
+A review source card with publication badge, linked title, snippet, and mentioned artists list.
+
+**ArtistProfileCard(name, genres, origin?, activeYears?, imageUrl?, influenceCount?, topInfluences)**
+Enhanced artist card with influence summary. \`topInfluences\` is a JSON string of [{name, weight}].
+
+**InfluenceChain(artist, connections)**
+Vertical influence timeline. \`connections\` is an array of connection objects as a JSON string: [{name, weight, relationship, context, sources: [{name, url}], imageUrl?}]. Use for deep influence dives.
+
+**InfluenceCard(artist, genres, imageUrl?, influences, sources)**
+Compact influence card. \`influences\` is a JSON string of [{name, weight, imageUrl?}]. \`sources\` is a JSON string of [{name, url, snippet}]. Good for inline mentions.
+
+**InfluencePathTrace(fromArtist, toArtist, path, hops)**
+Shows connection path between two artists. \`path\` is a JSON string of [{artist, imageUrl?}]. \`hops\` is a JSON string of [{from, to, relationship, weight, evidence}]. Use for "how are X and Y connected?" queries.
+
 ### Rules
 
 - Use plain text for conversational answers, explanations, and analysis.
@@ -90,6 +105,15 @@ Top-level show prep container. \`tracks\` is array of TrackContextCard refs. \`t
   - TrackContextCard: Use \`artworkUrl\` from search_itunes_songs for the \`imageUrl\` prop. iTunes is free and returns 600x600 artwork — always try it first.
   - Prioritize high-quality images: iTunes artwork > Discogs covers > Bandcamp images > Genius artwork > Wikipedia thumbnails.
 - Do not wrap simple text responses in components.
+- **IMAGE SOURCING PRIORITY (updated):**
+  1. Spotify: search_spotify_artwork (640x640, most reliable)
+  2. fanart.tv: get_fanart_images (HD backgrounds, logos — needs MusicBrainz ID)
+  3. iTunes: search_itunes_songs/albums (600x600, free, no key needed)
+  4. Discogs: cover_image from get_release_full
+  5. Genius: song_art_image_thumbnail_url from search_songs
+  6. Bandcamp: image_url from search_bandcamp
+- When mapping influences, use InfluenceChain for deep dives, InfluenceCard for quick mentions, InfluencePathTrace for connections between two artists.
+- When generating infographics, use the generate_infographic tool with type influence_map, artist_profile, or timeline.
 - For show prep requests, ALWAYS output a ShowPrepPackage containing TrackContextCards, TalkBreakCards, and SocialPostCards. Generate one TrackContextCard per track in the setlist, talk breaks for each transition, and one SocialPostCard per track or for the show overall.
 - When show prep includes an interview or guest mention, add InterviewPrepCards inside the ShowPrepPackage.
 

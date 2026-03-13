@@ -22,6 +22,10 @@ export const KEY_ENV_MAP: Record<string, string> = {
   tavily: "TAVILY_API_KEY",
   exa: "EXA_API_KEY",
   ticketmaster: "TICKETMASTER_API_KEY",
+  spotify_client_id: "SPOTIFY_CLIENT_ID",
+  spotify_client_secret: "SPOTIFY_CLIENT_SECRET",
+  fanart_api_key: "FANART_API_KEY",
+  gemini_api_key: "GEMINI_API_KEY",
 };
 
 /** Embedded Tier 1 keys from Vercel env vars (shared across all users). */
@@ -41,6 +45,14 @@ export function getEmbeddedKeys(): Record<string, string> {
     embedded.EXA_API_KEY = process.env.EMBEDDED_EXA_KEY;
   if (process.env.EMBEDDED_KERNEL_KEY)
     embedded.KERNEL_API_KEY = process.env.EMBEDDED_KERNEL_KEY;
+  if (process.env.EMBEDDED_SPOTIFY_CLIENT_ID)
+    embedded.SPOTIFY_CLIENT_ID = process.env.EMBEDDED_SPOTIFY_CLIENT_ID;
+  if (process.env.EMBEDDED_SPOTIFY_SECRET)
+    embedded.SPOTIFY_CLIENT_SECRET = process.env.EMBEDDED_SPOTIFY_SECRET;
+  if (process.env.EMBEDDED_FANART_KEY)
+    embedded.FANART_API_KEY = process.env.EMBEDDED_FANART_KEY;
+  if (process.env.GEMINI_API_KEY)
+    embedded.GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   return embedded;
 }
 

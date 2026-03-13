@@ -5,6 +5,9 @@ import { agenticLoop } from "@/lib/agentic-loop";
 import type { CrateEvent } from "@/lib/agentic-loop";
 import { createTelegraphTools } from "@/lib/web-tools/telegraph";
 import { createTumblrTools } from "@/lib/web-tools/tumblr";
+import { createImageTools } from "@/lib/web-tools/images";
+import { createInfluenceCacheTools } from "@/lib/web-tools/influence-cache";
+import { createInfographicTools } from "@/lib/web-tools/infographic";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 const SSE_HEADERS = {
@@ -164,7 +167,7 @@ async function streamAgenticResponse(
 
         const cliToolGroups = getActiveTools();
 
-        // Replace SQLite-based telegraph/tumblr tools with Convex-backed web versions
+        // Replace SQLite-based tools with Convex-backed web versions
         const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!;
         const userId = convexUserId as Id<"users">;
 
@@ -179,17 +182,49 @@ async function streamAgenticResponse(
               )
             : [];
 
-        // Filter out crate-cli telegraph/tumblr groups that use SQLite, inject web versions
+        // Image tools (Spotify + fanart.tv)
+        const webImageTools =
+          envKeys.SPOTIFY_CLIENT_ID && envKeys.SPOTIFY_CLIENT_SECRET
+            ? createImageTools(
+                envKeys.SPOTIFY_CLIENT_ID,
+                envKeys.SPOTIFY_CLIENT_SECRET,
+                envKeys.FANART_API_KEY,
+              )
+            : [];
+
+        // Influence cache tools (Convex-backed, replaces SQLite influencecache)
+        const webInfluenceCacheTools = createInfluenceCacheTools(convexUrl, userId);
+
+        // Infographic generation (Gemini)
+        const webInfographicTools =
+          envKeys.GEMINI_API_KEY || process.env.GEMINI_API_KEY
+            ? createInfographicTools(
+                envKeys.GEMINI_API_KEY || process.env.GEMINI_API_KEY!,
+                convexUrl,
+                convexUserId,
+              )
+            : [];
+
+        // Filter out crate-cli groups that use SQLite, inject web versions
         const toolGroups = [
           ...cliToolGroups.filter(
             (g: { serverName: string }) =>
-              g.serverName !== "telegraph" && g.serverName !== "tumblr",
+              g.serverName !== "telegraph" &&
+              g.serverName !== "tumblr" &&
+              g.serverName !== "influencecache",
           ),
           ...(webTelegraphTools.length > 0
             ? [{ serverName: "telegraph", tools: webTelegraphTools }]
             : []),
           ...(webTumblrTools.length > 0
             ? [{ serverName: "tumblr", tools: webTumblrTools }]
+            : []),
+          ...(webImageTools.length > 0
+            ? [{ serverName: "images", tools: webImageTools }]
+            : []),
+          { serverName: "influencecache", tools: webInfluenceCacheTools },
+          ...(webInfographicTools.length > 0
+            ? [{ serverName: "infographic", tools: webInfographicTools }]
             : []),
         ];
 

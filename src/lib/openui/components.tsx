@@ -921,3 +921,443 @@ export const ShowPrepPackage = defineComponent({
     );
   },
 });
+
+// ── Influence Mapping Components (Workstream 4) ─────────────────
+
+export const ReviewSourceCard = defineComponent({
+  name: "ReviewSourceCard",
+  description:
+    "Displays a single review source with linked URL, publication badge, snippet, and extracted artist mentions.",
+  props: z.object({
+    publication: z.string().describe("Publication name, e.g. Pitchfork"),
+    title: z.string().describe("Review/article title"),
+    url: z.string().describe("Link to the review"),
+    author: z.string().optional().describe("Author name"),
+    date: z.string().optional().describe("Publication date"),
+    snippet: z.string().describe("Excerpt from the review"),
+    artistsMentioned: z.array(z.string()).describe("Artists mentioned in this review"),
+  }),
+  component: ({ props }) => (
+    <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
+      <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+        {props.publication}
+      </span>
+      <a
+        href={props.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-1 block text-sm font-semibold text-cyan-400 hover:underline"
+      >
+        {props.title}
+      </a>
+      {(props.author || props.date) && (
+        <p className="mt-0.5 text-xs text-zinc-500">
+          {[props.author, props.date].filter(Boolean).join(" · ")}
+        </p>
+      )}
+      <p className="mt-2 text-sm text-zinc-300">{props.snippet}</p>
+      {props.artistsMentioned.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {props.artistsMentioned.map((a) => (
+            <span
+              key={a}
+              className="rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300"
+            >
+              {a}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  ),
+});
+
+export const ArtistProfileCard = defineComponent({
+  name: "ArtistProfileCard",
+  description:
+    "Enhanced artist card with influence summary — connection count and top influences with weight bars.",
+  props: z.object({
+    name: z.string().describe("Artist name"),
+    genres: z.array(z.string()).describe("List of genres"),
+    origin: z.string().optional().describe("City/country of origin"),
+    activeYears: z.string().optional().describe("e.g. 1959–1991"),
+    imageUrl: z.string().optional().describe("Artist photo URL"),
+    influenceCount: z.number().optional().describe("Total number of mapped influence connections"),
+    topInfluences: z
+      .array(
+        z.object({
+          name: z.string().describe("Influence artist name"),
+          weight: z.number().describe("Influence weight 0–1"),
+        }),
+      )
+      .optional()
+      .describe("Top influences with weight scores"),
+  }),
+  component: ({ props }) => {
+    const weightColor = (w: number) =>
+      w > 0.7 ? "bg-green-500" : w >= 0.5 ? "bg-yellow-500" : "bg-zinc-500";
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
+        <div className="flex items-start gap-3">
+          <SafeImage
+            src={props.imageUrl}
+            alt={props.name}
+            className="h-16 w-16 rounded-full object-cover"
+          />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-bold text-white">{props.name}</h3>
+            {props.origin && <p className="text-sm text-zinc-400">{props.origin}</p>}
+            {props.activeYears && <p className="text-xs text-zinc-500">{props.activeYears}</p>}
+            <div className="mt-1 flex flex-wrap gap-1">
+              {props.genres.map((g) => (
+                <span
+                  key={g}
+                  className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs text-zinc-300"
+                >
+                  {g}
+                </span>
+              ))}
+            </div>
+            {props.influenceCount != null && (
+              <p className="mt-1 text-xs text-zinc-500">
+                {props.influenceCount} connections mapped
+              </p>
+            )}
+          </div>
+        </div>
+
+        {props.topInfluences && props.topInfluences.length > 0 && (
+          <div className="mt-3 space-y-1.5 border-t border-zinc-700 pt-3">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+              Top Influences
+            </p>
+            {props.topInfluences.map((inf) => (
+              <div key={inf.name} className="flex items-center gap-2">
+                <span className="w-24 shrink-0 truncate text-xs text-zinc-300">{inf.name}</span>
+                <div className="h-1.5 flex-1 rounded-full bg-zinc-700">
+                  <div
+                    className={`h-1.5 rounded-full ${weightColor(inf.weight)}`}
+                    style={{ width: `${Math.round(inf.weight * 100)}%` }}
+                  />
+                </div>
+                <span className="w-8 shrink-0 text-right text-[10px] text-zinc-500">
+                  {inf.weight.toFixed(1)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  },
+});
+
+export const InfluenceChain = defineComponent({
+  name: "InfluenceChain",
+  description:
+    "Vertical timeline of influence connections for an artist — weight-colored dots, relationship tags, sources, and expandable detail per node.",
+  props: z.object({
+    artist: z.string().describe("Central artist name"),
+    connections: z.array(
+      z.object({
+        name: z.string().describe("Connected artist name"),
+        weight: z.number().describe("Influence weight 0–1"),
+        relationship: z.string().describe("e.g. 'influenced by', 'collaborated with'"),
+        context: z.string().describe("Brief explanation of the connection"),
+        sources: z
+          .array(
+            z.object({
+              name: z.string().describe("Source name"),
+              url: z.string().describe("Source URL"),
+            }),
+          )
+          .describe("Citation sources for this connection"),
+        imageUrl: z.string().optional().describe("Connected artist image URL"),
+      }),
+    ).describe("List of influence connections"),
+  }),
+  component: ({ props }) => {
+    const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+
+    const dotColor = (w: number) =>
+      w > 0.7 ? "bg-green-500" : w >= 0.5 ? "bg-yellow-500" : "bg-zinc-500";
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+        <h2 className="mb-4 text-lg font-bold text-white">{props.artist} — Influence Chain</h2>
+
+        <div className="relative ml-5">
+          {/* Vertical connecting line */}
+          <div className="absolute left-0 top-0 bottom-0 w-px bg-zinc-700" />
+
+          <div className="space-y-4">
+            {props.connections.map((conn, i) => {
+              const isExpanded = expandedIndex === i;
+
+              return (
+                <div key={`${conn.name}-${i}`} className="relative pl-6">
+                  {/* Weight-colored dot */}
+                  <div
+                    className={`absolute left-[-4px] top-2 h-2.5 w-2.5 rounded-full ${dotColor(conn.weight)} ring-2 ring-zinc-900`}
+                  />
+
+                  <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-3">
+                    <div className="flex items-center gap-2">
+                      <SafeImage
+                        src={conn.imageUrl}
+                        alt={conn.name}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-white">{conn.name}</p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300">
+                            {conn.relationship}
+                          </span>
+                          <span
+                            className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                              conn.weight > 0.7
+                                ? "bg-green-500/20 text-green-400"
+                                : conn.weight >= 0.5
+                                  ? "bg-yellow-500/20 text-yellow-400"
+                                  : "bg-zinc-500/20 text-zinc-400"
+                            }`}
+                          >
+                            {conn.weight.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setExpandedIndex(isExpanded ? null : i)}
+                        className="shrink-0 text-xs text-zinc-500 hover:text-zinc-300"
+                      >
+                        {isExpanded ? "Less" : "More"}
+                      </button>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="mt-2 space-y-2 border-t border-zinc-700 pt-2">
+                        <p className="text-sm text-zinc-300">{conn.context}</p>
+                        {conn.sources.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {conn.sources.map((src) => (
+                              <a
+                                key={src.url}
+                                href={src.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-cyan-400 hover:underline"
+                              >
+                                {src.name}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  },
+});
+
+export const InfluenceCard = defineComponent({
+  name: "InfluenceCard",
+  description:
+    "Compact influence card — central artist with radial influence chips and source citations.",
+  props: z.object({
+    artist: z.string().describe("Central artist name"),
+    genres: z.array(z.string()).describe("Artist genres"),
+    imageUrl: z.string().optional().describe("Central artist image URL"),
+    influences: z.array(
+      z.object({
+        name: z.string().describe("Influence name"),
+        weight: z.number().describe("Influence weight 0–1"),
+        imageUrl: z.string().optional().describe("Influence artist image URL"),
+      }),
+    ).describe("Influence connections"),
+    sources: z.array(
+      z.object({
+        name: z.string().describe("Source name"),
+        url: z.string().describe("Source URL"),
+        snippet: z.string().describe("Brief excerpt from the source"),
+      }),
+    ).describe("Citation sources"),
+  }),
+  component: ({ props }) => (
+    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+      {/* Central artist */}
+      <div className="flex items-center gap-3">
+        <SafeImage
+          src={props.imageUrl}
+          alt={props.artist}
+          className="h-14 w-14 rounded-full object-cover"
+        />
+        <div>
+          <h3 className="text-lg font-bold text-white">{props.artist}</h3>
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            {props.genres.map((g) => (
+              <span
+                key={g}
+                className="rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300"
+              >
+                {g}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Influence chips */}
+      {props.influences.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {props.influences.map((inf) => (
+            <div
+              key={inf.name}
+              className="flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-800/50 py-1 pl-1 pr-2.5"
+            >
+              <SafeImage
+                src={inf.imageUrl}
+                alt={inf.name}
+                className="h-6 w-6 rounded-full object-cover"
+              />
+              <span className="text-xs text-zinc-300">{inf.name}</span>
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                  inf.weight > 0.7
+                    ? "bg-green-500/20 text-green-400"
+                    : inf.weight >= 0.5
+                      ? "bg-yellow-500/20 text-yellow-400"
+                      : "bg-zinc-500/20 text-zinc-400"
+                }`}
+              >
+                {inf.weight.toFixed(1)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Sources */}
+      {props.sources.length > 0 && (
+        <div className="mt-3 space-y-1.5 border-t border-zinc-700 pt-3">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Sources</p>
+          {props.sources.map((src) => (
+            <div key={src.url} className="text-xs">
+              <a
+                href={src.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cyan-400 hover:underline"
+              >
+                {src.name}
+              </a>
+              <p className="mt-0.5 text-zinc-400">{src.snippet}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  ),
+});
+
+export const InfluencePathTrace = defineComponent({
+  name: "InfluencePathTrace",
+  description:
+    "Horizontal chain showing the shortest influence path between two artists, with evidence cards for each hop.",
+  props: z.object({
+    fromArtist: z.string().describe("Starting artist"),
+    toArtist: z.string().describe("Ending artist"),
+    path: z.array(
+      z.object({
+        artist: z.string().describe("Artist name at this node"),
+        imageUrl: z.string().optional().describe("Artist image URL"),
+      }),
+    ).describe("Ordered list of artists in the path"),
+    hops: z.array(
+      z.object({
+        from: z.string().describe("Source artist"),
+        to: z.string().describe("Target artist"),
+        relationship: z.string().describe("Relationship type"),
+        weight: z.number().describe("Connection weight 0–1"),
+        evidence: z.string().describe("Evidence text for this hop"),
+      }),
+    ).describe("Evidence for each hop in the path"),
+  }),
+  component: ({ props }) => (
+    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+      <h2 className="mb-4 text-lg font-bold text-white">
+        {props.fromArtist} → {props.toArtist}
+      </h2>
+
+      {/* Horizontal path chain */}
+      <div className="flex items-center gap-1 overflow-x-auto pb-2">
+        {props.path.map((node, i) => (
+          <div key={`${node.artist}-${i}`} className="flex items-center gap-1">
+            <div className="flex flex-col items-center gap-1">
+              <SafeImage
+                src={node.imageUrl}
+                alt={node.artist}
+                className="h-10 w-10 rounded-full object-cover"
+              />
+              <span className="max-w-[80px] truncate text-center text-[10px] text-zinc-300">
+                {node.artist}
+              </span>
+            </div>
+            {i < props.path.length - 1 && (
+              <span className="mx-1 text-zinc-600">→</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Evidence cards */}
+      {props.hops.length > 0 && (
+        <div className="mt-3 space-y-2 border-t border-zinc-700 pt-3">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+            Evidence
+          </p>
+          {props.hops.map((hop, i) => (
+            <div
+              key={`${hop.from}-${hop.to}-${i}`}
+              className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-3"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-white">
+                  {hop.from} → {hop.to}
+                </span>
+                <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300">
+                  {hop.relationship}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-2">
+                <div className="h-1.5 flex-1 rounded-full bg-zinc-700">
+                  <div
+                    className={`h-1.5 rounded-full ${
+                      hop.weight > 0.7
+                        ? "bg-green-500"
+                        : hop.weight >= 0.5
+                          ? "bg-yellow-500"
+                          : "bg-zinc-500"
+                    }`}
+                    style={{ width: `${Math.round(hop.weight * 100)}%` }}
+                  />
+                </div>
+                <span className="w-8 shrink-0 text-right text-[10px] text-zinc-500">
+                  {hop.weight.toFixed(2)}
+                </span>
+              </div>
+              <p className="mt-1.5 text-xs text-zinc-400">{hop.evidence}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  ),
+});

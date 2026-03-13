@@ -180,4 +180,36 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_domain", ["domain"]),
+
+  // Influence mapping cache
+  influenceArtists: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    nameLower: v.string(),
+    genres: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_user_name", ["userId", "nameLower"]),
+
+  influenceEdges: defineTable({
+    userId: v.id("users"),
+    fromArtistId: v.id("influenceArtists"),
+    toArtistId: v.id("influenceArtists"),
+    relationship: v.string(),
+    weight: v.number(),
+    context: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_from", ["userId", "fromArtistId"])
+    .index("by_to", ["userId", "toArtistId"]),
+
+  influenceEdgeSources: defineTable({
+    edgeId: v.id("influenceEdges"),
+    sourceType: v.string(),
+    sourceUrl: v.optional(v.string()),
+    sourceName: v.optional(v.string()),
+    snippet: v.optional(v.string()),
+    discoveredAt: v.number(),
+  }).index("by_edge", ["edgeId"]),
 });

@@ -244,6 +244,33 @@ export function preprocessSlashCommand(message: string): string {
       ].join("\n");
     }
 
+    case "influence": {
+      if (!arg) {
+        return "Map an artist's influences. Usage: `/influence [artist name]`\nI'll check the influence cache, run discovery if needed, fetch artwork, and render an interactive influence chain.";
+      }
+
+      return [
+        `Map the musical influences of ${arg}.`,
+        ``,
+        `STEPS:`,
+        `1. Check influence cache first: use lookup_influences for "${arg}"`,
+        `2. If cache has fewer than 3 connections, run full discovery:`,
+        `   a. search_reviews to find critical reviews mentioning influences`,
+        `   b. extract_influences to identify influence relationships`,
+        `   c. search_spotify_artwork to get HD artist images`,
+        `   d. cache_influence or cache_batch_influences to store discoveries`,
+        `3. Fetch artist images via search_spotify_artwork for the main artist and top connections`,
+        `4. Render results as an InfluenceChain component with:`,
+        `   - Artist images from Spotify/fanart.tv`,
+        `   - Weight-colored connections`,
+        `   - Source citations for each connection`,
+        `   - Context explaining each influence relationship`,
+        ``,
+        `OUTPUT FORMAT: Use InfluenceChain OpenUI component. Include all discovered connections sorted by weight.`,
+        `If the user asks for an infographic, also call generate_infographic with type "influence_map".`,
+      ].join("\n");
+    }
+
     default:
       // Unknown slash command — pass through as-is
       return message;

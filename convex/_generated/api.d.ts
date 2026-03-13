@@ -11,6 +11,7 @@
 import type * as artifacts from "../artifacts.js";
 import type * as collection from "../collection.js";
 import type * as crates from "../crates.js";
+import type * as influence from "../influence.js";
 import type * as keys from "../keys.js";
 import type * as messages from "../messages.js";
 import type * as orgKeys from "../orgKeys.js";
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   artifacts: typeof artifacts;
   collection: typeof collection;
   crates: typeof crates;
+  influence: typeof influence;
   keys: typeof keys;
   messages: typeof messages;
   orgKeys: typeof orgKeys;
