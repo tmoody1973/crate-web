@@ -16,6 +16,11 @@ import {
   SocialPostCard,
   InterviewPrepCard,
   ShowPrepPackage,
+  ReviewSourceCard,
+  ArtistProfileCard,
+  InfluenceChain,
+  InfluenceCard,
+  InfluencePathTrace,
 } from "./components";
 
 export const crateLibrary = createLibrary({
@@ -36,6 +41,11 @@ export const crateLibrary = createLibrary({
     SocialPostCard,
     InterviewPrepCard,
     ShowPrepPackage,
+    ReviewSourceCard,
+    ArtistProfileCard,
+    InfluenceChain,
+    InfluenceCard,
+    InfluencePathTrace,
   ],
   componentGroups: [
     {
@@ -62,6 +72,18 @@ export const crateLibrary = createLibrary({
       notes: [
         "Use TrackList with TrackItem children for NEW playlists.",
         "Use AddToPlaylist with TrackItem children to add tracks to an EXISTING playlist.",
+      ],
+    },
+    {
+      name: "Influence Mapping",
+      components: ["InfluenceChain", "InfluenceCard", "InfluencePathTrace", "ReviewSourceCard", "ArtistProfileCard"],
+      notes: [
+        "Use InfluenceChain for deep influence dives — vertical timeline with weight-colored dots.",
+        "Use InfluenceCard for compact inline influence mentions.",
+        "Use InfluencePathTrace to show how two artists are connected.",
+        "ReviewSourceCard shows individual review sources with publication badges.",
+        "ArtistProfileCard is an enhanced ArtistCard with influence summary.",
+        "connections prop is a JSON string array — see prompt examples for exact format.",
       ],
     },
     {

@@ -8,6 +8,20 @@ import { useAuth } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
 import { usePlayer } from "@/components/player/player-provider";
 
+// ── JSON string preprocessor for OpenUI Lang ────────────────────
+// OpenUI Lang passes complex props as JSON strings from positional args.
+// This preprocessor auto-parses them so Zod can validate the actual structure.
+function jsonPreprocess(val: unknown): unknown {
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val);
+    } catch {
+      return val;
+    }
+  }
+  return val;
+}
+
 // ── Shared image component with broken-URL fallback ─────────────
 
 function SafeImage({ src, alt, className }: { src?: string; alt?: string; className: string }) {
@@ -978,20 +992,19 @@ export const ArtistProfileCard = defineComponent({
     "Enhanced artist card with influence summary — connection count and top influences with weight bars.",
   props: z.object({
     name: z.string().describe("Artist name"),
-    genres: z.array(z.string()).describe("List of genres"),
+    genres: z.preprocess(jsonPreprocess, z.array(z.string())).describe("List of genres"),
     origin: z.string().optional().describe("City/country of origin"),
     activeYears: z.string().optional().describe("e.g. 1959–1991"),
     imageUrl: z.string().optional().describe("Artist photo URL"),
-    influenceCount: z.number().optional().describe("Total number of mapped influence connections"),
-    topInfluences: z
-      .array(
+    influenceCount: z.preprocess(jsonPreprocess, z.number().optional()).describe("Total number of mapped influence connections"),
+    topInfluences: z.preprocess(jsonPreprocess,
+      z.array(
         z.object({
           name: z.string().describe("Influence artist name"),
           weight: z.number().describe("Influence weight 0–1"),
         }),
-      )
-      .optional()
-      .describe("Top influences with weight scores"),
+      ).optional(),
+    ).describe("Top influences with weight scores"),
   }),
   component: ({ props }) => {
     const weightColor = (w: number) =>
@@ -1059,23 +1072,23 @@ export const InfluenceChain = defineComponent({
     "Vertical timeline of influence connections for an artist — weight-colored dots, relationship tags, sources, and expandable detail per node.",
   props: z.object({
     artist: z.string().describe("Central artist name"),
-    connections: z.array(
+    connections: z.preprocess(jsonPreprocess, z.array(
       z.object({
         name: z.string().describe("Connected artist name"),
         weight: z.number().describe("Influence weight 0–1"),
         relationship: z.string().describe("e.g. 'influenced by', 'collaborated with'"),
         context: z.string().describe("Brief explanation of the connection"),
-        sources: z
-          .array(
+        sources: z.preprocess(jsonPreprocess,
+          z.array(
             z.object({
               name: z.string().describe("Source name"),
               url: z.string().describe("Source URL"),
             }),
-          )
-          .describe("Citation sources for this connection"),
+          ),
+        ).describe("Citation sources for this connection"),
         imageUrl: z.string().optional().describe("Connected artist image URL"),
       }),
-    ).describe("List of influence connections"),
+    )).describe("List of influence connections"),
   }),
   component: ({ props }) => {
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
@@ -1173,22 +1186,22 @@ export const InfluenceCard = defineComponent({
     "Compact influence card — central artist with radial influence chips and source citations.",
   props: z.object({
     artist: z.string().describe("Central artist name"),
-    genres: z.array(z.string()).describe("Artist genres"),
+    genres: z.preprocess(jsonPreprocess, z.array(z.string())).describe("Artist genres"),
     imageUrl: z.string().optional().describe("Central artist image URL"),
-    influences: z.array(
+    influences: z.preprocess(jsonPreprocess, z.array(
       z.object({
         name: z.string().describe("Influence name"),
         weight: z.number().describe("Influence weight 0–1"),
         imageUrl: z.string().optional().describe("Influence artist image URL"),
       }),
-    ).describe("Influence connections"),
-    sources: z.array(
+    )).describe("Influence connections"),
+    sources: z.preprocess(jsonPreprocess, z.array(
       z.object({
         name: z.string().describe("Source name"),
         url: z.string().describe("Source URL"),
         snippet: z.string().describe("Brief excerpt from the source"),
       }),
-    ).describe("Citation sources"),
+    )).describe("Citation sources"),
   }),
   component: ({ props }) => (
     <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
@@ -1274,13 +1287,13 @@ export const InfluencePathTrace = defineComponent({
   props: z.object({
     fromArtist: z.string().describe("Starting artist"),
     toArtist: z.string().describe("Ending artist"),
-    path: z.array(
+    path: z.preprocess(jsonPreprocess, z.array(
       z.object({
         artist: z.string().describe("Artist name at this node"),
         imageUrl: z.string().optional().describe("Artist image URL"),
       }),
-    ).describe("Ordered list of artists in the path"),
-    hops: z.array(
+    )).describe("Ordered list of artists in the path"),
+    hops: z.preprocess(jsonPreprocess, z.array(
       z.object({
         from: z.string().describe("Source artist"),
         to: z.string().describe("Target artist"),
@@ -1288,7 +1301,7 @@ export const InfluencePathTrace = defineComponent({
         weight: z.number().describe("Connection weight 0–1"),
         evidence: z.string().describe("Evidence text for this hop"),
       }),
-    ).describe("Evidence for each hop in the path"),
+    )).describe("Evidence for each hop in the path"),
   }),
   component: ({ props }) => (
     <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
