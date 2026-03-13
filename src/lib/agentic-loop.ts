@@ -1,18 +1,16 @@
 /**
- * Manual agentic loop using the direct Anthropic SDK.
+ * Manual agentic loop supporting both Anthropic (direct) and OpenAI (OpenRouter).
  *
- * Replaces the Claude Agent SDK's `query()` subprocess with a simple loop:
- *   1. Send message to Anthropic Messages API (with tools)
- *   2. If response contains tool_use blocks → execute tools → send results → goto 1
- *   3. If response is end_turn → yield final answer → done
- *
+ * Loop: send message → if tool_use → execute tools → send results → repeat → done.
  * Emits CrateEvents (same format as crate-cli) for SSE streaming to the frontend.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import type { CrateToolDef } from "./tool-adapter";
+import OpenAI from "openai";
+import type { CrateToolDef, HandlerEntry } from "./tool-adapter";
 import {
-  buildToolkit,
+  buildAnthropicToolkit,
+  buildOpenAIToolkit,
   executeTool,
   bareToolName,
   serverFromToolName,
@@ -30,49 +28,60 @@ export type CrateEvent =
   | { type: "plan"; tasks: Array<{ id: number; description: string; done: boolean }> };
 
 export interface AgenticLoopOptions {
-  /** User's message */
   message: string;
-  /** System prompt */
   systemPrompt: string;
-  /** Model ID */
   model: string;
-  /** Anthropic API key */
   apiKey: string;
-  /** Optional base URL (for OpenRouter) */
-  baseURL?: string;
-  /** Tool groups from crate-cli's getActiveTools() */
+  /** When true, route through OpenRouter (OpenAI-compatible API) */
+  useOpenRouter?: boolean;
   toolGroups: Array<{ serverName: string; tools: CrateToolDef[] }>;
-  /** Max agentic loop iterations (default 25) */
   maxTurns?: number;
-  /** AbortSignal for cancellation */
   signal?: AbortSignal;
 }
 
-/**
- * Run the agentic loop, yielding CrateEvents.
- */
-export async function* agenticLoop(
+// ── Shared helpers ────────────────────────────────────────────────
+
+async function* executeTools(
+  handlers: Map<string, HandlerEntry>,
+  calls: Array<{ id: string; name: string; input: Record<string, unknown> }>,
+): AsyncGenerator<CrateEvent | { _toolResult: { id: string; content: string } }> {
+  for (const call of calls) {
+    const bare = bareToolName(call.name);
+    const server = serverFromToolName(call.name);
+
+    yield { type: "tool_start", tool: bare, server, input: call.input };
+
+    const start = Date.now();
+    const result = await executeTool(handlers, call.name, call.input);
+    const durationMs = Date.now() - start;
+
+    const resultSummary = result.content.length > 200
+      ? result.content.slice(0, 200) + "..."
+      : result.content;
+
+    yield { type: "tool_end", tool: bare, server: result.serverName, durationMs, resultSummary };
+    yield { _toolResult: { id: call.id, content: result.content } };
+  }
+}
+
+function emitText(text: string): CrateEvent[] {
+  const events: CrateEvent[] = [{ type: "answer_start" }];
+  const chunkSize = 20;
+  for (let i = 0; i < text.length; i += chunkSize) {
+    events.push({ type: "answer_token", token: text.slice(i, i + chunkSize) });
+  }
+  return events;
+}
+
+// ── Anthropic loop ────────────────────────────────────────────────
+
+async function* anthropicLoop(
   options: AgenticLoopOptions,
 ): AsyncGenerator<CrateEvent> {
-  const {
-    message,
-    systemPrompt,
-    model,
-    apiKey,
-    baseURL,
-    toolGroups,
-    maxTurns = 25,
-    signal,
-  } = options;
+  const { message, systemPrompt, model, apiKey, maxTurns = 25, signal } = options;
 
-  // OpenRouter uses Authorization: Bearer (authToken), not x-api-key
-  const isOpenRouter = !!baseURL;
-  const client = new Anthropic({
-    apiKey: isOpenRouter ? "" : apiKey,
-    ...(isOpenRouter ? { authToken: apiKey, baseURL } : {}),
-  });
-
-  const { tools, handlers } = buildToolkit(toolGroups);
+  const client = new Anthropic({ apiKey });
+  const { tools, handlers } = buildAnthropicToolkit(options.toolGroups);
 
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: message },
@@ -85,7 +94,6 @@ export async function* agenticLoop(
   for (let turn = 0; turn < maxTurns; turn++) {
     if (signal?.aborted) break;
 
-    // Use non-streaming for tool turns, streaming only when producing text
     const response = await client.messages.create(
       {
         model,
@@ -97,73 +105,134 @@ export async function* agenticLoop(
       { signal },
     );
 
-    // Process content blocks
-    const toolUseBlocks: Anthropic.ToolUseBlock[] = [];
+    // Emit text, collect tool_use blocks
+    const toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
 
     for (const block of response.content) {
       if (block.type === "text" && block.text) {
-        // Stream text tokens (emit as individual tokens for SSE)
-        yield { type: "answer_start" };
-        // Split into chunks for streaming feel
-        const chunkSize = 20;
-        for (let i = 0; i < block.text.length; i += chunkSize) {
-          yield { type: "answer_token", token: block.text.slice(i, i + chunkSize) };
-        }
+        for (const ev of emitText(block.text)) yield ev;
       } else if (block.type === "tool_use") {
-        toolUseBlocks.push(block);
+        toolCalls.push({ id: block.id, name: block.name, input: block.input as Record<string, unknown> });
       }
     }
 
-    // If no tool calls or stop_reason is end_turn, we're done
-    if (toolUseBlocks.length === 0 || response.stop_reason === "end_turn") {
-      break;
-    }
+    if (toolCalls.length === 0 || response.stop_reason === "end_turn") break;
 
-    // Add assistant message to conversation
-    messages.push({
-      role: "assistant",
-      content: response.content,
-    });
+    // Add assistant message
+    messages.push({ role: "assistant", content: response.content });
 
-    // Execute each tool and collect results
+    // Execute tools
     const toolResults: Anthropic.ToolResultBlockParam[] = [];
-
-    for (const toolUse of toolUseBlocks) {
-      const bare = bareToolName(toolUse.name);
-      const server = serverFromToolName(toolUse.name);
-
-      toolCallCount++;
-      if (!toolsUsed.includes(bare)) {
-        toolsUsed.push(bare);
+    for await (const ev of executeTools(handlers, toolCalls)) {
+      if ("_toolResult" in ev) {
+        toolResults.push({ type: "tool_result", tool_use_id: ev._toolResult.id, content: ev._toolResult.content });
+      } else {
+        if (ev.type === "tool_start" || ev.type === "tool_end") {
+          const bare = "tool" in ev ? ev.tool : "";
+          if (ev.type === "tool_start") toolCallCount++;
+          if (ev.type === "tool_start" && !toolsUsed.includes(bare)) toolsUsed.push(bare);
+        }
+        yield ev;
       }
-
-      yield { type: "tool_start", tool: bare, server, input: toolUse.input };
-
-      const toolStart = Date.now();
-      const result = await executeTool(
-        handlers,
-        toolUse.name,
-        toolUse.input as Record<string, unknown>,
-      );
-      const durationMs = Date.now() - toolStart;
-
-      const resultSummary = result.content.length > 200
-        ? result.content.slice(0, 200) + "..."
-        : result.content;
-
-      yield { type: "tool_end", tool: bare, server: result.serverName, durationMs, resultSummary };
-
-      toolResults.push({
-        type: "tool_result",
-        tool_use_id: toolUse.id,
-        content: result.content,
-      });
     }
 
-    // Add tool results to conversation
     messages.push({ role: "user", content: toolResults });
   }
 
-  const totalMs = Date.now() - startTime;
-  yield { type: "done", totalMs, toolsUsed, toolCallCount, costUsd: 0 };
+  yield { type: "done", totalMs: Date.now() - startTime, toolsUsed, toolCallCount, costUsd: 0 };
+}
+
+// ── OpenAI/OpenRouter loop ────────────────────────────────────────
+
+async function* openRouterLoop(
+  options: AgenticLoopOptions,
+): AsyncGenerator<CrateEvent> {
+  const { message, systemPrompt, model, apiKey, maxTurns = 25, signal } = options;
+
+  const client = new OpenAI({
+    apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+  });
+
+  const { tools, handlers } = buildOpenAIToolkit(options.toolGroups);
+
+  const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: message },
+  ];
+
+  const startTime = Date.now();
+  const toolsUsed: string[] = [];
+  let toolCallCount = 0;
+
+  for (let turn = 0; turn < maxTurns; turn++) {
+    if (signal?.aborted) break;
+
+    const response = await client.chat.completions.create(
+      {
+        model,
+        max_tokens: 16384,
+        messages,
+        tools: tools.length > 0 ? tools : undefined,
+      },
+      { signal },
+    );
+
+    const choice = response.choices[0];
+    if (!choice) break;
+
+    const assistantMsg = choice.message;
+
+    // Emit text
+    if (assistantMsg.content) {
+      for (const ev of emitText(assistantMsg.content)) yield ev;
+    }
+
+    // Check for tool calls
+    const toolCalls = assistantMsg.tool_calls ?? [];
+    if (toolCalls.length === 0 || choice.finish_reason === "stop") break;
+
+    // Add assistant message to history
+    messages.push(assistantMsg);
+
+    // Execute tools
+    const parsedCalls = toolCalls
+      .filter((tc): tc is Extract<typeof tc, { type: "function" }> => tc.type === "function")
+      .map((tc) => ({
+        id: tc.id,
+        name: tc.function.name,
+        input: JSON.parse(tc.function.arguments || "{}") as Record<string, unknown>,
+      }));
+
+    for await (const ev of executeTools(handlers, parsedCalls)) {
+      if ("_toolResult" in ev) {
+        messages.push({
+          role: "tool",
+          tool_call_id: ev._toolResult.id,
+          content: ev._toolResult.content,
+        });
+      } else {
+        if (ev.type === "tool_start" || ev.type === "tool_end") {
+          const bare = "tool" in ev ? ev.tool : "";
+          if (ev.type === "tool_start") toolCallCount++;
+          if (ev.type === "tool_start" && !toolsUsed.includes(bare)) toolsUsed.push(bare);
+        }
+        yield ev;
+      }
+    }
+  }
+
+  yield { type: "done", totalMs: Date.now() - startTime, toolsUsed, toolCallCount, costUsd: 0 };
+}
+
+// ── Public entry point ────────────────────────────────────────────
+
+export async function* agenticLoop(
+  options: AgenticLoopOptions,
+): AsyncGenerator<CrateEvent> {
+  if (options.useOpenRouter) {
+    yield* openRouterLoop(options);
+  } else {
+    yield* anthropicLoop(options);
+  }
 }

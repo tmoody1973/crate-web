@@ -1,12 +1,13 @@
 /**
  * Converts crate-cli's SdkMcpToolDefinition (Zod schemas + handlers) to
- * Anthropic Messages API tool definitions (JSON Schema).
+ * API tool definitions for both Anthropic and OpenAI (OpenRouter) formats.
  *
  * Also provides a tool executor that dispatches tool_use blocks to the
  * correct handler.
  */
 
 import type Anthropic from "@anthropic-ai/sdk";
+import type OpenAI from "openai";
 import { z } from "zod";
 
 /**
@@ -29,63 +30,94 @@ export interface ToolGroup {
   tools: CrateToolDef[];
 }
 
-/**
- * Convert a single CrateToolDef to an Anthropic API Tool definition.
- * Prefixes the tool name with the server name (mcp__{server}__{tool}).
- */
-function toAnthropicTool(
-  serverName: string,
-  tool: CrateToolDef,
-): Anthropic.Tool {
-  // Build a Zod object from the raw shape, then use Zod 4's native toJSONSchema
-  const zodObject = z.object(tool.inputSchema);
-  const jsonSchema = z.toJSONSchema(zodObject) as Record<string, unknown>;
-
-  // Remove $schema key — Anthropic API doesn't accept it
-  const { $schema: _, ...schemaWithoutDollarSchema } = jsonSchema;
-
-  return {
-    name: `mcp__${serverName}__${tool.name}`,
-    description: tool.description,
-    input_schema: {
-      type: "object" as const,
-      properties: schemaWithoutDollarSchema.properties as Record<string, unknown> ?? {},
-      required: schemaWithoutDollarSchema.required as string[] | undefined,
-    },
-  };
+/** Shared handler map entry. */
+export interface HandlerEntry {
+  handler: CrateToolDef["handler"];
+  serverName: string;
 }
 
-/**
- * Convert all active tool groups to Anthropic API tool definitions.
- * Returns both the tool definitions (for the API) and a handler map (for execution).
- */
-export function buildToolkit(toolGroups: ToolGroup[]): {
+/** Get JSON Schema (without $schema key) for a tool's input. */
+function getInputJsonSchema(tool: CrateToolDef): Record<string, unknown> {
+  const zodObject = z.object(tool.inputSchema);
+  const jsonSchema = z.toJSONSchema(zodObject) as Record<string, unknown>;
+  const { $schema: _, ...rest } = jsonSchema;
+  return rest;
+}
+
+/** Prefix tool name with server: mcp__{server}__{tool} */
+function prefixName(serverName: string, toolName: string): string {
+  return `mcp__${serverName}__${toolName}`;
+}
+
+// ── Anthropic format ──────────────────────────────────────────────
+
+export function buildAnthropicToolkit(toolGroups: ToolGroup[]): {
   tools: Anthropic.Tool[];
-  handlers: Map<string, { handler: CrateToolDef["handler"]; serverName: string }>;
+  handlers: Map<string, HandlerEntry>;
 } {
   const tools: Anthropic.Tool[] = [];
-  const handlers = new Map<string, { handler: CrateToolDef["handler"]; serverName: string }>();
+  const handlers = new Map<string, HandlerEntry>();
 
   for (const group of toolGroups) {
     for (const tool of group.tools) {
-      const prefixedName = `mcp__${group.serverName}__${tool.name}`;
-      tools.push(toAnthropicTool(group.serverName, tool));
-      handlers.set(prefixedName, {
-        handler: tool.handler,
-        serverName: group.serverName,
+      const name = prefixName(group.serverName, tool.name);
+      const schema = getInputJsonSchema(tool);
+      tools.push({
+        name,
+        description: tool.description,
+        input_schema: {
+          type: "object" as const,
+          properties: schema.properties as Record<string, unknown> ?? {},
+          required: schema.required as string[] | undefined,
+        },
       });
+      handlers.set(name, { handler: tool.handler, serverName: group.serverName });
     }
   }
 
   return { tools, handlers };
 }
 
+// ── OpenAI format (for OpenRouter) ────────────────────────────────
+
+export function buildOpenAIToolkit(toolGroups: ToolGroup[]): {
+  tools: OpenAI.ChatCompletionTool[];
+  handlers: Map<string, HandlerEntry>;
+} {
+  const tools: OpenAI.ChatCompletionTool[] = [];
+  const handlers = new Map<string, HandlerEntry>();
+
+  for (const group of toolGroups) {
+    for (const tool of group.tools) {
+      const name = prefixName(group.serverName, tool.name);
+      const schema = getInputJsonSchema(tool);
+      tools.push({
+        type: "function",
+        function: {
+          name,
+          description: tool.description,
+          parameters: {
+            type: "object",
+            properties: schema.properties ?? {},
+            required: schema.required ?? [],
+          },
+        },
+      });
+      handlers.set(name, { handler: tool.handler, serverName: group.serverName });
+    }
+  }
+
+  return { tools, handlers };
+}
+
+// ── Shared utilities ──────────────────────────────────────────────
+
 /**
  * Execute a tool by its prefixed name.
  * Returns the tool result content as a string.
  */
 export async function executeTool(
-  handlers: Map<string, { handler: CrateToolDef["handler"]; serverName: string }>,
+  handlers: Map<string, HandlerEntry>,
   toolName: string,
   toolInput: Record<string, unknown>,
 ): Promise<{ content: string; serverName: string }> {

@@ -200,6 +200,41 @@ export function preprocessSlashCommand(message: string): string {
       ].filter(Boolean).join("\n");
     }
 
+    case "publish": {
+      if (!arg) {
+        return "Publish your research to the web. Usage:\n• `/publish telegraph` — Publish to Telegraph (free, instant, no account needed)\n• `/publish tumblr` — Publish to your Tumblr blog (requires Tumblr API keys in Settings)\n\nPaste your research or tell me what to publish and I'll format it.";
+      }
+
+      const target = arg.split(/\s+/)[0]?.toLowerCase() ?? "";
+      const content = arg.slice(target.length).trim();
+
+      if (target === "telegraph" || target === "tg") {
+        return [
+          `Publish the following content to Telegraph using the setup_page and post_to_page tools.`,
+          `If the page hasn't been set up yet, call setup_page first.`,
+          `Then call post_to_page with the content formatted as markdown.`,
+          content ? `\nContent to publish:\n${content}` : `\nPublish my most recent research as a Telegraph article. Format it with a clear title, headings, and source links.`,
+        ].join("\n");
+      }
+
+      if (target === "tumblr") {
+        return [
+          `Publish the following content to Tumblr using the post_to_tumblr tool.`,
+          `Check tumblr_status first to see if Tumblr is connected.`,
+          `If not connected, tell the user they need to add Tumblr API keys in Settings and run connect_tumblr.`,
+          content ? `\nContent to publish:\n${content}` : `\nPublish my most recent research as a Tumblr post. Format it with a clear title, appropriate tags, and source links.`,
+        ].join("\n");
+      }
+
+      // Default: publish to Telegraph
+      return [
+        `Publish the following content to Telegraph using the setup_page and post_to_page tools.`,
+        `If the page hasn't been set up yet, call setup_page first.`,
+        `Then call post_to_page with the content formatted as markdown.`,
+        `\nContent to publish:\n${arg}`,
+      ].join("\n");
+    }
+
     default:
       // Unknown slash command — pass through as-is
       return message;

@@ -17,36 +17,50 @@ function sseEncode(event: CrateEvent | string): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
 
+const CHAT_SYSTEM =
+  "You are Crate, an AI music research assistant. For casual conversation, be friendly and brief. Mention that you can help with music research — artists, samples, vinyl, concerts, genres, and more.";
+
 /** Fast direct API call for chat-tier messages — no tools, ~1-2s response. */
 async function streamChatDirect(
   message: string,
   apiKey: string,
   modelId: string,
-  baseURL?: string,
+  useOpenRouter?: boolean,
 ): Promise<Response> {
-  const isOpenRouter = !!baseURL;
-  const url = isOpenRouter
-    ? `${baseURL}/v1/messages`
+  // OpenRouter uses OpenAI format; Anthropic uses its own Messages format
+  const url = useOpenRouter
+    ? "https://openrouter.ai/api/v1/chat/completions"
     : "https://api.anthropic.com/v1/messages";
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(useOpenRouter
+      ? { Authorization: `Bearer ${apiKey}` }
+      : { "x-api-key": apiKey, "anthropic-version": "2023-06-01" }),
+  };
+
+  const body = useOpenRouter
+    ? {
+        model: modelId,
+        max_tokens: 1024,
+        stream: true,
+        messages: [
+          { role: "system", content: CHAT_SYSTEM },
+          { role: "user", content: message },
+        ],
+      }
+    : {
+        model: modelId,
+        max_tokens: 1024,
+        stream: true,
+        system: CHAT_SYSTEM,
+        messages: [{ role: "user", content: message }],
+      };
 
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      // OpenRouter uses Bearer auth; Anthropic uses x-api-key
-      ...(isOpenRouter
-        ? { Authorization: `Bearer ${apiKey}` }
-        : { "x-api-key": apiKey }),
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: modelId,
-      max_tokens: 1024,
-      stream: true,
-      system:
-        "You are Crate, an AI music research assistant. For casual conversation, be friendly and brief. Mention that you can help with music research — artists, samples, vinyl, concerts, genres, and more.",
-      messages: [{ role: "user", content: message }],
-    }),
+    headers,
+    body: JSON.stringify(body),
   });
 
   if (!res.ok || !res.body) {
@@ -77,14 +91,13 @@ async function streamChatDirect(
             if (data === "[DONE]") continue;
             try {
               const parsed = JSON.parse(data);
-              if (
-                parsed.type === "content_block_delta" &&
-                parsed.delta?.text
-              ) {
+              // Extract text from either Anthropic or OpenAI SSE format
+              const text = useOpenRouter
+                ? parsed.choices?.[0]?.delta?.content  // OpenAI format
+                : parsed.delta?.text;                   // Anthropic format (content_block_delta)
+              if (text) {
                 controller.enqueue(
-                  encoder.encode(
-                    sseEncode({ type: "answer_token", token: parsed.delta.text }),
-                  ),
+                  encoder.encode(sseEncode({ type: "answer_token", token: text })),
                 );
               }
             } catch {
@@ -94,23 +107,14 @@ async function streamChatDirect(
         }
         controller.enqueue(
           encoder.encode(
-            sseEncode({
-              type: "done",
-              totalMs: 0,
-              toolsUsed: [],
-              toolCallCount: 0,
-              costUsd: 0,
-            }),
+            sseEncode({ type: "done", totalMs: 0, toolsUsed: [], toolCallCount: 0, costUsd: 0 }),
           ),
         );
         controller.enqueue(encoder.encode(sseEncode("[DONE]")));
       } catch (err) {
         controller.enqueue(
           encoder.encode(
-            sseEncode({
-              type: "error",
-              message: err instanceof Error ? err.message : "Stream error",
-            }),
+            sseEncode({ type: "error", message: err instanceof Error ? err.message : "Stream error" }),
           ),
         );
       } finally {
@@ -131,7 +135,7 @@ async function streamAgenticResponse(
   apiKey: string,
   modelId: string,
   envKeys: Record<string, string>,
-  baseURL?: string,
+  useOpenRouter?: boolean,
 ): Promise<Response> {
   const encoder = new TextEncoder();
 
@@ -167,7 +171,7 @@ async function streamAgenticResponse(
           systemPrompt,
           model: modelId,
           apiKey,
-          baseURL,
+          useOpenRouter,
           toolGroups,
           maxTurns: 25,
         });
@@ -256,22 +260,19 @@ export async function POST(req: Request) {
   // Slash command preprocessing
   const message = preprocessSlashCommand(rawMessage);
 
-  // Determine API key and base URL
-  // OpenRouter: base URL is https://openrouter.ai/api (SDK appends /v1/messages)
-  // OpenRouter uses Authorization: Bearer, not x-api-key
+  // Determine API key and routing
   const useOpenRouter = hasOpenRouter && !hasAnthropic;
   const apiKey = hasAnthropic ? rawKeys.anthropic : rawKeys.openrouter;
-  const baseURL = useOpenRouter ? "https://openrouter.ai/api" : undefined;
 
   const modelId = model || "claude-haiku-4-5-20251001";
 
   // Chat-tier: fast direct call (no tools)
   if (isChatTier(message)) {
-    return streamChatDirect(message, apiKey, modelId, baseURL);
+    return streamChatDirect(message, apiKey, modelId, useOpenRouter);
   }
 
   // Agent-tier: full agentic loop with tools
   // Merge user keys + embedded keys for tool access
   const allEnvKeys = { ...embeddedKeys, ...userEnvKeys };
-  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, baseURL);
+  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, useOpenRouter);
 }
