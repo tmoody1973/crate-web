@@ -278,6 +278,9 @@ const SLASH_COMMANDS = [
   { command: "/news", description: "Daily music news segment", usage: "/news [station] [count]", example: "/news hyfin 3" },
   { command: "/show-prep", description: "Full show prep or specific pieces", usage: "/show-prep [station]: [request or setlist]", example: "/show-prep HYFIN: Khruangbin - Time" },
   { command: "/prep", description: "Show prep (shorthand)", usage: "/prep [station]: [request]", example: "/prep 88nine: talk breaks for Khruangbin > Simz" },
+  { command: "/influence", description: "Map an artist's musical influences", usage: "/influence [artist name]", example: "/influence Flying Lotus" },
+  { command: "/published", description: "View all your published content", usage: "/published", example: "/published" },
+  { command: "/publish", description: "Publish research to Telegraph or Tumblr", usage: "/publish [telegraph|tumblr] [content]", example: "/publish telegraph" },
 ];
 
 function SlashCommandMenu({
