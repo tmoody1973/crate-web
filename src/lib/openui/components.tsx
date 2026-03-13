@@ -1090,6 +1090,66 @@ export const ArtistProfileCard = defineComponent({
   },
 });
 
+// ── Influence grouping ──────────────────────────────────────────
+type ParsedConnection = {
+  name: string; weight: number; relationship: string;
+  context: string; sources: unknown; imageUrl?: string;
+};
+
+const ROOTS_RELS = new Set(["influenced by", "family lineage", "inspired by"]);
+const LEGACY_RELS = new Set(["influenced", "shaped", "mentored"]);
+
+type GroupKey = "roots" | "built" | "legacy";
+
+function classifyRelationship(rel: string): GroupKey {
+  const norm = rel.toLowerCase().trim();
+  if (ROOTS_RELS.has(norm)) return "roots";
+  if (LEGACY_RELS.has(norm)) return "legacy";
+  return "built";
+}
+
+const GROUP_META: Record<GroupKey, { label: string; color: string; activeBg: string; borderColor: string }> = {
+  roots:  { label: "Roots",      color: "text-green-400",  activeBg: "border-green-500", borderColor: "border-green-500/20" },
+  built:  { label: "Built With", color: "text-yellow-400", activeBg: "border-yellow-500", borderColor: "border-yellow-500/20" },
+  legacy: { label: "Legacy",     color: "text-cyan-400",   activeBg: "border-cyan-500", borderColor: "border-cyan-500/20" },
+};
+
+function groupConnections(conns: ParsedConnection[]): Record<GroupKey, ParsedConnection[]> {
+  const groups: Record<GroupKey, ParsedConnection[]> = { roots: [], built: [], legacy: [] };
+  for (const c of conns) {
+    groups[classifyRelationship(c.relationship)].push(c);
+  }
+  for (const key of Object.keys(groups) as GroupKey[]) {
+    groups[key].sort((a, b) => ensureNumber(b.weight) - ensureNumber(a.weight));
+  }
+  return groups;
+}
+
+function buildLineageArc(
+  artist: string,
+  groups: Record<GroupKey, ParsedConnection[]>,
+): Array<{ name: string; imageUrl?: string; isCentral?: boolean }> {
+  const roots = groups.roots.slice(0, 2);
+  const legacy = groups.legacy.slice(0, 2);
+  if (roots.length === 0 && legacy.length === 0) return [];
+  return [
+    ...roots.reverse().map(c => ({ name: c.name, imageUrl: c.imageUrl })),
+    { name: artist, isCentral: true },
+    ...legacy.map(c => ({ name: c.name, imageUrl: c.imageUrl })),
+  ];
+}
+
+function autoSummary(artist: string, groups: Record<GroupKey, ParsedConnection[]>): string {
+  const r = groups.roots.length;
+  const b = groups.built.length;
+  const l = groups.legacy.length;
+  const parts: string[] = [];
+  if (r > 0) parts.push(`${r} influence${r > 1 ? "s" : ""} shaped ${artist}'s sound`);
+  if (b > 0) parts.push(`${b} collaboration${b > 1 ? "s" : ""}`);
+  if (l > 0) parts.push(`${l} artist${l > 1 ? "s" : ""} carrying the lineage forward`);
+  return parts.join(", ") + ".";
+}
+
 export const InfluenceChain = defineComponent({
   name: "InfluenceChain",
   description:
