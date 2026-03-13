@@ -335,7 +335,7 @@ export async function POST(req: Request) {
   // Force Sonnet for research-heavy commands that need deep tool use + structured output
   const isResearchCommand = /^\/(?:influence|show-prep|prep|news)\b/i.test(rawMessage.trim());
   const modelId = isResearchCommand
-    ? "claude-sonnet-4-5-20241022"
+    ? "claude-sonnet-4-6"
     : (model || "claude-haiku-4-5-20251001");
 
   // Chat-tier: fast direct call (no tools)
