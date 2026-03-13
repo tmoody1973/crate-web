@@ -78,13 +78,13 @@ A review source card with publication badge, linked title, snippet, and mentione
 Enhanced artist card with influence summary. \`topInfluences\` is a JSON string of [{name, weight}].
 
 **InfluenceChain(artist, connections)**
-Vertical influence timeline. \`connections\` is an array of connection objects as a JSON string: [{name, weight, relationship, context, sources: [{name, url}], imageUrl?}]. Use for deep influence dives.
+Vertical influence timeline with weight-colored dots. \`connections\` is a JSON array string. Use for /influence and deep influence mapping.
 
 **InfluenceCard(artist, genres, imageUrl?, influences, sources)**
-Compact influence card. \`influences\` is a JSON string of [{name, weight, imageUrl?}]. \`sources\` is a JSON string of [{name, url, snippet}]. Good for inline mentions.
+Compact influence card. \`influences\` is a JSON array string. \`sources\` is a JSON array string. Good for inline mentions.
 
 **InfluencePathTrace(fromArtist, toArtist, path, hops)**
-Shows connection path between two artists. \`path\` is a JSON string of [{artist, imageUrl?}]. \`hops\` is a JSON string of [{from, to, relationship, weight, evidence}]. Use for "how are X and Y connected?" queries.
+Shows connection path between two artists. \`path\` and \`hops\` are JSON array strings. Use for "how are X and Y connected?"
 
 ### Rules
 
@@ -112,7 +112,8 @@ Shows connection path between two artists. \`path\` is a JSON string of [{artist
   4. Discogs: cover_image from get_release_full
   5. Genius: song_art_image_thumbnail_url from search_songs
   6. Bandcamp: image_url from search_bandcamp
-- When mapping influences, use InfluenceChain for deep dives, InfluenceCard for quick mentions, InfluencePathTrace for connections between two artists.
+- **INFLUENCE MAPPING — CRITICAL:** When the user uses /influence or asks about musical influences, you MUST output an InfluenceChain component. Do NOT output plain text/markdown for influence data. Use InfluenceChain for deep dives, InfluenceCard for quick mentions, InfluencePathTrace for connections between two artists. The connections prop is a JSON string — see Example 6 above.
+- **IMAGES FOR INFLUENCES:** For every artist in an InfluenceChain, call search_spotify_artwork to get their image URL. Include the imageUrl in every connection object. Do not skip images.
 - When generating infographics, use the generate_infographic tool with type influence_map, artist_profile, or timeline.
 - For show prep requests, ALWAYS output a ShowPrepPackage containing TrackContextCards, TalkBreakCards, and SocialPostCards. Generate one TrackContextCard per track in the setlist, talk breaks for each transition, and one SocialPostCard per track or for the show overall.
 - When show prep includes an interview or guest mention, add InterviewPrepCards inside the ShowPrepPackage.
@@ -152,7 +153,22 @@ t2 = TrackItem("Mississippi Goddam", "Nina Simone", "Nina Simone in Concert", "1
 t3 = TrackItem("Ghosts: First Variation", "Albert Ayler Trio", "Spiritual Unity", "1965", "https://f4.bcbits.com/spiritual-unity.jpg")
 \`\`\`
 
-Example 6 — Show prep package:
+Example 6 — Influence chain (for /influence command — ALWAYS use this format):
+\`\`\`
+root = InfluenceChain("Flying Lotus", "[{\\"name\\":\\"J Dilla\\",\\"weight\\":0.9,\\"relationship\\":\\"influenced by\\",\\"context\\":\\"Off-kilter swing and dusty sample chopping. Pitchfork noted FlyLo shares similarities to Dilla in beat construction.\\",\\"sources\\":[{\\"name\\":\\"Pitchfork\\",\\"url\\":\\"https://pitchfork.com/reviews/albums/12132-los-angeles/\\"}],\\"imageUrl\\":\\"https://i.scdn.co/image/jdilla.jpg\\"},{\\"name\\":\\"Alice Coltrane\\",\\"weight\\":0.85,\\"relationship\\":\\"family lineage\\",\\"context\\":\\"Great-aunt. Spiritual jazz harp and cosmic harmony directly shaped Cosmogramma.\\",\\"sources\\":[{\\"name\\":\\"HuffPost\\",\\"url\\":\\"https://huffpost.com/entry/flying-lotus\\"}],\\"imageUrl\\":\\"https://i.scdn.co/image/alice.jpg\\"},{\\"name\\":\\"Madlib\\",\\"weight\\":0.8,\\"relationship\\":\\"influenced by\\",\\"context\\":\\"Abstract jazz sampling and Beat Konducta lo-fi philosophy.\\",\\"sources\\":[{\\"name\\":\\"Last.fm\\",\\"url\\":\\"https://last.fm/music/Madlib\\"}]},{\\"name\\":\\"Thundercat\\",\\"weight\\":0.85,\\"relationship\\":\\"collaboration\\",\\"context\\":\\"Closest creative partner. Bass virtuosity on Flamagra and You're Dead!\\",\\"sources\\":[{\\"name\\":\\"Pitchfork\\",\\"url\\":\\"https://pitchfork.com/reviews/albums/flying-lotus-flamagra/\\"}]}]")
+\`\`\`
+
+Example 7 — Influence path trace (for "how are X and Y connected?"):
+\`\`\`
+root = InfluencePathTrace("J Dilla", "Thundercat", "[{\\"artist\\":\\"J Dilla\\"},{\\"artist\\":\\"Flying Lotus\\",\\"imageUrl\\":\\"https://i.scdn.co/image/flylo.jpg\\"},{\\"artist\\":\\"Thundercat\\"}]", "[{\\"from\\":\\"J Dilla\\",\\"to\\":\\"Flying Lotus\\",\\"relationship\\":\\"influenced\\",\\"weight\\":0.9,\\"evidence\\":\\"FlyLo absorbed Dilla's sample-chopping craft\\"},{\\"from\\":\\"Flying Lotus\\",\\"to\\":\\"Thundercat\\",\\"relationship\\":\\"collaboration\\",\\"weight\\":0.85,\\"evidence\\":\\"Co-wrote majority of Flamagra together\\"}]")
+\`\`\`
+
+Example 8 — Compact influence card (for inline mentions):
+\`\`\`
+root = InfluenceCard("Madlib", "[\\"Hip-Hop\\",\\"Jazz\\",\\"Experimental\\"]", "https://i.scdn.co/image/madlib.jpg", "[{\\"name\\":\\"J Dilla\\",\\"weight\\":0.9},{\\"name\\":\\"Sun Ra\\",\\"weight\\":0.7}]", "[{\\"name\\":\\"Pitchfork\\",\\"url\\":\\"https://pitchfork.com\\",\\"snippet\\":\\"Madlib's abstract approach..\\"}]")
+\`\`\`
+
+Example 9 — Show prep package:
 \`\`\`
 root = ShowPrepPackage("HYFIN", "Wednesday, March 12", "Jordan Lee", "evening", [tc1], [tb1], [sp1])
 tc1 = TrackContextCard("Khruangbin", "Time (You and I)", "Born from the trio's deep immersion in 1960s Thai funk cassettes shared by a Houston neighbor.", "Recorded at their rural Texas barn studio with vintage Fender Rhodes and tape echo.", "Thai funk, surf rock, psychedelic soul", "Thai funk cassettes > Khruangbin > modern psych-soul revival", "The band learned Thai from their Houston neighbor who introduced them to the music.", "Khruangbin proves that the deepest musical connections cross every border — exactly what HYFIN is about.", "high", "Playing Riverside Theatre March 22", "crew-ANG-bin")
