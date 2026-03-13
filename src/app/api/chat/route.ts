@@ -3,6 +3,9 @@ import { resolveUserKeys } from "@/lib/resolve-user-keys";
 import { preprocessSlashCommand, isChatTier } from "@/lib/chat-utils";
 import { agenticLoop } from "@/lib/agentic-loop";
 import type { CrateEvent } from "@/lib/agentic-loop";
+import { createTelegraphTools } from "@/lib/web-tools/telegraph";
+import { createTumblrTools } from "@/lib/web-tools/tumblr";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
@@ -135,6 +138,7 @@ async function streamAgenticResponse(
   apiKey: string,
   modelId: string,
   envKeys: Record<string, string>,
+  convexUserId: string,
   useOpenRouter?: boolean,
 ): Promise<Response> {
   const encoder = new TextEncoder();
@@ -158,7 +162,36 @@ async function streamAgenticResponse(
           "crate-cli/dist/agent/system-prompt.js"
         );
 
-        const toolGroups = getActiveTools();
+        const cliToolGroups = getActiveTools();
+
+        // Replace SQLite-based telegraph/tumblr tools with Convex-backed web versions
+        const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!;
+        const userId = convexUserId as Id<"users">;
+
+        const webTelegraphTools = createTelegraphTools(convexUrl, userId);
+        const webTumblrTools =
+          envKeys.TUMBLR_CONSUMER_KEY && envKeys.TUMBLR_CONSUMER_SECRET
+            ? createTumblrTools(
+                convexUrl,
+                userId,
+                envKeys.TUMBLR_CONSUMER_KEY,
+                envKeys.TUMBLR_CONSUMER_SECRET,
+              )
+            : [];
+
+        // Filter out crate-cli telegraph/tumblr groups that use SQLite, inject web versions
+        const toolGroups = [
+          ...cliToolGroups.filter(
+            (g: { serverName: string }) =>
+              g.serverName !== "telegraph" && g.serverName !== "tumblr",
+          ),
+          ...(webTelegraphTools.length > 0
+            ? [{ serverName: "telegraph", tools: webTelegraphTools }]
+            : []),
+          ...(webTumblrTools.length > 0
+            ? [{ serverName: "tumblr", tools: webTumblrTools }]
+            : []),
+        ];
 
         // Build system prompt with soul + OpenUI prompt
         const { CRATE_SOUL } = await import("@/lib/soul");
@@ -274,5 +307,5 @@ export async function POST(req: Request) {
   // Agent-tier: full agentic loop with tools
   // Merge user keys + embedded keys for tool access
   const allEnvKeys = { ...embeddedKeys, ...userEnvKeys };
-  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, useOpenRouter);
+  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, resolved.user._id, useOpenRouter);
 }

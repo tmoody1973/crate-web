@@ -8,6 +8,14 @@ import { useAuth } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
 import { usePlayer } from "@/components/player/player-provider";
 
+// ── Shared image component with broken-URL fallback ─────────────
+
+function SafeImage({ src, alt, className }: { src?: string; alt?: string; className: string }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) return null;
+  return <img src={src} alt={alt ?? ""} className={className} onError={() => setBroken(true)} />;
+}
+
 // ── Crate Music Research Components ──────────────────────────────
 
 export const ArtistCard = defineComponent({
@@ -24,13 +32,7 @@ export const ArtistCard = defineComponent({
   component: ({ props }) => (
     <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
       <div className="flex items-start gap-3">
-        {props.imageUrl && (
-          <img
-            src={props.imageUrl}
-            alt={props.name}
-            className="h-16 w-16 rounded-full object-cover"
-          />
-        )}
+        <SafeImage src={props.imageUrl} alt={props.name} className="h-16 w-16 rounded-full object-cover" />
         <div>
           <h3 className="text-lg font-bold text-white">{props.name}</h3>
           {props.origin && (
@@ -135,13 +137,7 @@ export const AlbumEntry = defineComponent({
   }),
   component: ({ props }) => (
     <div className="flex items-center gap-3 border-b border-zinc-800 py-2">
-      {props.imageUrl && (
-        <img
-          src={props.imageUrl}
-          alt=""
-          className="h-10 w-10 shrink-0 rounded object-cover"
-        />
-      )}
+      <SafeImage src={props.imageUrl} className="h-10 w-10 shrink-0 rounded object-cover" />
       <div className="min-w-0 flex-1">
         <p className="font-medium text-white">{props.title}</p>
         <p className="text-xs text-zinc-500">
@@ -347,13 +343,7 @@ export const TrackItem = defineComponent({
   component: ({ props }) => (
     <div className="group flex items-center gap-2 border-b border-zinc-800 py-1.5">
       <PlayButton name={props.name} artist={props.artist} />
-      {props.imageUrl && (
-        <img
-          src={props.imageUrl}
-          alt=""
-          className="h-8 w-8 shrink-0 rounded object-cover"
-        />
-      )}
+      <SafeImage src={props.imageUrl} className="h-8 w-8 shrink-0 rounded object-cover" />
       <div className="min-w-0 flex-1">
         <span className="text-sm text-white">{props.name}</span>
         <span className="ml-2 text-xs text-zinc-500">{props.artist}</span>
@@ -595,9 +585,7 @@ export const TrackContextCard = defineComponent({
     return (
       <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
         <div className="flex items-start gap-3">
-          {props.imageUrl && (
-            <img src={props.imageUrl} alt="" className="h-16 w-16 shrink-0 rounded object-cover" />
-          )}
+          <SafeImage src={props.imageUrl} className="h-16 w-16 shrink-0 rounded object-cover" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <PlayButton name={props.title} artist={props.artist} />

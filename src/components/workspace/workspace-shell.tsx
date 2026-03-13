@@ -16,6 +16,7 @@ import { RecentsSection } from "@/components/sidebar/recents-section";
 import { ArtifactsSection } from "@/components/sidebar/artifacts-section";
 import { PlaylistsSection } from "@/components/sidebar/playlists-section";
 import { CollectionSection } from "@/components/sidebar/collection-section";
+import { PublishedSection } from "@/components/sidebar/published-section";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -57,6 +58,7 @@ function SidebarContent() {
         <CratesSection />
         <PlaylistsSection />
         <CollectionSection />
+        <PublishedSection />
         <StarredSection />
         <RecentsSection />
         <ArtifactsSection />

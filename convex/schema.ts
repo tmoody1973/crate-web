@@ -131,6 +131,48 @@ export default defineSchema({
       filterFields: ["userId"],
     }),
 
+  // Publishing: Telegraph (per-user anonymous accounts)
+  telegraphAuth: defineTable({
+    userId: v.id("users"),
+    accessToken: v.string(),
+    authorName: v.string(),
+    authorUrl: v.optional(v.string()),
+    indexPagePath: v.optional(v.string()),
+    indexPageUrl: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  telegraphEntries: defineTable({
+    userId: v.id("users"),
+    title: v.string(),
+    telegraphPath: v.string(),
+    telegraphUrl: v.string(),
+    category: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  // Publishing: Tumblr (per-user OAuth 1.0a credentials)
+  tumblrAuth: defineTable({
+    userId: v.id("users"),
+    oauthToken: v.string(),
+    oauthTokenSecret: v.string(),
+    blogName: v.string(),
+    blogUrl: v.string(),
+    blogUuid: v.string(),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  tumblrPosts: defineTable({
+    userId: v.id("users"),
+    tumblrPostId: v.string(),
+    title: v.string(),
+    blogName: v.string(),
+    postUrl: v.string(),
+    category: v.optional(v.string()),
+    tags: v.optional(v.string()), // JSON array
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   orgKeys: defineTable({
     domain: v.string(),
     encryptedKeys: v.bytes(),

@@ -200,6 +200,15 @@ export function preprocessSlashCommand(message: string): string {
       ].filter(Boolean).join("\n");
     }
 
+    case "published": {
+      return [
+        `Show me everything I've published.`,
+        `Use the view_my_page tool to check Telegraph entries, and tumblr_blog_info to check Tumblr posts.`,
+        `List all published items with their titles, URLs, categories, and dates.`,
+        `Format as a clean list grouped by platform with clickable links.`,
+      ].join("\n");
+    }
+
     case "publish": {
       if (!arg) {
         return "Publish your research to the web. Usage:\n• `/publish telegraph` — Publish to Telegraph (free, instant, no account needed)\n• `/publish tumblr` — Publish to your Tumblr blog (requires Tumblr API keys in Settings)\n\nPaste your research or tell me what to publish and I'll format it.";

@@ -7,6 +7,35 @@ import { useRouter } from "next/navigation";
 import { usePlayer } from "@/components/player/player-provider";
 import { api } from "../../../convex/_generated/api";
 
+function ImageWithFallback({
+  src,
+  className,
+}: {
+  src?: string | null;
+  className: string;
+}) {
+  const [broken, setBroken] = useState(false);
+
+  if (!src || broken) {
+    return (
+      <span
+        className={`flex items-center justify-center bg-zinc-800 text-[10px] text-zinc-600 ${className}`}
+      >
+        ●
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className={className}
+      onError={() => setBroken(true)}
+    />
+  );
+}
+
 export function CollectionSection() {
   const [expanded, setExpanded] = useState(false);
   const { userId: clerkId } = useAuth();
@@ -87,17 +116,10 @@ export function CollectionSection() {
                   <span className="text-[10px]">▶</span>
                 )}
               </button>
-              {item.imageUrl ? (
-                <img
-                  src={item.imageUrl}
-                  alt=""
-                  className="h-6 w-6 rounded object-cover"
-                />
-              ) : (
-                <span className="flex h-6 w-6 items-center justify-center rounded bg-zinc-800 text-[10px] text-zinc-600">
-                  ●
-                </span>
-              )}
+              <ImageWithFallback
+                src={item.imageUrl}
+                className="h-6 w-6 rounded object-cover"
+              />
               <div
                 className="min-w-0 cursor-pointer"
                 onClick={() =>

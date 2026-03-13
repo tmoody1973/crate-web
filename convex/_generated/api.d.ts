@@ -15,8 +15,11 @@ import type * as keys from "../keys.js";
 import type * as messages from "../messages.js";
 import type * as orgKeys from "../orgKeys.js";
 import type * as playlists from "../playlists.js";
+import type * as published from "../published.js";
 import type * as sessions from "../sessions.js";
+import type * as telegraph from "../telegraph.js";
 import type * as toolCalls from "../toolCalls.js";
+import type * as tumblr from "../tumblr.js";
 import type * as users from "../users.js";
 
 import type {
@@ -33,8 +36,11 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   orgKeys: typeof orgKeys;
   playlists: typeof playlists;
+  published: typeof published;
   sessions: typeof sessions;
+  telegraph: typeof telegraph;
   toolCalls: typeof toolCalls;
+  tumblr: typeof tumblr;
   users: typeof users;
 }>;
 

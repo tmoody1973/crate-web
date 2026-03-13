@@ -57,6 +57,7 @@ export interface ResolvedKeys {
   hasOpenRouter: boolean;
   /** The Convex user record */
   user: {
+    _id: string;
     email?: string;
     encryptedKeys?: string;
     [key: string]: unknown;
