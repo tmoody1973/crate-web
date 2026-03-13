@@ -245,6 +245,7 @@ async function streamAgenticResponse(
         const systemPrompt = `${getSystemPrompt()}\n\n${CRATE_SOUL}\n\n${getCrateOpenUIPrompt()}`;
 
         // Run the agentic loop
+        // Research commands get more turns since they need tool calls + final output
         const events = agenticLoop({
           message,
           systemPrompt,
@@ -252,7 +253,7 @@ async function streamAgenticResponse(
           apiKey,
           useOpenRouter,
           toolGroups,
-          maxTurns: 25,
+          maxTurns: isResearchCommand ? 35 : 25,
         });
 
         for await (const event of events) {

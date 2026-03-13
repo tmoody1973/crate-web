@@ -94,12 +94,21 @@ async function* anthropicLoop(
   for (let turn = 0; turn < maxTurns; turn++) {
     if (signal?.aborted) break;
 
+    // When nearing the turn limit, nudge the model to produce final output
+    const turnsRemaining = maxTurns - turn;
+    const nudgeMessages = turnsRemaining <= 3 && turn > 0
+      ? [...messages, {
+          role: "user" as const,
+          content: `[SYSTEM: You have ${turnsRemaining} turns left. Stop making tool calls and output your final response NOW. If you were asked to output OpenUI Lang, output the component immediately with the data you have.]`,
+        }]
+      : messages;
+
     const response = await client.messages.create(
       {
         model,
         max_tokens: 16384,
         system: systemPrompt,
-        messages,
+        messages: nudgeMessages,
         tools: tools.length > 0 ? tools : undefined,
       },
       { signal },
@@ -117,6 +126,9 @@ async function* anthropicLoop(
     }
 
     if (toolCalls.length === 0 || response.stop_reason === "end_turn") break;
+
+    // If we're on the last turn, don't execute more tools — force output
+    if (turnsRemaining <= 1) break;
 
     // Add assistant message
     messages.push({ role: "assistant", content: response.content });
@@ -168,11 +180,20 @@ async function* openRouterLoop(
   for (let turn = 0; turn < maxTurns; turn++) {
     if (signal?.aborted) break;
 
+    // When nearing the turn limit, nudge the model to produce final output
+    const turnsRemaining = maxTurns - turn;
+    const currentMessages = turnsRemaining <= 3 && turn > 0
+      ? [...messages, {
+          role: "user" as const,
+          content: `[SYSTEM: You have ${turnsRemaining} turns left. Stop making tool calls and output your final response NOW. If you were asked to output OpenUI Lang, output the component immediately with the data you have.]`,
+        }]
+      : messages;
+
     const response = await client.chat.completions.create(
       {
         model,
         max_tokens: 16384,
-        messages,
+        messages: currentMessages,
         tools: tools.length > 0 ? tools : undefined,
       },
       { signal },
@@ -191,6 +212,9 @@ async function* openRouterLoop(
     // Check for tool calls
     const toolCalls = assistantMsg.tool_calls ?? [];
     if (toolCalls.length === 0 || choice.finish_reason === "stop") break;
+
+    // If we're on the last turn, don't execute more tools — force output
+    if (turnsRemaining <= 1) break;
 
     // Add assistant message to history
     messages.push(assistantMsg);
