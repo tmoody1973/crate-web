@@ -65,9 +65,11 @@ export async function* agenticLoop(
     signal,
   } = options;
 
+  // OpenRouter uses Authorization: Bearer (authToken), not x-api-key
+  const isOpenRouter = !!baseURL;
   const client = new Anthropic({
-    apiKey,
-    ...(baseURL ? { baseURL } : {}),
+    apiKey: isOpenRouter ? "" : apiKey,
+    ...(isOpenRouter ? { authToken: apiKey, baseURL } : {}),
   });
 
   const { tools, handlers } = buildToolkit(toolGroups);

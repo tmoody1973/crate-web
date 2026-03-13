@@ -24,15 +24,19 @@ async function streamChatDirect(
   modelId: string,
   baseURL?: string,
 ): Promise<Response> {
-  const url = baseURL
-    ? `${baseURL}/messages`
+  const isOpenRouter = !!baseURL;
+  const url = isOpenRouter
+    ? `${baseURL}/v1/messages`
     : "https://api.anthropic.com/v1/messages";
 
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": apiKey,
+      // OpenRouter uses Bearer auth; Anthropic uses x-api-key
+      ...(isOpenRouter
+        ? { Authorization: `Bearer ${apiKey}` }
+        : { "x-api-key": apiKey }),
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
@@ -253,12 +257,11 @@ export async function POST(req: Request) {
   const message = preprocessSlashCommand(rawMessage);
 
   // Determine API key and base URL
-  const apiKey = hasAnthropic
-    ? rawKeys.anthropic
-    : rawKeys.openrouter;
-  const baseURL = hasOpenRouter && !hasAnthropic
-    ? "https://openrouter.ai/api/v1"
-    : undefined;
+  // OpenRouter: base URL is https://openrouter.ai/api (SDK appends /v1/messages)
+  // OpenRouter uses Authorization: Bearer, not x-api-key
+  const useOpenRouter = hasOpenRouter && !hasAnthropic;
+  const apiKey = hasAnthropic ? rawKeys.anthropic : rawKeys.openrouter;
+  const baseURL = useOpenRouter ? "https://openrouter.ai/api" : undefined;
 
   const modelId = model || "claude-haiku-4-5-20251001";
 
