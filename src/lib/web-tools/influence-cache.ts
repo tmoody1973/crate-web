@@ -295,5 +295,109 @@ export function createInfluenceCacheTools(
       },
       handler: removeEdgeHandler,
     },
+    {
+      name: "fetch_artist_tags",
+      description:
+        "Fetch Last.fm top tags for an artist and store as a tag-vector profile. Used for sonic similarity calculations. Call this for every artist in an influence chain.",
+      inputSchema: {
+        artist: z.string().describe("Artist name"),
+        lastfm_api_key: z
+          .string()
+          .optional()
+          .describe("Last.fm API key (uses env if not provided)"),
+      },
+      handler: async (args: { artist: string; lastfm_api_key?: string }) => {
+        try {
+          const apiKey = args.lastfm_api_key || process.env.LASTFM_API_KEY;
+          if (!apiKey) return toolError("LASTFM_API_KEY not available");
+
+          const url = `https://ws.audioscrobbler.com/2.0/?method=artist.gettoptags&artist=${encodeURIComponent(args.artist)}&api_key=${apiKey}&format=json`;
+          const res = await fetch(url);
+          if (!res.ok) return toolError(`Last.fm API error: ${res.status}`);
+
+          const data = await res.json();
+          const toptags = data?.toptags?.tag;
+          if (!toptags || !Array.isArray(toptags))
+            return toolError("No tags found for this artist");
+
+          // Build tag weight object (top 30 tags, normalize count to 0-100)
+          const tagWeights: Record<string, number> = {};
+          for (const tag of toptags.slice(0, 30)) {
+            if (tag.name && tag.count != null) {
+              tagWeights[tag.name.toLowerCase()] = parseInt(tag.count, 10);
+            }
+          }
+
+          // Store in Convex
+          await convex.mutation(api.influence.upsertTagProfile, {
+            userId,
+            artistName: args.artist,
+            tags: JSON.stringify(tagWeights),
+          });
+
+          return toolResult({
+            status: "stored",
+            artist: args.artist,
+            tagCount: Object.keys(tagWeights).length,
+            topTags: Object.entries(tagWeights)
+              .slice(0, 10)
+              .map(([name, weight]) => ({ name, weight })),
+          });
+        } catch (error) {
+          return toolError(error);
+        }
+      },
+    },
+    {
+      name: "compute_tag_similarity",
+      description:
+        "Compute sonic/stylistic similarity between two artists using their Last.fm tag vectors (cosine similarity). Both artists must have tag profiles — use fetch_artist_tags first if needed.",
+      inputSchema: {
+        artist1: z.string().describe("First artist name"),
+        artist2: z.string().describe("Second artist name"),
+      },
+      handler: async (args: { artist1: string; artist2: string }) => {
+        try {
+          const result = await convex.query(api.influence.getTagSimilarity, {
+            userId,
+            artist1: args.artist1,
+            artist2: args.artist2,
+          });
+          return toolResult(result);
+        } catch (error) {
+          return toolError(error);
+        }
+      },
+    },
+    {
+      name: "find_shortest_influence_path",
+      description:
+        "Find the shortest influence path between two artists using Dijkstra's algorithm with the distance transform d=1/(mentionCount+1). Finds the path of STRONGEST cumulative influence, not just any path. Based on Badillo-Goicoechea (2025) network methodology.",
+      inputSchema: {
+        from_artist: z.string().describe("Starting artist"),
+        to_artist: z.string().describe("Target artist"),
+        max_depth: z
+          .number()
+          .optional()
+          .describe("Maximum search depth (default: 6)"),
+      },
+      handler: async (args: {
+        from_artist: string;
+        to_artist: string;
+        max_depth?: number;
+      }) => {
+        try {
+          const result = await convex.query(api.influence.findPathDijkstra, {
+            userId,
+            fromArtist: args.from_artist,
+            toArtist: args.to_artist,
+            maxDepth: args.max_depth,
+          });
+          return toolResult(result);
+        } catch (error) {
+          return toolError(error);
+        }
+      },
+    },
   ];
 }

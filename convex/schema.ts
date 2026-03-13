@@ -197,12 +197,30 @@ export default defineSchema({
     toArtistId: v.id("influenceArtists"),
     relationship: v.string(),
     weight: v.number(),
+    mentionCount: v.optional(v.number()),
     context: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user", ["userId"])
     .index("by_from", ["userId", "fromArtistId"])
     .index("by_to", ["userId", "toArtistId"]),
+
+  artistTagProfiles: defineTable({
+    userId: v.id("users"),
+    artistId: v.id("influenceArtists"),
+    tags: v.string(), // JSON object: {"electronic": 100, "ambient": 85, "idm": 60}
+    fetchedAt: v.number(),
+  }).index("by_artist", ["artistId"])
+    .index("by_user", ["userId"]),
+
+  sonicProfiles: defineTable({
+    userId: v.id("users"),
+    artistId: v.id("influenceArtists"),
+    features: v.string(), // JSON: {tempo, energy, loudness, danceability, speechiness, ...}
+    source: v.string(), // "lastfm_tags" | "essentia" | "manual"
+    fetchedAt: v.number(),
+  }).index("by_artist", ["artistId"])
+    .index("by_user", ["userId"]),
 
   influenceEdgeSources: defineTable({
     edgeId: v.id("influenceEdges"),

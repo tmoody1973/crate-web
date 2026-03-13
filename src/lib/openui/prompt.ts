@@ -117,6 +117,7 @@ Shows connection path between two artists. \`path\` and \`hops\` are JSON array 
 - When generating infographics, use the generate_infographic tool with type influence_map, artist_profile, or timeline.
 - For show prep requests, ALWAYS output a ShowPrepPackage containing TrackContextCards, TalkBreakCards, and SocialPostCards. Generate one TrackContextCard per track in the setlist, talk breaks for each transition, and one SocialPostCard per track or for the show overall.
 - When show prep includes an interview or guest mention, add InterviewPrepCards inside the ShowPrepPackage.
+- **INFLUENCE METHODOLOGY (Badillo-Goicoechea 2025):** Influence connections are derived from co-mentions in music reviews. When Artist A is mentioned in a review of Artist B's album, this indicates A influences B. Edge weight corresponds to the number of such mentions across reviews — more mentions = stronger connection. Direction matters: from=influencer, to=influenced. Always cache discoveries with source citations and fetch Last.fm tags for sonic similarity profiling.
 
 ### Examples
 

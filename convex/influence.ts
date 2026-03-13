@@ -92,15 +92,18 @@ export const cacheEdge = mutation({
     const now = Date.now();
 
     if (existingEdge) {
-      // Update if new weight is higher
-      if (args.weight > existingEdge.weight) {
-        await ctx.db.patch(existingEdge._id, {
+      // Always increment mentionCount
+      const currentMentionCount = existingEdge.mentionCount ?? 1;
+      await ctx.db.patch(existingEdge._id, {
+        mentionCount: currentMentionCount + 1,
+        // only update weight if new weight is higher
+        ...(args.weight > existingEdge.weight ? {
           weight: args.weight,
           relationship: args.relationship,
           context: args.context ?? existingEdge.context,
-          updatedAt: now,
-        });
-      }
+        } : {}),
+        updatedAt: now,
+      });
       // Add source if provided
       if (args.source) {
         await ctx.db.insert("influenceEdgeSources", {
@@ -119,6 +122,7 @@ export const cacheEdge = mutation({
       toArtistId: toId,
       relationship: args.relationship,
       weight: args.weight,
+      mentionCount: 1,
       context: args.context,
       createdAt: now,
       updatedAt: now,
@@ -181,12 +185,16 @@ export const cacheBatchEdges = mutation({
         .first();
 
       if (existing) {
-        if (edge.weight > existing.weight) {
-          await ctx.db.patch(existing._id, {
-            weight: edge.weight, relationship: edge.relationship,
-            context: edge.context ?? existing.context, updatedAt: now,
-          });
-        }
+        const currentMentionCount = existing.mentionCount ?? 1;
+        await ctx.db.patch(existing._id, {
+          mentionCount: currentMentionCount + 1,
+          ...(edge.weight > existing.weight ? {
+            weight: edge.weight,
+            relationship: edge.relationship,
+            context: edge.context ?? existing.context,
+          } : {}),
+          updatedAt: now,
+        });
         if (edge.source) {
           await ctx.db.insert("influenceEdgeSources", { edgeId: existing._id, ...edge.source, discoveredAt: now });
         }
@@ -194,8 +202,8 @@ export const cacheBatchEdges = mutation({
       } else {
         const edgeId = await ctx.db.insert("influenceEdges", {
           userId: args.userId, fromArtistId: fromId, toArtistId: toId,
-          relationship: edge.relationship, weight: edge.weight, context: edge.context,
-          createdAt: now, updatedAt: now,
+          relationship: edge.relationship, weight: edge.weight, mentionCount: 1,
+          context: edge.context, createdAt: now, updatedAt: now,
         });
         if (edge.source) {
           await ctx.db.insert("influenceEdgeSources", { edgeId, ...edge.source, discoveredAt: now });
@@ -233,8 +241,10 @@ export const lookupInfluences = query({
       imageUrl?: string;
       relationship: string;
       weight: number;
+      mentionCount: number;
       context?: string;
       sources: Array<{ type: string; url?: string; name?: string; snippet?: string }>;
+      sourceCount: number;
     }> = [];
 
     if (direction === "outgoing" || direction === "both") {
@@ -255,8 +265,10 @@ export const lookupInfluences = query({
           imageUrl: target.imageUrl,
           relationship: edge.relationship,
           weight: edge.weight,
+          mentionCount: edge.mentionCount ?? 1,
           context: edge.context,
           sources: sources.map((s) => ({ type: s.sourceType, url: s.sourceUrl, name: s.sourceName, snippet: s.snippet })),
+          sourceCount: sources.length,
         });
       }
     }
@@ -279,8 +291,10 @@ export const lookupInfluences = query({
           imageUrl: source.imageUrl,
           relationship: edge.relationship,
           weight: edge.weight,
+          mentionCount: edge.mentionCount ?? 1,
           context: edge.context,
           sources: sources.map((s) => ({ type: s.sourceType, url: s.sourceUrl, name: s.sourceName, snippet: s.snippet })),
+          sourceCount: sources.length,
         });
       }
     }
@@ -426,5 +440,201 @@ export const removeEdge = mutation({
     }
     await ctx.db.delete(args.edgeId);
     return { deleted: true };
+  },
+});
+
+// findPathDijkstra - Dijkstra's shortest path with paper's distance transform: d_ij = 1/(mentionCount + 1)
+export const findPathDijkstra = query({
+  args: {
+    userId: v.id("users"),
+    fromArtist: v.string(),
+    toArtist: v.string(),
+    maxDepth: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const maxDepth = args.maxDepth ?? 6;
+    const fromLower = args.fromArtist.toLowerCase().trim();
+    const toLower = args.toArtist.toLowerCase().trim();
+
+    const fromRecord = await ctx.db.query("influenceArtists")
+      .withIndex("by_user_name", (q) => q.eq("userId", args.userId).eq("nameLower", fromLower)).first();
+    const toRecord = await ctx.db.query("influenceArtists")
+      .withIndex("by_user_name", (q) => q.eq("userId", args.userId).eq("nameLower", toLower)).first();
+
+    if (!fromRecord || !toRecord) return { found: false as const, path: [] as string[], hops: [] as Array<{ from: string; to: string; relationship: string; weight: number; mentionCount: number; context?: string; distance: number }>, totalDistance: 0 };
+    if (fromRecord._id === toRecord._id) return { found: true as const, path: [fromRecord.name], hops: [] as Array<{ from: string; to: string; relationship: string; weight: number; mentionCount: number; context?: string; distance: number }>, totalDistance: 0 };
+
+    // Dijkstra with distance = 1/(mentionCount + 1)
+    const dist = new Map<string, number>();
+    const prev = new Map<string, { artistId: string; edge: { relationship: string; weight: number; mentionCount: number; context?: string } }>();
+    const visited = new Set<string>();
+
+    // Priority queue (simple array-based for small graphs)
+    const pq: Array<{ artistId: string; distance: number }> = [];
+
+    dist.set(fromRecord._id, 0);
+    pq.push({ artistId: fromRecord._id, distance: 0 });
+
+    while (pq.length > 0) {
+      // Find min distance
+      pq.sort((a, b) => a.distance - b.distance);
+      const current = pq.shift()!;
+
+      if (visited.has(current.artistId)) continue;
+      visited.add(current.artistId);
+
+      if (current.artistId === toRecord._id) break;
+      if (visited.size > maxDepth * 50) break; // Safety limit
+
+      // Get outgoing edges
+      const outgoing = await ctx.db.query("influenceEdges")
+        .withIndex("by_from", (q) => q.eq("userId", args.userId).eq("fromArtistId", current.artistId as any))
+        .collect();
+      const incoming = await ctx.db.query("influenceEdges")
+        .withIndex("by_to", (q) => q.eq("userId", args.userId).eq("toArtistId", current.artistId as any))
+        .collect();
+
+      const allEdges = [
+        ...outgoing.map((e) => ({ neighborId: e.toArtistId, mentionCount: e.mentionCount ?? 1, relationship: e.relationship, weight: e.weight, context: e.context })),
+        ...incoming.map((e) => ({ neighborId: e.fromArtistId, mentionCount: e.mentionCount ?? 1, relationship: e.relationship, weight: e.weight, context: e.context })),
+      ];
+
+      for (const edge of allEdges) {
+        if (visited.has(edge.neighborId)) continue;
+        // Paper's distance transform: d = 1/(mentionCount + 1)
+        const edgeDistance = 1 / (edge.mentionCount + 1);
+        const newDist = current.distance + edgeDistance;
+        const currentDist = dist.get(edge.neighborId) ?? Infinity;
+
+        if (newDist < currentDist) {
+          dist.set(edge.neighborId, newDist);
+          prev.set(edge.neighborId, {
+            artistId: current.artistId,
+            edge: { relationship: edge.relationship, weight: edge.weight, mentionCount: edge.mentionCount, context: edge.context },
+          });
+          pq.push({ artistId: edge.neighborId, distance: newDist });
+        }
+      }
+    }
+
+    // Reconstruct path
+    if (!prev.has(toRecord._id)) return { found: false as const, path: [] as string[], hops: [] as Array<{ from: string; to: string; relationship: string; weight: number; mentionCount: number; context?: string; distance: number }>, totalDistance: 0 };
+
+    const pathIds: string[] = [toRecord._id];
+    const hops: Array<{ from: string; to: string; relationship: string; weight: number; mentionCount: number; context?: string; distance: number }> = [];
+
+    let currentId: string = toRecord._id;
+    while (prev.has(currentId)) {
+      const { artistId, edge } = prev.get(currentId)!;
+      pathIds.unshift(artistId);
+      const fromArtist = await ctx.db.get(artistId as any);
+      const toArtist = await ctx.db.get(currentId as any);
+      hops.unshift({
+        from: (fromArtist as any)?.name ?? "Unknown",
+        to: (toArtist as any)?.name ?? "Unknown",
+        relationship: edge.relationship,
+        weight: edge.weight,
+        mentionCount: edge.mentionCount,
+        context: edge.context,
+        distance: 1 / (edge.mentionCount + 1),
+      });
+      currentId = artistId;
+    }
+
+    // Get artist names for path
+    const pathNames: string[] = [];
+    for (const id of pathIds) {
+      const artist = await ctx.db.get(id as any);
+      pathNames.push((artist as any)?.name ?? "Unknown");
+    }
+
+    return {
+      found: true as const,
+      path: pathNames,
+      hops,
+      totalDistance: dist.get(toRecord._id) ?? 0,
+    };
+  },
+});
+
+// upsertTagProfile - store Last.fm tag vector for an artist
+export const upsertTagProfile = mutation({
+  args: {
+    userId: v.id("users"),
+    artistName: v.string(),
+    tags: v.string(), // JSON string of tag weights
+  },
+  handler: async (ctx, args) => {
+    const nameLower = args.artistName.toLowerCase().trim();
+    const artist = await ctx.db.query("influenceArtists")
+      .withIndex("by_user_name", (q) => q.eq("userId", args.userId).eq("nameLower", nameLower))
+      .first();
+    if (!artist) return null;
+
+    const existing = await ctx.db.query("artistTagProfiles")
+      .withIndex("by_artist", (q) => q.eq("artistId", artist._id))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { tags: args.tags, fetchedAt: Date.now() });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("artistTagProfiles", {
+      userId: args.userId,
+      artistId: artist._id,
+      tags: args.tags,
+      fetchedAt: Date.now(),
+    });
+  },
+});
+
+// getTagSimilarity - cosine similarity between two artists' Last.fm tag vectors
+export const getTagSimilarity = query({
+  args: {
+    userId: v.id("users"),
+    artist1: v.string(),
+    artist2: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const get = async (name: string) => {
+      const nameLower = name.toLowerCase().trim();
+      const artist = await ctx.db.query("influenceArtists")
+        .withIndex("by_user_name", (q) => q.eq("userId", args.userId).eq("nameLower", nameLower))
+        .first();
+      if (!artist) return null;
+      const profile = await ctx.db.query("artistTagProfiles")
+        .withIndex("by_artist", (q) => q.eq("artistId", artist._id))
+        .first();
+      return profile;
+    };
+
+    const p1 = await get(args.artist1);
+    const p2 = await get(args.artist2);
+
+    if (!p1 || !p2) return { similarity: null, reason: !p1 ? `No tag profile for ${args.artist1}` : `No tag profile for ${args.artist2}` };
+
+    const tags1: Record<string, number> = JSON.parse(p1.tags);
+    const tags2: Record<string, number> = JSON.parse(p2.tags);
+
+    // Cosine similarity
+    const allTags = new Set([...Object.keys(tags1), ...Object.keys(tags2)]);
+    let dotProduct = 0;
+    let norm1 = 0;
+    let norm2 = 0;
+    for (const tag of allTags) {
+      const v1 = tags1[tag] ?? 0;
+      const v2 = tags2[tag] ?? 0;
+      dotProduct += v1 * v2;
+      norm1 += v1 * v1;
+      norm2 += v2 * v2;
+    }
+
+    const similarity = norm1 === 0 || norm2 === 0 ? 0 : dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
+
+    // Find shared and unique tags
+    const shared = [...allTags].filter((t) => (tags1[t] ?? 0) > 0 && (tags2[t] ?? 0) > 0);
+
+    return { similarity: Math.round(similarity * 1000) / 1000, sharedTags: shared, artist1Tags: Object.keys(tags1).length, artist2Tags: Object.keys(tags2).length };
   },
 });
