@@ -332,7 +332,11 @@ export async function POST(req: Request) {
   const useOpenRouter = hasOpenRouter && !hasAnthropic;
   const apiKey = hasAnthropic ? rawKeys.anthropic : rawKeys.openrouter;
 
-  const modelId = model || "claude-haiku-4-5-20251001";
+  // Force Sonnet for research-heavy commands that need deep tool use + structured output
+  const isResearchCommand = /^\/(?:influence|show-prep|prep|news)\b/i.test(rawMessage.trim());
+  const modelId = isResearchCommand
+    ? "claude-sonnet-4-6-20250514"
+    : (model || "claude-haiku-4-5-20251001");
 
   // Chat-tier: fast direct call (no tools)
   if (isChatTier(message)) {
