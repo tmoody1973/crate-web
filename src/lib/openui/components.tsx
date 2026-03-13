@@ -1153,7 +1153,7 @@ function autoSummary(artist: string, groups: Record<GroupKey, ParsedConnection[]
 export const InfluenceChain = defineComponent({
   name: "InfluenceChain",
   description:
-    "Vertical timeline of influence connections for an artist — weight-colored dots, relationship tags, sources, and expandable detail per node.",
+    "Narrative influence timeline — groups connections into Roots/Built With/Legacy tabs with a lineage arc header and auto-generated summary.",
   props: z.object({
     artist: z.string().describe("Central artist name"),
     connections: z.preprocess(jsonPreprocess, z.array(
@@ -1173,37 +1173,108 @@ export const InfluenceChain = defineComponent({
         imageUrl: z.string().optional().describe("Connected artist image URL"),
       }),
     )).describe("List of influence connections"),
+    summary: z.string().optional().describe("Optional narrative summary, auto-generated if omitted"),
   }),
   component: ({ props }) => {
-    const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-    // Runtime parse: Renderer bypasses Zod, so connections arrives as a JSON string
-    const connections = ensureArray<{
-      name: string; weight: number; relationship: string;
-      context: string; sources: unknown; imageUrl?: string;
-    }>(props.connections);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<GroupKey>("roots");
+
+    // Runtime parse
+    const connections = ensureArray<ParsedConnection>(props.connections);
+    const groups = groupConnections(connections);
+    const arc = buildLineageArc(props.artist, groups);
+    const summary = (typeof props.summary === "string" && props.summary)
+      ? props.summary
+      : autoSummary(props.artist, groups);
+
+    // Determine available tabs (non-empty groups)
+    const availableTabs = (["roots", "built", "legacy"] as GroupKey[]).filter(k => groups[k].length > 0);
+    const useTabs = availableTabs.length > 1;
+    const currentTab = useTabs && availableTabs.includes(activeTab) ? activeTab : availableTabs[0] ?? "roots";
+    const currentConnections = groups[currentTab];
 
     const dotColor = (w: number) =>
       w > 0.7 ? "bg-green-500" : w >= 0.5 ? "bg-yellow-500" : "bg-zinc-500";
 
     return (
       <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-        <h2 className="mb-4 text-lg font-bold text-white">{props.artist} — Influence Chain</h2>
+        {/* Header with arc */}
+        <div className="mb-4">
+          <h2 className="text-lg font-bold text-white">{props.artist} — Influence Chain</h2>
 
-        <div className="relative ml-5">
-          {/* Vertical connecting line */}
+          {/* Lineage arc */}
+          {arc.length >= 3 && (
+            <div className="mt-3 flex items-center justify-center gap-2 overflow-x-auto py-2">
+              {arc.map((node, i) => (
+                <div key={`arc-${node.name}-${i}`} className="flex items-center gap-2">
+                  <div className="flex flex-col items-center gap-0.5">
+                    {node.isCentral ? (
+                      <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-violet-600 ring-2 ring-violet-400">
+                        <span className="text-[10px] font-bold text-white">{node.name.charAt(0)}</span>
+                      </div>
+                    ) : (
+                      <SafeImage src={node.imageUrl} alt={node.name} className="h-7 w-7 rounded-full object-cover" />
+                    )}
+                    <span className={`max-w-[60px] truncate text-center text-[9px] ${
+                      node.isCentral ? "font-bold text-white" : "text-zinc-400"
+                    }`}>
+                      {node.name}
+                    </span>
+                  </div>
+                  {i < arc.length - 1 && (
+                    <span className="text-xs text-zinc-600">→</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Summary */}
+          <p className="mt-2 border-l-2 border-violet-500 pl-3 text-sm italic text-zinc-400">
+            {summary}
+          </p>
+        </div>
+
+        {/* Tabs */}
+        {useTabs && (
+          <div className="mb-3 flex" role="tablist">
+            {availableTabs.map((key) => {
+              const meta = GROUP_META[key];
+              const isActive = key === currentTab;
+              return (
+                <button
+                  key={key}
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveTab(key)}
+                  className={`flex-1 py-2 text-center text-xs font-medium transition-colors ${
+                    isActive
+                      ? `${meta.color} border-b-2 ${meta.activeBg} bg-zinc-800/50`
+                      : "border-b border-zinc-700 text-zinc-500 hover:text-zinc-400"
+                  }`}
+                >
+                  {meta.label} ({groups[key].length})
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Connection list */}
+        <div className="relative ml-3" role={useTabs ? "tabpanel" : undefined}>
           <div className="absolute left-0 top-0 bottom-0 w-px bg-zinc-700" />
 
-          <div className="space-y-4">
-            {connections.map((conn, i) => {
-              const isExpanded = expandedIndex === i;
+          <div className="space-y-3">
+            {currentConnections.map((conn, i) => {
+              const id = `${currentTab}-${conn.name}-${i}`;
+              const isExpanded = expandedId === id;
               const weight = ensureNumber(conn.weight);
               const sources = ensureArray<{ name: string; url: string }>(conn.sources);
 
               return (
-                <div key={`${conn.name}-${i}`} className="relative pl-6">
-                  {/* Weight-colored dot */}
+                <div key={id} className="relative pl-5">
                   <div
-                    className={`absolute left-[-4px] top-2 h-2.5 w-2.5 rounded-full ${dotColor(weight)} ring-2 ring-zinc-900`}
+                    className={`absolute left-[-3px] top-2 h-2 w-2 rounded-full ${dotColor(weight)} ring-2 ring-zinc-900`}
                   />
 
                   <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-3">
@@ -1211,10 +1282,10 @@ export const InfluenceChain = defineComponent({
                       <SafeImage
                         src={conn.imageUrl}
                         alt={conn.name}
-                        className="h-10 w-10 rounded-full object-cover"
+                        className="h-9 w-9 rounded-full object-cover"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-white">{conn.name}</p>
+                        <p className="text-sm font-semibold text-white">{conn.name}</p>
                         <div className="flex items-center gap-1.5">
                           <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300">
                             {conn.relationship}
@@ -1233,7 +1304,7 @@ export const InfluenceChain = defineComponent({
                         </div>
                       </div>
                       <button
-                        onClick={() => setExpandedIndex(isExpanded ? null : i)}
+                        onClick={() => setExpandedId(isExpanded ? null : id)}
                         className="shrink-0 text-xs text-zinc-500 hover:text-zinc-300"
                       >
                         {isExpanded ? "Less" : "More"}
