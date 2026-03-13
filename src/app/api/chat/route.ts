@@ -230,7 +230,7 @@ async function streamAgenticResponse(
 
         // Build system prompt with soul + OpenUI prompt
         const { CRATE_SOUL } = await import("@/lib/soul");
-        const { getCrateOpenUIPrompt } = await import("@/lib/openui-prompt");
+        const { getCrateOpenUIPrompt } = await import("@/lib/openui/prompt");
         const systemPrompt = `${getSystemPrompt()}\n\n${CRATE_SOUL}\n\n${getCrateOpenUIPrompt()}`;
 
         // Run the agentic loop
