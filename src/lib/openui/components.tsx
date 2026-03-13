@@ -22,6 +22,23 @@ function jsonPreprocess(val: unknown): unknown {
   return val;
 }
 
+// ── Runtime JSON parser for component props ─────────────────────
+// The OpenUI Renderer bypasses Zod preprocessing — props arrive as raw strings.
+// This helper safely parses JSON strings at render time.
+function ensureArray<T>(val: unknown): T[] {
+  if (Array.isArray(val)) return val as T[];
+  if (typeof val === "string") {
+    try { return JSON.parse(val) as T[]; } catch { return []; }
+  }
+  return [];
+}
+
+function ensureNumber(val: unknown, fallback = 0): number {
+  if (typeof val === "number") return val;
+  if (typeof val === "string") { const n = parseFloat(val); return isNaN(n) ? fallback : n; }
+  return fallback;
+}
+
 // ── Shared image component with broken-URL fallback ─────────────
 
 function SafeImage({ src, alt, className }: { src?: string; alt?: string; className: string }) {
@@ -1007,6 +1024,10 @@ export const ArtistProfileCard = defineComponent({
     ).describe("Top influences with weight scores"),
   }),
   component: ({ props }) => {
+    const genres = ensureArray<string>(props.genres);
+    const topInfluences = ensureArray<{ name: string; weight: number }>(props.topInfluences);
+    const influenceCount = ensureNumber(props.influenceCount);
+
     const weightColor = (w: number) =>
       w > 0.7 ? "bg-green-500" : w >= 0.5 ? "bg-yellow-500" : "bg-zinc-500";
 
@@ -1023,7 +1044,7 @@ export const ArtistProfileCard = defineComponent({
             {props.origin && <p className="text-sm text-zinc-400">{props.origin}</p>}
             {props.activeYears && <p className="text-xs text-zinc-500">{props.activeYears}</p>}
             <div className="mt-1 flex flex-wrap gap-1">
-              {props.genres.map((g) => (
+              {genres.map((g) => (
                 <span
                   key={g}
                   className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs text-zinc-300"
@@ -1032,33 +1053,36 @@ export const ArtistProfileCard = defineComponent({
                 </span>
               ))}
             </div>
-            {props.influenceCount != null && (
+            {influenceCount > 0 && (
               <p className="mt-1 text-xs text-zinc-500">
-                {props.influenceCount} connections mapped
+                {influenceCount} connections mapped
               </p>
             )}
           </div>
         </div>
 
-        {props.topInfluences && props.topInfluences.length > 0 && (
+        {topInfluences.length > 0 && (
           <div className="mt-3 space-y-1.5 border-t border-zinc-700 pt-3">
             <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
               Top Influences
             </p>
-            {props.topInfluences.map((inf) => (
+            {topInfluences.map((inf) => {
+              const w = ensureNumber(inf.weight);
+              return (
               <div key={inf.name} className="flex items-center gap-2">
                 <span className="w-24 shrink-0 truncate text-xs text-zinc-300">{inf.name}</span>
                 <div className="h-1.5 flex-1 rounded-full bg-zinc-700">
                   <div
-                    className={`h-1.5 rounded-full ${weightColor(inf.weight)}`}
-                    style={{ width: `${Math.round(inf.weight * 100)}%` }}
+                    className={`h-1.5 rounded-full ${weightColor(w)}`}
+                    style={{ width: `${Math.round(w * 100)}%` }}
                   />
                 </div>
                 <span className="w-8 shrink-0 text-right text-[10px] text-zinc-500">
-                  {inf.weight.toFixed(1)}
+                  {w.toFixed(1)}
                 </span>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -1092,6 +1116,11 @@ export const InfluenceChain = defineComponent({
   }),
   component: ({ props }) => {
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+    // Runtime parse: Renderer bypasses Zod, so connections arrives as a JSON string
+    const connections = ensureArray<{
+      name: string; weight: number; relationship: string;
+      context: string; sources: unknown; imageUrl?: string;
+    }>(props.connections);
 
     const dotColor = (w: number) =>
       w > 0.7 ? "bg-green-500" : w >= 0.5 ? "bg-yellow-500" : "bg-zinc-500";
@@ -1105,14 +1134,16 @@ export const InfluenceChain = defineComponent({
           <div className="absolute left-0 top-0 bottom-0 w-px bg-zinc-700" />
 
           <div className="space-y-4">
-            {props.connections.map((conn, i) => {
+            {connections.map((conn, i) => {
               const isExpanded = expandedIndex === i;
+              const weight = ensureNumber(conn.weight);
+              const sources = ensureArray<{ name: string; url: string }>(conn.sources);
 
               return (
                 <div key={`${conn.name}-${i}`} className="relative pl-6">
                   {/* Weight-colored dot */}
                   <div
-                    className={`absolute left-[-4px] top-2 h-2.5 w-2.5 rounded-full ${dotColor(conn.weight)} ring-2 ring-zinc-900`}
+                    className={`absolute left-[-4px] top-2 h-2.5 w-2.5 rounded-full ${dotColor(weight)} ring-2 ring-zinc-900`}
                   />
 
                   <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-3">
@@ -1130,14 +1161,14 @@ export const InfluenceChain = defineComponent({
                           </span>
                           <span
                             className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                              conn.weight > 0.7
+                              weight > 0.7
                                 ? "bg-green-500/20 text-green-400"
-                                : conn.weight >= 0.5
+                                : weight >= 0.5
                                   ? "bg-yellow-500/20 text-yellow-400"
                                   : "bg-zinc-500/20 text-zinc-400"
                             }`}
                           >
-                            {conn.weight.toFixed(2)}
+                            {weight.toFixed(2)}
                           </span>
                         </div>
                       </div>
@@ -1152,9 +1183,9 @@ export const InfluenceChain = defineComponent({
                     {isExpanded && (
                       <div className="mt-2 space-y-2 border-t border-zinc-700 pt-2">
                         <p className="text-sm text-zinc-300">{conn.context}</p>
-                        {conn.sources.length > 0 && (
+                        {sources.length > 0 && (
                           <div className="flex flex-wrap gap-2">
-                            {conn.sources.map((src) => (
+                            {sources.map((src) => (
                               <a
                                 key={src.url}
                                 href={src.url}
@@ -1203,81 +1234,90 @@ export const InfluenceCard = defineComponent({
       }),
     )).describe("Citation sources"),
   }),
-  component: ({ props }) => (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-      {/* Central artist */}
-      <div className="flex items-center gap-3">
-        <SafeImage
-          src={props.imageUrl}
-          alt={props.artist}
-          className="h-14 w-14 rounded-full object-cover"
-        />
-        <div>
-          <h3 className="text-lg font-bold text-white">{props.artist}</h3>
-          <div className="mt-0.5 flex flex-wrap gap-1">
-            {props.genres.map((g) => (
-              <span
-                key={g}
-                className="rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300"
-              >
-                {g}
-              </span>
-            ))}
+  component: ({ props }) => {
+    const genres = ensureArray<string>(props.genres);
+    const influences = ensureArray<{ name: string; weight: number; imageUrl?: string }>(props.influences);
+    const sources = ensureArray<{ name: string; url: string; snippet: string }>(props.sources);
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+        {/* Central artist */}
+        <div className="flex items-center gap-3">
+          <SafeImage
+            src={props.imageUrl}
+            alt={props.artist}
+            className="h-14 w-14 rounded-full object-cover"
+          />
+          <div>
+            <h3 className="text-lg font-bold text-white">{props.artist}</h3>
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {genres.map((g) => (
+                <span
+                  key={g}
+                  className="rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300"
+                >
+                  {g}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
+
+        {/* Influence chips */}
+        {influences.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {influences.map((inf) => {
+              const w = ensureNumber(inf.weight);
+              return (
+                <div
+                  key={inf.name}
+                  className="flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-800/50 py-1 pl-1 pr-2.5"
+                >
+                  <SafeImage
+                    src={inf.imageUrl}
+                    alt={inf.name}
+                    className="h-6 w-6 rounded-full object-cover"
+                  />
+                  <span className="text-xs text-zinc-300">{inf.name}</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                      w > 0.7
+                        ? "bg-green-500/20 text-green-400"
+                        : w >= 0.5
+                          ? "bg-yellow-500/20 text-yellow-400"
+                          : "bg-zinc-500/20 text-zinc-400"
+                    }`}
+                  >
+                    {w.toFixed(1)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Sources */}
+        {sources.length > 0 && (
+          <div className="mt-3 space-y-1.5 border-t border-zinc-700 pt-3">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Sources</p>
+            {sources.map((src) => (
+              <div key={src.url} className="text-xs">
+                <a
+                  href={src.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:underline"
+                >
+                  {src.name}
+                </a>
+                <p className="mt-0.5 text-zinc-400">{src.snippet}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-
-      {/* Influence chips */}
-      {props.influences.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {props.influences.map((inf) => (
-            <div
-              key={inf.name}
-              className="flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-800/50 py-1 pl-1 pr-2.5"
-            >
-              <SafeImage
-                src={inf.imageUrl}
-                alt={inf.name}
-                className="h-6 w-6 rounded-full object-cover"
-              />
-              <span className="text-xs text-zinc-300">{inf.name}</span>
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                  inf.weight > 0.7
-                    ? "bg-green-500/20 text-green-400"
-                    : inf.weight >= 0.5
-                      ? "bg-yellow-500/20 text-yellow-400"
-                      : "bg-zinc-500/20 text-zinc-400"
-                }`}
-              >
-                {inf.weight.toFixed(1)}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Sources */}
-      {props.sources.length > 0 && (
-        <div className="mt-3 space-y-1.5 border-t border-zinc-700 pt-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Sources</p>
-          {props.sources.map((src) => (
-            <div key={src.url} className="text-xs">
-              <a
-                href={src.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cyan-400 hover:underline"
-              >
-                {src.name}
-              </a>
-              <p className="mt-0.5 text-zinc-400">{src.snippet}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  ),
+    );
+  },
 });
 
 export const InfluencePathTrace = defineComponent({
@@ -1303,74 +1343,84 @@ export const InfluencePathTrace = defineComponent({
       }),
     )).describe("Evidence for each hop in the path"),
   }),
-  component: ({ props }) => (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-      <h2 className="mb-4 text-lg font-bold text-white">
-        {props.fromArtist} → {props.toArtist}
-      </h2>
+  component: ({ props }) => {
+    const path = ensureArray<{ artist: string; imageUrl?: string }>(props.path);
+    const hops = ensureArray<{
+      from: string; to: string; relationship: string; weight: number; evidence: string;
+    }>(props.hops);
 
-      {/* Horizontal path chain */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-2">
-        {props.path.map((node, i) => (
-          <div key={`${node.artist}-${i}`} className="flex items-center gap-1">
-            <div className="flex flex-col items-center gap-1">
-              <SafeImage
-                src={node.imageUrl}
-                alt={node.artist}
-                className="h-10 w-10 rounded-full object-cover"
-              />
-              <span className="max-w-[80px] truncate text-center text-[10px] text-zinc-300">
-                {node.artist}
-              </span>
-            </div>
-            {i < props.path.length - 1 && (
-              <span className="mx-1 text-zinc-600">→</span>
-            )}
-          </div>
-        ))}
-      </div>
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+        <h2 className="mb-4 text-lg font-bold text-white">
+          {props.fromArtist} → {props.toArtist}
+        </h2>
 
-      {/* Evidence cards */}
-      {props.hops.length > 0 && (
-        <div className="mt-3 space-y-2 border-t border-zinc-700 pt-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-            Evidence
-          </p>
-          {props.hops.map((hop, i) => (
-            <div
-              key={`${hop.from}-${hop.to}-${i}`}
-              className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-3"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-white">
-                  {hop.from} → {hop.to}
-                </span>
-                <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300">
-                  {hop.relationship}
+        {/* Horizontal path chain */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-2">
+          {path.map((node, i) => (
+            <div key={`${node.artist}-${i}`} className="flex items-center gap-1">
+              <div className="flex flex-col items-center gap-1">
+                <SafeImage
+                  src={node.imageUrl}
+                  alt={node.artist}
+                  className="h-10 w-10 rounded-full object-cover"
+                />
+                <span className="max-w-[80px] truncate text-center text-[10px] text-zinc-300">
+                  {node.artist}
                 </span>
               </div>
-              <div className="mt-1.5 flex items-center gap-2">
-                <div className="h-1.5 flex-1 rounded-full bg-zinc-700">
-                  <div
-                    className={`h-1.5 rounded-full ${
-                      hop.weight > 0.7
-                        ? "bg-green-500"
-                        : hop.weight >= 0.5
-                          ? "bg-yellow-500"
-                          : "bg-zinc-500"
-                    }`}
-                    style={{ width: `${Math.round(hop.weight * 100)}%` }}
-                  />
-                </div>
-                <span className="w-8 shrink-0 text-right text-[10px] text-zinc-500">
-                  {hop.weight.toFixed(2)}
-                </span>
-              </div>
-              <p className="mt-1.5 text-xs text-zinc-400">{hop.evidence}</p>
+              {i < path.length - 1 && (
+                <span className="mx-1 text-zinc-600">→</span>
+              )}
             </div>
           ))}
         </div>
-      )}
-    </div>
-  ),
+
+        {/* Evidence cards */}
+        {hops.length > 0 && (
+          <div className="mt-3 space-y-2 border-t border-zinc-700 pt-3">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+              Evidence
+            </p>
+            {hops.map((hop, i) => {
+              const w = ensureNumber(hop.weight);
+              return (
+                <div
+                  key={`${hop.from}-${hop.to}-${i}`}
+                  className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-white">
+                      {hop.from} → {hop.to}
+                    </span>
+                    <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300">
+                      {hop.relationship}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 rounded-full bg-zinc-700">
+                      <div
+                        className={`h-1.5 rounded-full ${
+                          w > 0.7
+                            ? "bg-green-500"
+                            : w >= 0.5
+                              ? "bg-yellow-500"
+                              : "bg-zinc-500"
+                        }`}
+                        style={{ width: `${Math.round(w * 100)}%` }}
+                      />
+                    </div>
+                    <span className="w-8 shrink-0 text-right text-[10px] text-zinc-500">
+                      {w.toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-xs text-zinc-400">{hop.evidence}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  },
 });
