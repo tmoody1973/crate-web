@@ -143,6 +143,7 @@ async function streamAgenticResponse(
   envKeys: Record<string, string>,
   convexUserId: string,
   useOpenRouter?: boolean,
+  isResearchCommand?: boolean,
 ): Promise<Response> {
   const encoder = new TextEncoder();
 
@@ -206,7 +207,7 @@ async function streamAgenticResponse(
             : [];
 
         // Filter out crate-cli groups that use SQLite, inject web versions
-        const toolGroups = [
+        const allToolGroups = [
           ...cliToolGroups.filter(
             (g: { serverName: string }) =>
               g.serverName !== "telegraph" &&
@@ -227,6 +228,16 @@ async function streamAgenticResponse(
             ? [{ serverName: "infographic", tools: webInfographicTools }]
             : []),
         ];
+
+        // For research-heavy commands, only include relevant tool servers
+        // to stay under the 200K token context limit (tool defs alone can be 80K+ tokens)
+        const RESEARCH_SERVERS = new Set([
+          "influence", "influencecache", "web-search", "musicbrainz",
+          "genius", "lastfm", "discogs", "images", "infographic", "itunes",
+        ]);
+        const toolGroups = isResearchCommand
+          ? allToolGroups.filter((g: { serverName: string }) => RESEARCH_SERVERS.has(g.serverName))
+          : allToolGroups;
 
         // Build system prompt with soul + OpenUI prompt
         const { CRATE_SOUL } = await import("@/lib/soul");
@@ -346,5 +357,5 @@ export async function POST(req: Request) {
   // Agent-tier: full agentic loop with tools
   // Merge user keys + embedded keys for tool access
   const allEnvKeys = { ...embeddedKeys, ...userEnvKeys };
-  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, resolved.user._id, useOpenRouter);
+  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, resolved.user._id, useOpenRouter, isResearchCommand);
 }

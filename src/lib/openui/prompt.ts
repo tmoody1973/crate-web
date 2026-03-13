@@ -156,18 +156,9 @@ t3 = TrackItem("Ghosts: First Variation", "Albert Ayler Trio", "Spiritual Unity"
 
 Example 6 — Influence chain (for /influence command — ALWAYS use this format):
 \`\`\`
-root = InfluenceChain("Flying Lotus", "[{\\"name\\":\\"J Dilla\\",\\"weight\\":0.9,\\"relationship\\":\\"influenced by\\",\\"context\\":\\"Off-kilter swing and dusty sample chopping. Pitchfork noted FlyLo shares similarities to Dilla in beat construction.\\",\\"sources\\":[{\\"name\\":\\"Pitchfork\\",\\"url\\":\\"https://pitchfork.com/reviews/albums/12132-los-angeles/\\"}],\\"imageUrl\\":\\"https://i.scdn.co/image/jdilla.jpg\\"},{\\"name\\":\\"Alice Coltrane\\",\\"weight\\":0.85,\\"relationship\\":\\"family lineage\\",\\"context\\":\\"Great-aunt. Spiritual jazz harp and cosmic harmony directly shaped Cosmogramma.\\",\\"sources\\":[{\\"name\\":\\"HuffPost\\",\\"url\\":\\"https://huffpost.com/entry/flying-lotus\\"}],\\"imageUrl\\":\\"https://i.scdn.co/image/alice.jpg\\"},{\\"name\\":\\"Madlib\\",\\"weight\\":0.8,\\"relationship\\":\\"influenced by\\",\\"context\\":\\"Abstract jazz sampling and Beat Konducta lo-fi philosophy.\\",\\"sources\\":[{\\"name\\":\\"Last.fm\\",\\"url\\":\\"https://last.fm/music/Madlib\\"}]},{\\"name\\":\\"Thundercat\\",\\"weight\\":0.85,\\"relationship\\":\\"collaboration\\",\\"context\\":\\"Closest creative partner. Bass virtuosity on Flamagra and You're Dead!\\",\\"sources\\":[{\\"name\\":\\"Pitchfork\\",\\"url\\":\\"https://pitchfork.com/reviews/albums/flying-lotus-flamagra/\\"}]}]")
+root = InfluenceChain("Flying Lotus", "[{\\"name\\":\\"J Dilla\\",\\"weight\\":0.9,\\"relationship\\":\\"influenced by\\",\\"context\\":\\"Off-kilter swing and dusty sample chopping.\\",\\"sources\\":[{\\"name\\":\\"Pitchfork\\",\\"url\\":\\"https://pitchfork.com/reviews/albums/12132-los-angeles/\\"}],\\"imageUrl\\":\\"https://i.scdn.co/image/jdilla.jpg\\"},{\\"name\\":\\"Alice Coltrane\\",\\"weight\\":0.85,\\"relationship\\":\\"family lineage\\",\\"context\\":\\"Great-aunt. Spiritual jazz harp shaped Cosmogramma.\\",\\"sources\\":[{\\"name\\":\\"HuffPost\\",\\"url\\":\\"https://huffpost.com/entry/flying-lotus\\"}]}]")
 \`\`\`
-
-Example 7 — Influence path trace (for "how are X and Y connected?"):
-\`\`\`
-root = InfluencePathTrace("J Dilla", "Thundercat", "[{\\"artist\\":\\"J Dilla\\"},{\\"artist\\":\\"Flying Lotus\\",\\"imageUrl\\":\\"https://i.scdn.co/image/flylo.jpg\\"},{\\"artist\\":\\"Thundercat\\"}]", "[{\\"from\\":\\"J Dilla\\",\\"to\\":\\"Flying Lotus\\",\\"relationship\\":\\"influenced\\",\\"weight\\":0.9,\\"evidence\\":\\"FlyLo absorbed Dilla's sample-chopping craft\\"},{\\"from\\":\\"Flying Lotus\\",\\"to\\":\\"Thundercat\\",\\"relationship\\":\\"collaboration\\",\\"weight\\":0.85,\\"evidence\\":\\"Co-wrote majority of Flamagra together\\"}]")
-\`\`\`
-
-Example 8 — Compact influence card (for inline mentions):
-\`\`\`
-root = InfluenceCard("Madlib", "[\\"Hip-Hop\\",\\"Jazz\\",\\"Experimental\\"]", "https://i.scdn.co/image/madlib.jpg", "[{\\"name\\":\\"J Dilla\\",\\"weight\\":0.9},{\\"name\\":\\"Sun Ra\\",\\"weight\\":0.7}]", "[{\\"name\\":\\"Pitchfork\\",\\"url\\":\\"https://pitchfork.com\\",\\"snippet\\":\\"Madlib's abstract approach..\\"}]")
-\`\`\`
+InfluencePathTrace and InfluenceCard use the same JSON-string pattern for their array props (path, hops, influences, sources).
 
 Example 9 — Show prep package:
 \`\`\`
