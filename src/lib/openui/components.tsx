@@ -1183,8 +1183,10 @@ export const InfluenceChain = defineComponent({
     const connections = ensureArray<ParsedConnection>(props.connections);
     const groups = groupConnections(connections);
     const arc = buildLineageArc(props.artist, groups);
-    const summary = (typeof props.summary === "string" && props.summary)
-      ? props.summary
+    // Defensive: if parser mis-splits JSON and leaks a URL into summary, ignore it
+    const rawSummary = typeof props.summary === "string" ? props.summary : "";
+    const summary = (rawSummary && !rawSummary.startsWith("http"))
+      ? rawSummary
       : autoSummary(props.artist, groups);
 
     // Determine available tabs (non-empty groups)
@@ -1213,7 +1215,13 @@ export const InfluenceChain = defineComponent({
                         <span className="text-[10px] font-bold text-white">{node.name.charAt(0)}</span>
                       </div>
                     ) : (
-                      <SafeImage src={node.imageUrl} alt={node.name} className="h-7 w-7 rounded-full object-cover" />
+                      <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-zinc-700">
+                        <SafeImage src={node.imageUrl} alt={node.name} className="h-7 w-7 rounded-full object-cover" />
+                        {/* Fallback initial shown when SafeImage returns null */}
+                        {!node.imageUrl && (
+                          <span className="text-[9px] font-medium text-zinc-400">{node.name.charAt(0)}</span>
+                        )}
+                      </div>
                     )}
                     <span className={`max-w-[60px] truncate text-center text-[9px] ${
                       node.isCentral ? "font-bold text-white" : "text-zinc-400"
