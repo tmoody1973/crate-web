@@ -4,7 +4,7 @@ import { ConvexClientProvider } from "@/providers/convex-provider";
 import "@openuidev/react-ui/styles/index.css";
 import "./globals.css";
 
-const siteUrl = "https://crate-web.vercel.app";
+const siteUrl = "https://digcrate.app";
 
 export const metadata: Metadata = {
   title: "Crate — Dig Deeper",
