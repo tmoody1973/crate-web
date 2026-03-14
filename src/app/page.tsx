@@ -1,23 +1,37 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
+import { Nav } from "@/components/landing/nav";
+import { Marquee } from "@/components/landing/marquee";
+import { Hero } from "@/components/landing/hero";
+import { HowItWorks } from "@/components/landing/how-it-works";
+import { Features } from "@/components/landing/features";
+import { Comparison } from "@/components/landing/comparison";
+import { SourcesGrid } from "@/components/landing/sources-grid";
+import { DjShowcase } from "@/components/landing/dj-showcase";
+import { FinalCta } from "@/components/landing/final-cta";
+import { Footer } from "@/components/landing/footer";
 
 export default async function Home() {
   const { userId } = await auth();
   if (userId) {
     redirect("/w");
   }
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-white">Crate</h1>
-        <p className="mt-2 text-zinc-400">AI-powered music research</p>
-        <a
-          href="/sign-in"
-          className="mt-6 inline-block rounded-lg bg-white px-6 py-3 text-sm font-medium text-black hover:bg-zinc-200"
-        >
-          Get Started
-        </a>
-      </div>
+    <main
+      className={`${bebasNeue.variable} ${spaceGrotesk.variable} font-[family-name:var(--font-space)]`}
+    >
+      <Nav />
+      <Marquee />
+      <Hero />
+      <HowItWorks />
+      <Features />
+      <Comparison />
+      <SourcesGrid />
+      <DjShowcase />
+      <FinalCta />
+      <Footer />
     </main>
   );
 }
