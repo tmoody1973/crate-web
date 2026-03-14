@@ -7,10 +7,15 @@ export function SectionDivider({
   label: string;
   dark?: boolean;
 }) {
-  const textColor = dark ? "text-[var(--cream)]" : "text-[var(--midnight)]";
   return (
-    <div className={`flex items-center gap-4 px-12 mb-10 ${textColor}`}>
-      <span className="font-[family-name:var(--font-bebas)] text-5xl text-[var(--orange)] leading-none opacity-30">
+    <div
+      className="flex items-center gap-4 px-12 max-md:px-5 mb-10"
+      style={{ color: dark ? "var(--cream)" : "var(--midnight)" }}
+    >
+      <span
+        className="font-[family-name:var(--font-bebas)] text-5xl leading-none opacity-30"
+        style={{ color: "var(--orange)" }}
+      >
         {number}
       </span>
       <span className="flex-1 h-px bg-current opacity-15" />
