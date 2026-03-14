@@ -47,13 +47,13 @@ export function Hero() {
         className="absolute flex items-start gap-5 max-md:relative max-md:left-auto max-md:top-auto max-md:px-5 max-md:pt-10 max-md:gap-3"
         style={{ left: "48px", top: "60px", zIndex: 3 }}
       >
-        {/* Wordmark — to the left of headline, vertically centered */}
-        <div className="flex items-center self-stretch max-md:hidden">
+        {/* Wordmark — stretches top-to-bottom of headline */}
+        <div className="self-stretch max-md:hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/branding/crate-logo_wordmark.svg"
             alt="Crate"
-            style={{ height: "160px", width: "auto" }}
+            style={{ height: "100%", width: "auto", objectFit: "contain" }}
           />
         </div>
 
