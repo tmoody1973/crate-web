@@ -72,12 +72,13 @@ export const ArtistCard = defineComponent({
   description:
     "Baseball-card style artist profile for DJs, producers, and music lovers. Includes hero image, real name, labels, key albums, collaborators, signature sound, influences, and a DJ talking point.",
   props: z.object({
+    // Order MUST match the prompt signature: name, genres, activeYears, origin, imageUrl, realName, labels, keyAlbums, collaborators, knownFor, influences, influenced, djTalkingPoint, listenUrl
     name: z.string().describe("Artist/stage name"),
-    realName: z.string().optional().describe("Birth/legal name e.g. James Dewitt Yancey"),
     genres: z.preprocess(jsonPreprocess, z.array(z.string())).describe("List of genres"),
     activeYears: z.string().optional().describe("e.g. 1974–2006"),
     origin: z.string().optional().describe("City/country of origin"),
     imageUrl: z.string().optional().describe("Artist photo URL"),
+    realName: z.string().optional().describe("Birth/legal name e.g. James Dewitt Yancey"),
     labels: z.preprocess(jsonPreprocess, z.array(z.string()).optional()).describe("Record labels e.g. Stones Throw, MCA"),
     keyAlbums: z.preprocess(jsonPreprocess, z.array(z.object({
       title: z.string(),
