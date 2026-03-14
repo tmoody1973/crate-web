@@ -42,7 +42,7 @@ export function DjShowcase() {
     >
       {/* Ghost background photo */}
       <div
-        className="absolute pointer-events-none"
+        className="absolute pointer-events-none max-md:hidden"
         style={{
           left: "-80px",
           top: "40px",
@@ -119,7 +119,7 @@ export function DjShowcase() {
               {/* Card body */}
               <div className="p-6">
                 <h3
-                  className="font-[family-name:var(--font-bebas)] text-[28px] tracking-[2px] mb-1"
+                  className="font-[family-name:var(--font-bebas)] text-[28px] max-md:text-[24px] tracking-[2px] mb-1"
                   style={{ color: "#0A1628" }}
                 >
                   {station.name}

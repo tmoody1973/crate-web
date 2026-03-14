@@ -66,7 +66,7 @@ export function SourcesGrid() {
                 {source.name}
               </p>
               <p
-                className="font-[family-name:var(--font-space)] text-[11px] uppercase tracking-[1px]"
+                className="font-[family-name:var(--font-space)] text-[11px] max-md:text-[12px] uppercase tracking-[1px]"
                 style={{ color: "#5a6a7a" }}
               >
                 {source.type}

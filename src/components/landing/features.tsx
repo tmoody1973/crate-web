@@ -135,7 +135,7 @@ export function Features() {
 
       {/* Ghost background photo */}
       <div
-        className="absolute pointer-events-none"
+        className="absolute pointer-events-none max-md:hidden"
         style={{
           right: "-60px",
           bottom: "-40px",

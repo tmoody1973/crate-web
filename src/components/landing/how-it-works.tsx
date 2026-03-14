@@ -57,7 +57,7 @@ export function HowItWorks() {
           return (
             <ScrollReveal key={step.title}>
               <div
-                className="relative border p-8"
+                className="relative border p-8 max-md:p-5"
                 style={{
                   borderColor: "rgba(10,22,40,0.1)",
                   backgroundColor: "rgba(255,255,255,0.4)",

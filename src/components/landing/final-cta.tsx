@@ -63,7 +63,7 @@ export function FinalCta() {
 
         <Link
           href="/sign-in"
-          className="inline-block font-[family-name:var(--font-bebas)] text-[20px] tracking-[2px] px-12 py-4 transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
+          className="inline-block font-[family-name:var(--font-bebas)] text-[20px] max-md:text-[18px] tracking-[2px] px-12 max-md:px-8 py-4 transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
           style={{
             backgroundColor: "#E8520E",
             color: "#F5F0E8",
