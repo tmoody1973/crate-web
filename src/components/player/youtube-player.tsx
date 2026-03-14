@@ -155,7 +155,17 @@ export function YouTubePlayer() {
   // Load new track when currentTrack changes
   useEffect(() => {
     const p = playerRef.current;
-    if (!p || !currentTrack || currentTrack.source !== "youtube") return;
+    if (!p) return;
+
+    // If track switched AWAY from YouTube, stop playback
+    if (!currentTrack || currentTrack.source !== "youtube") {
+      if (lastSourceIdRef.current) {
+        p.pauseVideo?.();
+        stopTimer();
+        lastSourceIdRef.current = "";
+      }
+      return;
+    }
 
     const videoId = extractVideoId(currentTrack.sourceId);
     if (!videoId || videoId === lastSourceIdRef.current) return;
@@ -165,12 +175,13 @@ export function YouTubePlayer() {
     if (p.loadVideoById) {
       p.loadVideoById(videoId);
     }
-  }, [currentTrack]);
+  }, [currentTrack, stopTimer]);
 
-  // Sync play/pause state
+  // Sync play/pause state — only when YouTube is the active source
   useEffect(() => {
     const p = playerRef.current;
     if (!p?.getPlayerState) return;
+    if (!currentTrack || currentTrack.source !== "youtube") return;
 
     const state = p.getPlayerState();
     if (isPlaying && state !== window.YT?.PlayerState?.PLAYING) {
@@ -178,7 +189,7 @@ export function YouTubePlayer() {
     } else if (!isPlaying && state === window.YT?.PlayerState?.PLAYING) {
       p.pauseVideo?.();
     }
-  }, [isPlaying]);
+  }, [isPlaying, currentTrack]);
 
   // Sync volume
   useEffect(() => {
