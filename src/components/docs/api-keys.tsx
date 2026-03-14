@@ -2,10 +2,17 @@ import { SectionDivider } from "../landing/section-divider";
 
 const keys = [
   {
-    name: "OPENROUTER",
-    required: false,
+    name: "ANTHROPIC",
+    required: true,
     description:
-      "Routes to Claude, GPT-4, and other LLMs. Crate provides a default key, but your own key gives unlimited usage and model choice.",
+      "Powers Crate's AI agent directly via the Claude API. Required if you're not using OpenRouter. Get a key from Anthropic's console.",
+    where: "console.anthropic.com/settings/keys",
+  },
+  {
+    name: "OPENROUTER",
+    required: true,
+    description:
+      "Alternative to a direct Anthropic key. Routes to Claude, GPT-4, and other LLMs through a single API. One key, many models.",
     where: "openrouter.ai/keys",
   },
   {
@@ -64,8 +71,8 @@ export function ApiKeys() {
         className="font-[family-name:var(--font-space)] text-[16px] mb-4 max-w-[600px]"
         style={{ color: "#6a7a8a" }}
       >
-        Crate works out of the box with built-in API keys. Add your own for
-        unlimited usage and full control.
+        You need either an Anthropic or OpenRouter API key to power the AI
+        agent. All other keys are optional and enhance specific features.
       </p>
       <p
         className="font-[family-name:var(--font-space)] text-[14px] mb-12 max-w-[600px]"
