@@ -368,7 +368,7 @@ export async function POST(req: Request) {
   // Anthropic uses dashes (claude-sonnet-4-6), OpenRouter uses dots (anthropic/claude-sonnet-4.6)
   const ANTHROPIC_TO_OPENROUTER: Record<string, string> = {
     "claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
-    "claude-haiku-4-5-20251001": "anthropic/claude-sonnet-4.6", // Haiku not on OpenRouter, fall back to Sonnet
+    "claude-haiku-4-5-20251001": "anthropic/claude-haiku-4.5",
     "claude-opus-4-6": "anthropic/claude-opus-4.6",
   };
 

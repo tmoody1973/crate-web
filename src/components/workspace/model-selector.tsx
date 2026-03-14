@@ -14,14 +14,15 @@ const MODELS: ModelOption[] = [
   { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", provider: "Anthropic", description: "Best coding model — fast, accurate" },
   { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5", provider: "Anthropic", description: "Lightweight, 3x cheaper" },
   // OpenRouter models (require OpenRouter key)
-  { id: "openai/gpt-5.4", name: "GPT-5.4", provider: "OpenAI", description: "Latest unified GPT model" },
-  { id: "openai/gpt-5.2", name: "GPT-5.2", provider: "OpenAI", description: "Adaptive reasoning" },
-  { id: "google/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro", provider: "Google", description: "Frontier multimodal reasoning" },
-  { id: "google/gemini-3-flash-preview", name: "Gemini 3 Flash", provider: "Google", description: "Fast thinking model" },
-  { id: "deepseek/deepseek-v3.2-speciale", name: "DeepSeek V3.2", provider: "DeepSeek", description: "High-compute reasoning" },
+  { id: "openai/gpt-4o", name: "GPT-4o", provider: "OpenAI", description: "Multimodal, fast" },
+  { id: "openai/gpt-4.1", name: "GPT-4.1", provider: "OpenAI", description: "Latest GPT model" },
+  { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "Google", description: "Most capable Gemini" },
+  { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "Google", description: "Fast, efficient" },
+  { id: "deepseek/deepseek-r1", name: "DeepSeek R1", provider: "DeepSeek", description: "Reasoning model" },
+  { id: "meta-llama/llama-4-maverick", name: "Llama 4 Maverick", provider: "Meta", description: "Open source, powerful" },
   { id: "mistralai/mistral-large-2512", name: "Mistral Large", provider: "Mistral", description: "Most capable Mistral" },
-  { id: "x-ai/grok-4.20-beta", name: "Grok 4.20", provider: "xAI", description: "Low hallucination rate" },
-  { id: "qwen/qwen3-max-thinking", name: "Qwen 3 Max", provider: "Alibaba", description: "Flagship reasoning model" },
+  { id: "x-ai/grok-4", name: "Grok 4", provider: "xAI", description: "Frontier reasoning" },
+  { id: "qwen/qwen3-max", name: "Qwen 3 Max", provider: "Alibaba", description: "Flagship model" },
 ];
 
 const STORAGE_KEY = "crate-model";
