@@ -91,7 +91,7 @@ export async function resolveUserKeys(clerkId: string): Promise<ResolvedKeys> {
   // Decrypt user's personal API keys
   let rawKeys: Record<string, string> = {};
   if (user.encryptedKeys) {
-    rawKeys = JSON.parse(decrypt(Buffer.from(user.encryptedKeys)));
+    rawKeys = JSON.parse(decrypt(Buffer.from(new Uint8Array(user.encryptedKeys))));
   }
 
   // Check for org shared keys (fallback for team members)
@@ -100,7 +100,7 @@ export async function resolveUserKeys(clerkId: string): Promise<ResolvedKeys> {
     const orgRecord = await convex.query(api.orgKeys.getByDomain, { domain: emailDomain });
     if (orgRecord?.encryptedKeys) {
       const orgRawKeys: Record<string, string> = JSON.parse(
-        decrypt(Buffer.from(orgRecord.encryptedKeys)),
+        decrypt(Buffer.from(new Uint8Array(orgRecord.encryptedKeys))),
       );
       // Org keys fill gaps — user's own keys take priority
       for (const [key, value] of Object.entries(orgRawKeys)) {

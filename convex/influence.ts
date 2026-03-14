@@ -156,26 +156,33 @@ export const cacheBatchEdges = mutation({
         sourceName: v.optional(v.string()),
         snippet: v.optional(v.string()),
       })),
+      fromImageUrl: v.optional(v.string()),
+      toImageUrl: v.optional(v.string()),
     })),
   },
   handler: async (ctx, args) => {
-    // Process edges inline (same getOrCreate logic)
-    const getOrCreate = async (name: string) => {
+    // Process edges inline (same getOrCreate logic, with image support)
+    const getOrCreate = async (name: string, imageUrl?: string) => {
       const nameLower = name.toLowerCase().trim();
       const existing = await ctx.db
         .query("influenceArtists")
         .withIndex("by_user_name", (q) => q.eq("userId", args.userId).eq("nameLower", nameLower))
         .first();
-      if (existing) return existing._id;
+      if (existing) {
+        if (imageUrl && !existing.imageUrl) {
+          await ctx.db.patch(existing._id, { imageUrl });
+        }
+        return existing._id;
+      }
       return await ctx.db.insert("influenceArtists", {
-        userId: args.userId, name, nameLower, createdAt: Date.now(),
+        userId: args.userId, name, nameLower, imageUrl, createdAt: Date.now(),
       });
     };
 
     const results = [];
     for (const edge of args.edges) {
-      const fromId = await getOrCreate(edge.fromName);
-      const toId = await getOrCreate(edge.toName);
+      const fromId = await getOrCreate(edge.fromName, edge.fromImageUrl);
+      const toId = await getOrCreate(edge.toName, edge.toImageUrl);
       const now = Date.now();
 
       const existing = await ctx.db

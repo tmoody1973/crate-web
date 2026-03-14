@@ -57,8 +57,8 @@ export function FinalCta() {
           className="font-[family-name:var(--font-space)] text-[18px] max-md:text-[16px] mb-8 max-w-[500px] mx-auto"
           style={{ color: "#6a7a8a" }}
         >
-          Free to use. Bring your own API keys or use ours. Your research, your
-          crates, your music.
+          Add your AI key, pick your model, and start digging. All music data
+          sources are built in.
         </p>
 
         <Link

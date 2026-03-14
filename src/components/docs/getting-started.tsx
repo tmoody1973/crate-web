@@ -5,7 +5,7 @@ const steps = [
     num: "01",
     title: "SIGN UP",
     description:
-      "Create a free account. No credit card required. You can start researching immediately with Crate's built-in API keys.",
+      "Create a free account. Add your Anthropic or OpenRouter API key in Settings. All music data sources (Discogs, Last.fm, Spotify, etc.) are already configured.",
   },
   {
     num: "02",

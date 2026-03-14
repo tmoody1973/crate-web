@@ -57,9 +57,9 @@ const features = [
   },
   {
     icon: Key,
-    title: "BRING YOUR OWN KEYS",
+    title: "YOUR AI, YOUR MODEL",
     description:
-      "Use your own API keys or use ours. Full control over your AI provider and model selection.",
+      "Bring your own Anthropic or OpenRouter key. Pick your model. All 20+ music data sources work out of the box with embedded keys.",
   },
   {
     icon: Send,

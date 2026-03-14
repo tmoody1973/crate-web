@@ -93,6 +93,8 @@ export function createInfluenceCacheTools(
       source_url?: string;
       source_name?: string;
       snippet?: string;
+      from_image_url?: string;
+      to_image_url?: string;
     }>;
   }) => {
     try {
@@ -112,6 +114,8 @@ export function createInfluenceCacheTools(
                 snippet: e.snippet,
               }
             : undefined,
+          fromImageUrl: e.from_image_url,
+          toImageUrl: e.to_image_url,
         })),
       });
       return toolResult({
@@ -238,6 +242,8 @@ export function createInfluenceCacheTools(
               source_url: z.string().optional().describe("Source URL"),
               source_name: z.string().optional().describe("Source name"),
               snippet: z.string().optional().describe("Source snippet"),
+              from_image_url: z.string().optional().describe("Image URL for the source artist"),
+              to_image_url: z.string().optional().describe("Image URL for the target artist"),
             }),
           )
           .describe("Array of influence edges to cache"),

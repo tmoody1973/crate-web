@@ -112,7 +112,7 @@ export function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps) {
           />
         ))}
 
-        <TeamSharing refreshKey={refreshKey} />
+        <TeamSharing refreshKey={refreshKey} hasKeys={Object.keys(userKeys).length > 0} />
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import { SectionDivider } from "../landing/section-divider";
 const faqs = [
   {
     q: "Is Crate free?",
-    a: "Yes. Crate provides built-in API keys so you can start researching immediately. For unlimited usage, you can add your own OpenRouter API key in Settings.",
+    a: "Crate is free to use, but you need your own AI key. Add an Anthropic or OpenRouter API key in Settings to power the agent. All 20+ music data sources (Discogs, Last.fm, Spotify, etc.) are built in and work immediately.",
   },
   {
     q: "How is this different from ChatGPT?",

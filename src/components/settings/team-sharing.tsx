@@ -9,7 +9,7 @@ interface OrgKeyInfo {
   email: string;
 }
 
-export function TeamSharing({ refreshKey }: { refreshKey: number }) {
+export function TeamSharing({ refreshKey, hasKeys }: { refreshKey: number; hasKeys: boolean }) {
   const [info, setInfo] = useState<OrgKeyInfo | null>(null);
   const [domain, setDomain] = useState("");
   const [sharing, setSharing] = useState(false);
@@ -96,29 +96,37 @@ export function TeamSharing({ refreshKey }: { refreshKey: number }) {
         </div>
       )}
 
-      <div className="flex gap-2">
-        <input
-          value={domain}
-          onChange={(e) => setDomain(e.target.value)}
-          placeholder="radiomilwaukee.org"
-          className="flex-1 rounded border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-white focus:border-zinc-500 focus:outline-none"
-        />
-        <button
-          onClick={handleShare}
-          disabled={sharing || !domain.trim()}
-          className="rounded bg-white px-3 py-1.5 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-50"
-        >
-          {sharing ? "..." : "Share"}
-        </button>
-      </div>
+      {hasKeys ? (
+        <>
+          <div className="flex gap-2">
+            <input
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              placeholder="radiomilwaukee.org"
+              className="flex-1 rounded border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-white focus:border-zinc-500 focus:outline-none"
+            />
+            <button
+              onClick={handleShare}
+              disabled={sharing || !domain.trim()}
+              className="rounded bg-white px-3 py-1.5 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-50"
+            >
+              {sharing ? "..." : "Share"}
+            </button>
+          </div>
 
-      {status === "success" && (
-        <p className="mt-2 text-xs text-green-400">
-          Keys shared with @{domain}. Anyone signing in with that domain will have access.
+          {status === "success" && (
+            <p className="mt-2 text-xs text-green-400">
+              Keys shared with @{domain}. Anyone signing in with that domain will have access.
+            </p>
+          )}
+          {status === "error" && (
+            <p className="mt-2 text-xs text-red-400">{errorMsg}</p>
+          )}
+        </>
+      ) : (
+        <p className="text-xs text-zinc-500">
+          Add your own API keys above before sharing with your team.
         </p>
-      )}
-      {status === "error" && (
-        <p className="mt-2 text-xs text-red-400">{errorMsg}</p>
       )}
 
       <p className="mt-3 text-[10px] text-zinc-600">

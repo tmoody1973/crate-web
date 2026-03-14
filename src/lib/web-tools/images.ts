@@ -130,10 +130,22 @@ export function createImageTools(
       const token = await getSpotifyToken(spotifyClientId, spotifyClientSecret);
       const searchType = args.type ?? "album";
 
+      // Use Spotify advanced search syntax for better accuracy
+      // artist:"Name" or album:"Name" field filters
+      const q =
+        searchType === "artist"
+          ? `artist:"${args.query}"`
+          : args.query.includes(" - ")
+            ? (() => {
+                const [artist, album] = args.query.split(" - ", 2);
+                return `album:"${album?.trim()}" artist:"${artist?.trim()}"`;
+              })()
+            : `album:"${args.query}"`;
+
       const params = new URLSearchParams({
         type: searchType,
-        q: args.query,
-        limit: "3",
+        q,
+        limit: "5",
       });
 
       const res = await fetch(
