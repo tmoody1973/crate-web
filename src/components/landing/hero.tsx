@@ -44,11 +44,11 @@ export function Hero() {
 
       {/* 3. Headline — z-3, with DEEP at z-4 to overlap photo */}
       <div
-        className="absolute flex items-start gap-5 max-md:relative max-md:left-auto max-md:top-auto max-md:px-5 max-md:pt-10 max-md:gap-3"
-        style={{ left: "48px", top: "60px", zIndex: 3 }}
+        className="absolute flex items-start gap-4 max-md:relative max-md:left-auto max-md:top-auto max-md:px-5 max-md:pt-10 max-md:gap-3"
+        style={{ left: "48px", top: "80px", zIndex: 3 }}
       >
-        {/* Wordmark — aligned top-to-bottom of headline (3×140px×0.88 ≈ 370px) */}
-        <div className="max-md:hidden" style={{ height: "370px" }}>
+        {/* Wordmark — aligned top-to-bottom of headline (3×96px×0.88 ≈ 253px) */}
+        <div className="max-md:hidden" style={{ height: "253px" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/branding/crate-logo_wordmark.svg"
@@ -60,32 +60,32 @@ export function Hero() {
         {/* Headline text */}
         <div>
           <span
-            className="block font-[family-name:var(--font-bebas)] text-[140px] max-lg:text-[120px] max-md:text-[72px] max-[375px]:text-[56px]"
+            className="block font-[family-name:var(--font-bebas)] text-[96px] max-lg:text-[80px] max-md:text-[64px] max-[375px]:text-[48px]"
             style={{
               color: "#0A1628",
               lineHeight: "0.88",
-              letterSpacing: "-3px",
+              letterSpacing: "-2px",
             }}
           >
             DIG
           </span>
           <span
-            className="block font-[family-name:var(--font-bebas)] text-[140px] max-lg:text-[120px] max-md:text-[72px] max-[375px]:text-[56px] relative"
+            className="block font-[family-name:var(--font-bebas)] text-[96px] max-lg:text-[80px] max-md:text-[64px] max-[375px]:text-[48px] relative"
             style={{
               color: "#E8520E",
               lineHeight: "0.88",
-              letterSpacing: "-3px",
+              letterSpacing: "-2px",
               zIndex: 4,
             }}
           >
             DEEP
           </span>
           <span
-            className="block font-[family-name:var(--font-bebas)] text-[140px] max-lg:text-[120px] max-md:text-[72px] max-[375px]:text-[56px]"
+            className="block font-[family-name:var(--font-bebas)] text-[96px] max-lg:text-[80px] max-md:text-[64px] max-[375px]:text-[48px]"
             style={{
               color: "#0A1628",
               lineHeight: "0.88",
-              letterSpacing: "-3px",
+              letterSpacing: "-2px",
             }}
           >
             ER.
@@ -96,7 +96,7 @@ export function Hero() {
       {/* 4. Tagline */}
       <div
         className="absolute max-md:relative max-md:left-auto max-md:top-auto max-md:mt-4 max-md:px-5"
-        style={{ left: "52px", top: "410px", zIndex: 5 }}
+        style={{ left: "52px", top: "360px", zIndex: 5 }}
       >
         <p
           className="font-[family-name:var(--font-bebas)] text-[28px] max-md:text-xl tracking-[2px]"
@@ -109,7 +109,7 @@ export function Hero() {
       {/* 5. Subhead */}
       <div
         className="absolute max-md:relative max-md:left-auto max-md:top-auto max-md:mt-2 max-md:px-5 max-md:max-w-none"
-        style={{ left: "52px", top: "460px", zIndex: 5, maxWidth: "360px" }}
+        style={{ left: "52px", top: "410px", zIndex: 5, maxWidth: "360px" }}
       >
         <p
           className="font-[family-name:var(--font-space)] text-[17px] max-md:text-[15px] leading-relaxed"
@@ -123,7 +123,7 @@ export function Hero() {
       {/* 6. CTAs */}
       <div
         className="absolute flex gap-3 max-md:relative max-md:left-auto max-md:top-auto max-md:mt-6 max-md:flex-col max-md:px-5"
-        style={{ left: "52px", top: "560px", zIndex: 5 }}
+        style={{ left: "52px", top: "510px", zIndex: 5 }}
       >
         <Link
           href="/sign-in"
