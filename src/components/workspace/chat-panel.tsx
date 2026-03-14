@@ -24,6 +24,7 @@ import { useArtifact } from "./artifact-provider";
 import { getToolLabel, type ToolStep } from "@/lib/tool-labels";
 import { ModelSelector, getStoredModel } from "./model-selector";
 import { ResponseActions } from "./response-actions";
+import { QuickStartWizard } from "@/components/onboarding/quick-start-wizard";
 
 // --- Tool activity context ---
 const ToolActivityContext = createContext<{ steps: ToolStep[] }>({ steps: [] });
@@ -544,7 +545,7 @@ function ShowPrepForm({ onSubmit, onCancel }: { onSubmit: (msg: string) => void;
   );
 }
 
-function ChatInput() {
+function ChatInput({ resendMessage, onResendConsumed }: { resendMessage?: string | null; onResendConsumed?: () => void }) {
   const [input, setInput] = useState("");
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [showPrepForm, setShowPrepForm] = useState(false);
@@ -568,6 +569,17 @@ function ChatInput() {
     setShowSlashMenu(slashFilter.length > 0);
     setSelectedIndex(0);
   }, [slashFilter]);
+
+  // Re-send a pending message after wizard completion
+  useEffect(() => {
+    if (resendMessage) {
+      processMessage({
+        role: "user",
+        content: [{ type: "text", text: resendMessage }],
+      });
+      onResendConsumed?.();
+    }
+  }, [resendMessage, processMessage, onResendConsumed]);
 
   const filteredCommands = SLASH_COMMANDS.filter(
     (c) => c.command.startsWith(slashFilter.toLowerCase()) || c.description.toLowerCase().includes(slashFilter.slice(1).toLowerCase()),
@@ -729,12 +741,10 @@ function ChatHydration() {
   return null;
 }
 
-function ChatPersistence() {
+function ChatPersistence({ user }: { user: { _id: Id<"users"> } | null | undefined }) {
   const { messages, isRunning } = useThread();
   const params = useParams();
   const sessionId = params?.sessionId as Id<"sessions"> | undefined;
-  const { userId: clerkId } = useAuth();
-  const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
   const sendMessage = useMutation(api.messages.send);
   const updateTitle = useMutation(api.sessions.updateTitle);
   const persistedRef = useRef(new Set<string>());
@@ -823,6 +833,38 @@ export function ChatPanel() {
   const playRef = useRef(play);
   playRef.current = play;
 
+  // --- User query (shared by onboarding wizard + ChatPersistence) ---
+  const { userId: clerkId } = useAuth();
+  const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
+
+  // --- Onboarding wizard state ---
+  const completeOnboarding = useMutation(api.users.completeOnboarding);
+  const [showWizard, setShowWizard] = useState(false);
+  const [wizardInitialStep, setWizardInitialStep] = useState(1);
+  const pendingMessageRef = useRef<string | null>(null);
+  const keyVerifiedRef = useRef(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+
+  // Show wizard on first sign-in (user loaded, onboarding not completed)
+  useEffect(() => {
+    if (user && user.onboardingCompleted !== true) {
+      setShowWizard(true);
+    }
+  }, [user]);
+
+  // Check if user already has keys saved
+  const [hasExistingKey, setHasExistingKey] = useState(false);
+  useEffect(() => {
+    if (!showWizard) return;
+    fetch("/api/keys")
+      .then((r) => r.json())
+      .then((data) => {
+        const keys = data.keys || {};
+        setHasExistingKey(Boolean(keys.anthropic || keys.openrouter));
+      })
+      .catch(() => {});
+  }, [showWizard]);
+
   const onToolStartRef = useRef<((info: { tool: string; server: string; input: unknown }) => void) | null>(null);
   const onToolEndRef = useRef<((info: { tool: string; server: string }) => void) | null>(null);
 
@@ -863,7 +905,6 @@ export function ChatPanel() {
 
   const processMessage = useCallback(
     async ({ messages, abortController }: { threadId: string; messages: Array<{ role: string; content?: unknown }>; abortController: AbortController }) => {
-      // Clear steps from any previous run
       setSteps([]);
 
       const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
@@ -875,16 +916,58 @@ export function ChatPanel() {
 
       const model = getStoredModel();
 
-      // Single endpoint handles both chat and agent tiers
-      return fetch("/api/chat", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: messageText, model }),
         signal: abortController.signal,
       });
+
+      // Intercept "no API key" error — open wizard instead of showing error
+      if (res.status === 400) {
+        try {
+          const cloned = res.clone();
+          const body = await cloned.json();
+          if (body.error && body.error.includes("API key is required")) {
+            pendingMessageRef.current = messageText;
+            setWizardInitialStep(2);
+            setShowWizard(true);
+            return new Response(
+              `data: ${JSON.stringify({ type: "done", totalMs: 0, toolsUsed: [], toolCallCount: 0, costUsd: 0 })}\n\ndata: "[DONE]"\n\n`,
+              { headers: { "Content-Type": "text/event-stream" } },
+            );
+          }
+        } catch {
+          // If we can't parse, fall through to normal error handling
+        }
+      }
+
+      return res;
     },
     [],
   );
+
+  const handleWizardComplete = useCallback(async () => {
+    setShowWizard(false);
+    if (keyVerifiedRef.current && pendingMessageRef.current) {
+      setResendMessage(pendingMessageRef.current);
+      pendingMessageRef.current = null;
+      keyVerifiedRef.current = false;
+    } else {
+      pendingMessageRef.current = null;
+    }
+    if (clerkId) {
+      try {
+        await completeOnboarding({ clerkId });
+      } catch {
+        // Non-critical — wizard still dismisses
+      }
+    }
+  }, [clerkId, completeOnboarding]);
+
+  const handleKeyVerified = useCallback(() => {
+    keyVerifiedRef.current = true;
+  }, []);
 
   return (
     <ToolActivityContext.Provider value={{ steps }}>
@@ -893,9 +976,18 @@ export function ChatPanel() {
           <ChatHeader />
           <ChatHydration />
           <ChatMessages />
-          <ChatInput />
-          <ChatPersistence />
+          <ChatInput resendMessage={resendMessage} onResendConsumed={() => setResendMessage(null)} />
+          <ChatPersistence user={user} />
         </div>
+        {showWizard && user && (
+          <QuickStartWizard
+            initialStep={wizardInitialStep}
+            userEmail={user.email}
+            hasExistingKey={hasExistingKey}
+            onComplete={handleWizardComplete}
+            onKeyVerified={handleKeyVerified}
+          />
+        )}
       </ChatProvider>
     </ToolActivityContext.Provider>
   );
