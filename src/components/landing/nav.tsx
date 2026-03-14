@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { label: "SOURCES", href: "#sources" },
   { label: "FOR DJS", href: "#showcase" },
   { label: "DOCS", href: "/docs" },
+  { label: "GUIDE", href: "/guide" },
   { label: "CLI", href: "https://crate-cli.dev" },
 ] as const;
 
