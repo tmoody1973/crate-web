@@ -244,6 +244,36 @@ export function preprocessSlashCommand(message: string): string {
       ].join("\n");
     }
 
+    case "radio": {
+      if (!arg) {
+        return [
+          `Search for a radio station and start streaming it in the player.`,
+          `Use search_radio to find stations, then play_radio to start the best match.`,
+          `Ask the user what genre, station name, or vibe they want to listen to.`,
+        ].join("\n");
+      }
+
+      // Check if it's a direct URL
+      if (arg.startsWith("http://") || arg.startsWith("https://")) {
+        return [
+          `Play this radio stream directly in the browser player.`,
+          `Use play_radio with url="${arg}".`,
+        ].join("\n");
+      }
+
+      return [
+        `Find and play a radio station matching: "${arg}"`,
+        ``,
+        `STEPS:`,
+        `1. search_radio with name="${arg}" — find matching stations`,
+        `2. Pick the best match (highest votes, working stream)`,
+        `3. play_radio with the station name or URL to start streaming`,
+        ``,
+        `If multiple good matches, show the top 3-5 and ask which one to play.`,
+        `If it's clearly a genre (jazz, hip-hop, electronic), search by tag instead of name.`,
+      ].join("\n");
+    }
+
     case "influence": {
       if (!arg) {
         return "Map an artist's influences. Usage: `/influence [artist name]`\nI'll check the influence cache, run discovery if needed, fetch artwork, and render an interactive influence chain.";
@@ -261,12 +291,16 @@ export function preprocessSlashCommand(message: string): string {
         `   - extract_influences from review text`,
         `   - search_web (Exa or Tavily) for "${arg} musical influences"`,
         `   - get_artist_info (Last.fm) for similar artists`,
-        `3. search_spotify_artwork("${arg}", type="artist") — get MAIN artist image only`,
-        `4. cache_batch_influences — save discoveries with sources`,
+        `3. IMAGES — batch-fetch after research, before output:`,
+        `   - search_spotify_artwork("${arg}", type="artist") — main artist image`,
+        `   - search_spotify_artwork for the top 3-4 strongest connections (type="artist")`,
+        `   - If you have MusicBrainz IDs from your research, call get_fanart_images for HD backgrounds/logos`,
+        `   - Pass image URLs into cache_batch_influences via from_image_url / to_image_url fields`,
+        `4. cache_batch_influences — save discoveries with sources AND image URLs`,
         ``,
         `PHASE 2 — OUTPUT (do this IMMEDIATELY after research):`,
         `Output the InfluenceChain component. Do NOT do more research after this point.`,
-        `Images for connections are OPTIONAL — include imageUrl only if you already have it from research results. Do NOT make separate image calls for each connection.`,
+        `Include imageUrl for every connection where you fetched artwork. Spotify returns images[0].url (640x640).`,
         ``,
         `DIRECTION CONVENTION (Badillo-Goicoechea 2025):`,
         `- from=INFLUENCER, to=INFLUENCED. If review of B mentions A → edge A→B`,

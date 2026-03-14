@@ -8,6 +8,7 @@ import type { StreamProtocolAdapter, AGUIEvent } from "@openuidev/react-headless
 export interface ToolActivityCallbacks {
   onToolStart?: (info: { tool: string; server: string; input: unknown }) => void;
   onToolEnd?: (info: { tool: string; server: string; durationMs: number }) => void;
+  onPlayRadio?: (info: { station: string; streamUrl: string; tags?: string; country?: string; favicon?: string }) => void;
   onStreamEnd?: () => void;
 }
 
@@ -101,6 +102,17 @@ export function crateStreamAdapter(callbacks?: ToolActivityCallbacks): StreamPro
                 messageId,
                 delta: `Error: ${event.message}`,
               } as AGUIEvent;
+              break;
+            }
+
+            case "play_radio": {
+              callbacks?.onPlayRadio?.({
+                station: event.station as string,
+                streamUrl: event.streamUrl as string,
+                tags: event.tags as string | undefined,
+                country: event.country as string | undefined,
+                favicon: event.favicon as string | undefined,
+              });
               break;
             }
 

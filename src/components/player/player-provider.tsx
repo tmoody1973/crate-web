@@ -5,9 +5,10 @@ import { createContext, useContext, useState, useCallback, useRef, ReactNode } f
 interface Track {
   title: string;
   artist: string;
-  source: "youtube" | "bandcamp";
+  source: "youtube" | "bandcamp" | "radio";
   sourceId: string;
   imageUrl?: string;
+  isRadio?: boolean;
 }
 
 interface PlayerState {
@@ -33,6 +34,7 @@ interface PlayerContextValue extends PlayerState {
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
   setIsPlaying: (playing: boolean) => void;
+  updateTrackMeta: (title: string, artist: string) => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -133,6 +135,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, isPlaying }));
   }, []);
 
+  const updateTrackMeta = useCallback((title: string, artist: string) => {
+    setState((prev) => {
+      if (!prev.currentTrack) return prev;
+      return {
+        ...prev,
+        currentTrack: { ...prev.currentTrack, title, artist },
+      };
+    });
+  }, []);
+
   return (
     <PlayerContext.Provider
       value={{
@@ -149,6 +161,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setCurrentTime,
         setDuration,
         setIsPlaying,
+        updateTrackMeta,
       }}
     >
       {children}

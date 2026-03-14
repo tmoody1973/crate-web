@@ -1,7 +1,6 @@
 "use client";
 
 import { ChatProvider, useThread } from "@openuidev/react-headless";
-import { Renderer } from "@openuidev/react-lang";
 import {
   useState,
   useRef,
@@ -19,7 +18,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
-import { crateLibrary } from "@/lib/openui/library";
+import { usePlayer } from "@/components/player/player-provider";
 import { crateStreamAdapter } from "@/lib/openui/stream-adapter";
 import { useArtifact } from "./artifact-provider";
 import { getToolLabel, type ToolStep } from "@/lib/tool-labels";
@@ -46,6 +45,65 @@ function MarkdownContent({ content }: { content: string }) {
     >
       {content}
     </Markdown>
+  );
+}
+
+/** Map root component name to a human-readable type label. */
+const COMPONENT_TYPE_LABELS: Record<string, string> = {
+  InfluenceChain: "Influence Map",
+  InfluenceCard: "Influence Card",
+  InfluencePathTrace: "Influence Path",
+  ShowPrepPackage: "Show Prep",
+  TrackList: "Playlist",
+  AddToPlaylist: "Add to Playlist",
+  AlbumGrid: "Collection",
+  ConcertList: "Events",
+  SampleTree: "Sample Tree",
+  ArtistCard: "Artist",
+  ArtistProfileCard: "Artist Profile",
+  ReviewSourceCard: "Review Source",
+  TrackContextCard: "Track Context",
+};
+
+/** Extract the root component name from OpenUI content. */
+function extractRootComponent(content: string): string | null {
+  const match = content.match(/^root\s*=\s*(\w+)\(/m);
+  return match?.[1] ?? null;
+}
+
+/** Extract a title from OpenUI content (first string arg of root component). */
+function extractArtifactTitle(content: string): string {
+  const match = content.match(/^root\s*=\s*\w+\(\s*"([^"]+)"/m);
+  if (match?.[1]) return match[1];
+  const fallback = content.match(/^\w+\s*=\s*\w+\(\s*"([^"]+)"/m);
+  return fallback?.[1] ?? "Artifact";
+}
+
+/** Compact artifact preview card — click to open the artifact pane. */
+function ArtifactPreviewCard({ content, onClick }: { content: string; onClick: () => void }) {
+  const rootComponent = extractRootComponent(content);
+  const title = extractArtifactTitle(content);
+  const typeLabel = rootComponent ? (COMPONENT_TYPE_LABELS[rootComponent] ?? rootComponent) : "Artifact";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="my-2 flex w-full max-w-md items-center gap-3 rounded-xl border border-zinc-700/60 bg-zinc-800/80 px-4 py-3 text-left transition hover:border-zinc-600 hover:bg-zinc-800"
+    >
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-700/50">
+        <svg className="h-5 w-5 text-zinc-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+        </svg>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-zinc-200">{title}</p>
+        <p className="text-xs text-zinc-500">{typeLabel}</p>
+      </div>
+      <svg className="h-4 w-4 shrink-0 text-zinc-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+      </svg>
+    </button>
   );
 }
 
@@ -244,11 +302,13 @@ function ChatMessages() {
                   const sections = splitContent(text);
                   return sections.map((section, si) =>
                     section.type === "openui" ? (
-                      <Renderer
+                      <ArtifactPreviewCard
                         key={`${ci}-${si}`}
-                        library={crateLibrary}
-                        response={section.text}
-                        isStreaming={isRunning && ci === getContentParts(m.content).length - 1}
+                        content={section.text}
+                        onClick={() => {
+                          // Push this content to artifact panel and open it
+                          setArtifact(section.text);
+                        }}
                       />
                     ) : (
                       <MarkdownContent key={`${ci}-${si}`} content={section.text} />
@@ -278,6 +338,7 @@ const SLASH_COMMANDS = [
   { command: "/news", description: "Daily music news segment", usage: "/news [station] [count]", example: "/news hyfin 3" },
   { command: "/show-prep", description: "Full show prep or specific pieces", usage: "/show-prep [station]: [request or setlist]", example: "/show-prep HYFIN: Khruangbin - Time" },
   { command: "/prep", description: "Show prep (shorthand)", usage: "/prep [station]: [request]", example: "/prep 88nine: talk breaks for Khruangbin > Simz" },
+  { command: "/radio", description: "Search and play live radio stations", usage: "/radio [station, genre, or URL]", example: "/radio KEXP" },
   { command: "/influence", description: "Map an artist's musical influences", usage: "/influence [artist name]", example: "/influence Flying Lotus" },
   { command: "/published", description: "View all your published content", usage: "/published", example: "/published" },
   { command: "/publish", description: "Publish research to Telegraph or Tumblr", usage: "/publish [telegraph|tumblr] [content]", example: "/publish telegraph" },
@@ -758,6 +819,9 @@ function ChatHeader() {
 
 export function ChatPanel() {
   const [steps, setSteps] = useState<ToolStep[]>([]);
+  const { play } = usePlayer();
+  const playRef = useRef(play);
+  playRef.current = play;
 
   const onToolStartRef = useRef<((info: { tool: string; server: string; input: unknown }) => void) | null>(null);
   const onToolEndRef = useRef<((info: { tool: string; server: string }) => void) | null>(null);
@@ -783,6 +847,15 @@ export function ChatPanel() {
       crateStreamAdapter({
         onToolStart: (info) => onToolStartRef.current?.(info),
         onToolEnd: (info) => onToolEndRef.current?.(info),
+        onPlayRadio: (info) => {
+          playRef.current({
+            title: info.station,
+            artist: "Live Radio",
+            source: "radio",
+            sourceId: info.streamUrl,
+            imageUrl: info.favicon || undefined,
+          });
+        },
         onStreamEnd: () => setSteps([]),
       }),
     [],

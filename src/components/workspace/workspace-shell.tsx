@@ -7,6 +7,7 @@ import { useAuth } from "@clerk/nextjs";
 import { PlayerBar } from "@/components/player/player-bar";
 import { PlayerProvider } from "@/components/player/player-provider";
 import { YouTubePlayer } from "@/components/player/youtube-player";
+import { RadioPlayer } from "@/components/player/radio-player";
 import { Sidebar, useSidebar } from "@/components/sidebar/sidebar";
 import { NewChatButton } from "@/components/sidebar/new-chat-button";
 import { SearchBar } from "@/components/sidebar/search-bar";
@@ -79,6 +80,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
           <PlayerBar />
         </div>
         <YouTubePlayer />
+        <RadioPlayer />
       </div>
     </PlayerProvider>
   );

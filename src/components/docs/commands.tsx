@@ -27,6 +27,14 @@ const commands = [
     output: "Formatted news segment ready for on-air delivery",
   },
   {
+    name: "/radio",
+    usage: "/radio [station, genre, or URL]",
+    example: "/radio KEXP",
+    description:
+      "Search and play live radio stations from 30,000+ stations worldwide. Search by station name, genre, or paste a direct stream URL. The player shows real-time artist and song info via ICY metadata.",
+    output: "Live radio stream in the persistent player bar with LIVE badge",
+  },
+  {
     name: "/publish",
     usage: "/publish [telegraph|tumblr]",
     example: "/publish telegraph",

@@ -35,7 +35,7 @@ const features = [
     icon: Play,
     title: "BUILT-IN PLAYER",
     description:
-      "Hear any track without leaving Crate. YouTube-powered playback right in the research flow — no tab switching.",
+      "Hear any track without leaving Crate. YouTube playback, live radio streaming from 30,000+ stations, and ICY metadata for real-time artist and song display — all in one persistent player.",
   },
   {
     icon: FolderHeart,

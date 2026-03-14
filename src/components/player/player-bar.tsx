@@ -44,6 +44,11 @@ export function PlayerBar() {
           </p>
           <p className="truncate text-xs text-zinc-400">
             {currentTrack.artist}
+            {currentTrack.source === "radio" && (
+              <span className="ml-2 inline-block rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none text-white">
+                LIVE
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -64,25 +69,30 @@ export function PlayerBar() {
             {"\u25BA\u25BA"}
           </button>
         </div>
-        {/* Progress bar */}
-        <div className="flex w-full max-w-md items-center gap-2">
-          <span className="text-xs text-zinc-500">{formatTime(currentTime)}</span>
-          <div
-            className="relative h-1 flex-1 cursor-pointer rounded-full bg-zinc-700"
-            onClick={(e) => {
-              if (duration <= 0) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const pct = (e.clientX - rect.left) / rect.width;
-              seek(pct * duration);
-            }}
-          >
-            <div
-              className="absolute h-full rounded-full bg-white"
-              style={{ width: `${progress}%` }}
-            />
+        {/* Progress bar / Live indicator */}
+        {currentTrack.source === "radio" ? (
+          <div className="flex w-full max-w-md items-center justify-center gap-2">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+            <span className="text-xs font-medium uppercase tracking-wider text-red-400">
+              Live Radio
+            </span>
           </div>
-          <span className="text-xs text-zinc-500">{formatTime(duration)}</span>
-        </div>
+        ) : (
+          <div className="flex w-full max-w-md items-center gap-2">
+            <span className="text-xs text-zinc-500">{formatTime(currentTime)}</span>
+            <input
+              type="range"
+              min={0}
+              max={duration || 1}
+              value={currentTime}
+              onChange={(e) => seek(Number(e.target.value))}
+              aria-label="Seek"
+              aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+              className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-zinc-700 accent-white [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+            />
+            <span className="text-xs text-zinc-500">{formatTime(duration)}</span>
+          </div>
+        )}
       </div>
 
       {/* Volume */}
