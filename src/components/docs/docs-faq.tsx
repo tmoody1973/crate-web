@@ -31,7 +31,7 @@ const faqs = [
   },
   {
     q: "Is my data private?",
-    a: "Your API keys are stored locally in your browser and only sent to the respective APIs during research. Your research history is stored in your authenticated workspace.",
+    a: "Your API keys are encrypted before being stored in your authenticated workspace. They are only decrypted server-side when making research requests to the respective APIs. Your research history and collections are tied to your account and not shared.",
   },
 ];
 
