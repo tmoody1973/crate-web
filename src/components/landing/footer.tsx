@@ -25,12 +25,12 @@ export function Footer() {
       />
 
       {/* Nav links */}
-      <nav className="flex gap-6">
+      <nav className="flex gap-6 max-md:gap-5 max-md:flex-wrap max-md:justify-center">
         {navLinks.map((link) => (
           <Link
             key={link.label}
             href={link.href}
-            className="font-[family-name:var(--font-bebas)] text-[12px] tracking-[2px] transition-colors"
+            className="font-[family-name:var(--font-bebas)] text-[12px] max-md:text-[14px] tracking-[2px] py-1 transition-colors"
             style={{ color: "rgba(245,240,232,0.40)" }}
           >
             {link.label}

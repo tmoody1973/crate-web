@@ -55,7 +55,7 @@ export function Nav() {
 
         {/* Mobile hamburger */}
         <button
-          className="flex items-center justify-center md:hidden"
+          className="flex h-11 w-11 items-center justify-center md:hidden"
           onClick={() => setMobileOpen((prev) => !prev)}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
           style={{ color: "#F5F0E8" }}
@@ -75,7 +75,7 @@ export function Nav() {
               key={link.label}
               href={link.href}
               onClick={() => setMobileOpen(false)}
-              className="font-[family-name:var(--font-bebas)] text-[16px] tracking-[2px] transition-opacity hover:opacity-100"
+              className="font-[family-name:var(--font-bebas)] text-[16px] tracking-[2px] py-2 transition-opacity hover:opacity-100"
               style={{ color: "#F5F0E8", opacity: 0.7 }}
             >
               {link.label}
