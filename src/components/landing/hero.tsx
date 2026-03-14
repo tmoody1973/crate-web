@@ -53,12 +53,7 @@ export function Hero() {
           <img
             src="/branding/crate-logo_wordmark.svg"
             alt="Crate"
-            style={{
-              height: "260px",
-              width: "auto",
-              writingMode: "vertical-rl",
-              transform: "rotate(180deg)",
-            }}
+            style={{ height: "64px", width: "auto" }}
           />
         </div>
 
