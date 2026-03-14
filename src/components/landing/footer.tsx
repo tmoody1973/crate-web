@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 
 const navLinks = [
@@ -13,17 +12,15 @@ export function Footer() {
     <footer
       className="py-8 px-12 max-md:px-5 flex items-center justify-between max-md:flex-col max-md:gap-4 max-md:text-center"
       style={{
-        backgroundColor: "var(--midnight)",
+        backgroundColor: "#0A1628",
         borderTop: "1px solid rgba(245,240,232,0.06)",
       }}
     >
       {/* Logo */}
-      <Image
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src="/branding/crate-logo_Light.svg"
         alt="Crate"
-        width={120}
-        height={24}
-        className="h-6 w-auto"
         style={{ height: "24px", width: "auto" }}
       />
 
@@ -33,7 +30,8 @@ export function Footer() {
           <Link
             key={link.label}
             href={link.href}
-            className="font-[family-name:var(--font-bebas)] text-[12px] tracking-[2px] transition-colors text-[rgba(245,240,232,0.40)] hover:text-[rgba(245,240,232,0.70)]"
+            className="font-[family-name:var(--font-bebas)] text-[12px] tracking-[2px] transition-colors"
+            style={{ color: "rgba(245,240,232,0.40)" }}
           >
             {link.label}
           </Link>

@@ -4,7 +4,7 @@ export function Hero() {
   return (
     <section
       className="relative min-h-[600px] overflow-hidden pb-12"
-      style={{ backgroundColor: "var(--cream)" }}
+      style={{ backgroundColor: "#F5F0E8" }}
     >
       {/* 1. Orange accent block — behind photo, z-1 */}
       <div
@@ -14,7 +14,7 @@ export function Hero() {
           top: "30px",
           width: "320px",
           height: "380px",
-          backgroundColor: "var(--orange)",
+          backgroundColor: "#E8520E",
           opacity: 0.9,
           clipPath: "polygon(0% 4%, 100% 0%, 96% 100%, 4% 94%)",
           zIndex: 1,
@@ -26,7 +26,7 @@ export function Hero() {
       <div
         className="absolute max-md:relative max-md:right-auto max-md:top-auto max-md:h-[300px] max-md:w-full"
         role="img"
-        aria-label="Record store shelves with vinyl albums by Nina Simone and Sun Ra"
+        aria-label="Record store shelves with vinyl albums"
         style={{
           right: "-30px",
           top: "50px",
@@ -51,7 +51,7 @@ export function Hero() {
         <span
           className="block font-[family-name:var(--font-bebas)] text-[140px] max-lg:text-[120px] max-md:text-[72px] max-[375px]:text-[56px]"
           style={{
-            color: "var(--midnight)",
+            color: "#0A1628",
             lineHeight: "0.88",
             letterSpacing: "-3px",
           }}
@@ -61,7 +61,7 @@ export function Hero() {
         <span
           className="block font-[family-name:var(--font-bebas)] text-[140px] max-lg:text-[120px] max-md:text-[72px] max-[375px]:text-[56px] relative"
           style={{
-            color: "var(--orange)",
+            color: "#E8520E",
             lineHeight: "0.88",
             letterSpacing: "-3px",
             zIndex: 4,
@@ -72,7 +72,7 @@ export function Hero() {
         <span
           className="block font-[family-name:var(--font-bebas)] text-[140px] max-lg:text-[120px] max-md:text-[72px] max-[375px]:text-[56px]"
           style={{
-            color: "var(--midnight)",
+            color: "#0A1628",
             lineHeight: "0.88",
             letterSpacing: "-3px",
           }}
@@ -88,7 +88,7 @@ export function Hero() {
       >
         <p
           className="font-[family-name:var(--font-bebas)] text-[28px] max-md:text-xl tracking-[2px]"
-          style={{ color: "var(--orange)" }}
+          style={{ color: "#E8520E" }}
         >
           Crate is Spotify for The Curious
         </p>
@@ -116,14 +116,14 @@ export function Hero() {
         <Link
           href="/sign-in"
           className="font-[family-name:var(--font-bebas)] px-8 py-3.5 text-[16px] tracking-[2px] border-none transition-all hover:opacity-90 hover:-translate-y-px text-center"
-          style={{ backgroundColor: "var(--orange)", color: "var(--cream)" }}
+          style={{ backgroundColor: "#E8520E", color: "#F5F0E8" }}
         >
           START DIGGING
         </Link>
         <a
           href="#how-it-works"
           className="font-[family-name:var(--font-bebas)] border-2 bg-transparent px-8 py-3.5 text-[16px] tracking-[2px] transition-all hover:opacity-80 text-center"
-          style={{ borderColor: "var(--midnight)", color: "var(--midnight)" }}
+          style={{ borderColor: "#0A1628", color: "#0A1628" }}
         >
           HOW IT WORKS
         </a>
@@ -138,7 +138,7 @@ export function Hero() {
           writingMode: "vertical-rl",
           fontSize: "11px",
           letterSpacing: "5px",
-          color: "var(--orange)",
+          color: "#E8520E",
           opacity: 0.5,
           zIndex: 2,
         }}
@@ -157,7 +157,7 @@ export function Hero() {
           transform: "rotate(180deg)",
           fontSize: "10px",
           letterSpacing: "4px",
-          color: "var(--midnight)",
+          color: "#0A1628",
           opacity: 0.15,
           zIndex: 2,
         }}
@@ -174,7 +174,7 @@ export function Hero() {
           bottom: "16px",
           fontSize: "11px",
           letterSpacing: "3px",
-          color: "var(--midnight)",
+          color: "#0A1628",
           opacity: 0.2,
         }}
         aria-hidden="true"

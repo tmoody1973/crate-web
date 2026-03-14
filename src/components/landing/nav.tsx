@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 
@@ -18,18 +17,16 @@ export function Nav() {
   return (
     <nav
       className="sticky top-0 z-50 w-full"
-      style={{ backgroundColor: "var(--midnight)" }}
+      style={{ backgroundColor: "#0A1628" }}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
         <Link href="/" className="shrink-0">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/branding/crate-logo_Light.svg"
             alt="Crate"
-            height={32}
-            width={120}
-            priority
-            className="h-8 w-auto"
+            style={{ height: "32px", width: "auto" }}
           />
         </Link>
 
@@ -40,7 +37,7 @@ export function Nav() {
               key={link.label}
               href={link.href}
               className="font-[family-name:var(--font-bebas)] text-[14px] tracking-[2px] transition-opacity hover:opacity-100"
-              style={{ color: "var(--cream)", opacity: 0.6 }}
+              style={{ color: "#F5F0E8", opacity: 0.6 }}
             >
               {link.label}
             </a>
@@ -48,7 +45,7 @@ export function Nav() {
           <Link
             href="/sign-in"
             className="font-[family-name:var(--font-bebas)] rounded px-5 py-2 text-[14px] tracking-[2px] transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "var(--orange)", color: "var(--cream)" }}
+            style={{ backgroundColor: "#E8520E", color: "#F5F0E8" }}
           >
             GET STARTED
           </Link>
@@ -59,7 +56,7 @@ export function Nav() {
           className="flex items-center justify-center md:hidden"
           onClick={() => setMobileOpen((prev) => !prev)}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
-          style={{ color: "var(--cream)" }}
+          style={{ color: "#F5F0E8" }}
         >
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -69,7 +66,7 @@ export function Nav() {
       {mobileOpen && (
         <div
           className="flex flex-col gap-4 px-6 pb-6 pt-2 md:hidden"
-          style={{ backgroundColor: "var(--midnight)" }}
+          style={{ backgroundColor: "#0A1628" }}
         >
           {NAV_LINKS.map((link) => (
             <a
@@ -77,7 +74,7 @@ export function Nav() {
               href={link.href}
               onClick={() => setMobileOpen(false)}
               className="font-[family-name:var(--font-bebas)] text-[16px] tracking-[2px] transition-opacity hover:opacity-100"
-              style={{ color: "var(--cream)", opacity: 0.7 }}
+              style={{ color: "#F5F0E8", opacity: 0.7 }}
             >
               {link.label}
             </a>
@@ -86,7 +83,7 @@ export function Nav() {
             href="/sign-in"
             onClick={() => setMobileOpen(false)}
             className="font-[family-name:var(--font-bebas)] inline-block w-fit rounded px-5 py-2 text-[16px] tracking-[2px] transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "var(--orange)", color: "var(--cream)" }}
+            style={{ backgroundColor: "#E8520E", color: "#F5F0E8" }}
           >
             GET STARTED
           </Link>
