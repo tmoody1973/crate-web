@@ -17,6 +17,7 @@ const sources = [
   { name: "RATE YOUR MUSIC", type: "Community Reviews", highlight: false },
   { name: "FANART.TV", type: "HD Artist Images", highlight: false },
   { name: "ITUNES", type: "Album Artwork", highlight: false },
+  { name: "RADIO BROWSER", type: "30K+ Live Stations", highlight: true },
   { name: "26 PUBLICATIONS", type: "Review Co-Mentions", highlight: true },
 ];
 
@@ -35,7 +36,7 @@ export function SourcesGrid() {
             className="font-[family-name:var(--font-bebas)] text-[72px] max-lg:text-[64px] max-md:text-[48px] max-[375px]:text-[40px] leading-[0.9] tracking-[-2px]"
             style={{ color: "#F5F0E8" }}
           >
-            <span style={{ color: "#E8520E" }}>19+</span> SOURCES
+            <span style={{ color: "#E8520E" }}>20+</span> SOURCES
             <br />
             ONE AGENT
           </h2>
