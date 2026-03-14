@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const navLinks = [
   { label: "CLI", href: "https://crate-cli.dev" },
-  { label: "GITHUB", href: "https://github.com" },
+  { label: "GITHUB", href: "https://github.com/tmoody1973/crate-web" },
   { label: "DOCS", href: "/docs" },
   { label: "PRIVACY", href: "/privacy" },
 ];
