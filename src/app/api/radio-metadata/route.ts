@@ -70,16 +70,20 @@ export async function GET(req: Request) {
             const metaString = new TextDecoder().decode(metaBytes).replace(/\0+$/, "");
 
             // Parse StreamTitle='Artist - Title';
-            const match = metaString.match(/StreamTitle='(.+?)';/);
+            // Use greedy match up to the closing '; to avoid capturing other ICY fields
+            const match = metaString.match(/StreamTitle='([^']*?)';/);
             if (match) {
-              const streamTitle = match[1];
-              const parts = streamTitle.split(" - ");
-              reader.cancel();
-              return Response.json({
-                title: parts.length > 1 ? parts.slice(1).join(" - ") : streamTitle,
-                artist: parts.length > 1 ? parts[0] : null,
-                raw: streamTitle,
-              });
+              const streamTitle = match[1]?.trim() ?? "";
+              // Skip empty titles or titles that look like protocol garbage
+              if (streamTitle && !streamTitle.includes("StreamUrl") && !streamTitle.includes("StreamUrl=")) {
+                const parts = streamTitle.split(" - ");
+                reader.cancel();
+                return Response.json({
+                  title: parts.length > 1 ? parts.slice(1).join(" - ") : streamTitle,
+                  artist: parts.length > 1 ? parts[0]?.trim() : null,
+                  raw: streamTitle,
+                });
+              }
             }
           }
           // If we're well past the expected metadata position, stop

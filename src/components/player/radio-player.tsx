@@ -22,6 +22,8 @@ export function RadioPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastSourceIdRef = useRef<string>("");
   const metaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Preserve the original station name — metadata updates overwrite currentTrack.title
+  const stationNameRef = useRef<string>("");
 
   // Create audio element once
   useEffect(() => {
@@ -31,6 +33,8 @@ export function RadioPlayer() {
     audio.addEventListener("playing", () => setIsPlaying(true));
     audio.addEventListener("pause", () => setIsPlaying(false));
     audio.addEventListener("error", () => {
+      // Ignore empty src errors — happens during cleanup when switching tracks
+      if (!audio.src || audio.src === window.location.href) return;
       console.error("[RadioPlayer] Stream error:", audio.error?.message);
       setIsPlaying(false);
     });
@@ -39,7 +43,7 @@ export function RadioPlayer() {
 
     return () => {
       audio.pause();
-      audio.src = "";
+      audio.removeAttribute("src");
       audio.load();
       audioRef.current = null;
     };
@@ -55,7 +59,7 @@ export function RadioPlayer() {
     if (!currentTrack || currentTrack.source !== "radio" || !isPlaying) return;
 
     const streamUrl = currentTrack.sourceId;
-    const stationName = currentTrack.title;
+    const stationName = stationNameRef.current || currentTrack.title;
 
     async function fetchMeta() {
       try {
@@ -64,11 +68,17 @@ export function RadioPlayer() {
         );
         if (!res.ok) return;
         const data = await res.json();
-        if (data.artist && data.title) {
+
+        // Validate metadata — reject empty, protocol garbage, or suspiciously short values
+        const isClean = (s: string | null | undefined): s is string =>
+          !!s && s.length > 1 && !s.includes("StreamUrl") && !s.includes("='") && !s.includes("';");
+
+        if (isClean(data.artist) && isClean(data.title)) {
           updateTrackMeta(`${data.title} · ${stationName}`, data.artist);
-        } else if (data.raw) {
+        } else if (isClean(data.raw)) {
           updateTrackMeta(`${data.raw} · ${stationName}`, "Live Radio");
         }
+        // If nothing is clean, keep the current title — don't update with garbage
       } catch {
         // Silently fail — metadata is optional
       }
@@ -93,18 +103,25 @@ export function RadioPlayer() {
       // Stop radio if switched to a non-radio track
       if (audioRef.current && lastSourceIdRef.current) {
         audioRef.current.pause();
-        audioRef.current.src = "";
+        audioRef.current.removeAttribute("src");
+        audioRef.current.load();
         lastSourceIdRef.current = "";
+        stationNameRef.current = "";
       }
       return;
     }
 
+    // Skip if same stream is already loaded
     if (currentTrack.sourceId === lastSourceIdRef.current) return;
     lastSourceIdRef.current = currentTrack.sourceId;
+    // Preserve original station name before metadata overwrites it
+    stationNameRef.current = currentTrack.title;
 
     audio.src = currentTrack.sourceId;
     audio.load();
     audio.play().catch((err) => {
+      // Ignore AbortError — happens when play() is interrupted by a new load
+      if (err instanceof DOMException && err.name === "AbortError") return;
       console.error("[RadioPlayer] Play failed:", err);
     });
   }, [currentTrack]);
