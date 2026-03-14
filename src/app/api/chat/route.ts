@@ -9,6 +9,12 @@ import { createImageTools } from "@/lib/web-tools/images";
 import { createInfluenceCacheTools } from "@/lib/web-tools/influence-cache";
 import { createInfographicTools } from "@/lib/web-tools/infographic";
 import { createRadioTools } from "@/lib/web-tools/radio";
+import {
+  searchMemories,
+  addMemories,
+  formatMemoriesForPrompt,
+  createMemoryTools,
+} from "@/lib/mem0-client";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 const SSE_HEADERS = {
@@ -146,6 +152,7 @@ async function streamAgenticResponse(
   modelId: string,
   envKeys: Record<string, string>,
   convexUserId: string,
+  clerkId: string,
   useOpenRouter?: boolean,
   isResearchCommand?: boolean,
 ): Promise<Response> {
@@ -213,6 +220,12 @@ async function streamAgenticResponse(
         // Web radio tool (replaces crate-cli's mpv-based play_radio)
         const webRadioTools = createRadioTools();
 
+        // Mem0 memory tools (if API key available)
+        const mem0Key = envKeys.MEM0_API_KEY || process.env.MEM0_API_KEY;
+        const webMemoryTools = mem0Key
+          ? createMemoryTools(mem0Key, clerkId)
+          : [];
+
         // Filter out crate-cli groups that use SQLite or mpv, inject web versions
         // For radio: keep crate-cli's search/browse/tags tools, replace play_radio
         const cliRadioGroup = cliToolGroups.find(
@@ -247,6 +260,9 @@ async function streamAgenticResponse(
           ...(webInfographicTools.length > 0
             ? [{ serverName: "infographic", tools: webInfographicTools }]
             : []),
+          ...(webMemoryTools.length > 0
+            ? [{ serverName: "memory", tools: webMemoryTools }]
+            : []),
         ];
 
         // For research-heavy commands, only include relevant tool servers
@@ -254,15 +270,38 @@ async function streamAgenticResponse(
         const RESEARCH_SERVERS = new Set([
           "influence", "influencecache", "web-search", "musicbrainz",
           "genius", "lastfm", "discogs", "images", "infographic", "itunes",
+          "memory",
         ]);
         const toolGroups = isResearchCommand
           ? allToolGroups.filter((g: { serverName: string }) => RESEARCH_SERVERS.has(g.serverName))
           : allToolGroups;
 
-        // Build system prompt with soul + OpenUI prompt
+        // Build system prompt with soul + OpenUI prompt + user memory context
         const { CRATE_SOUL } = await import("@/lib/soul");
         const { getCrateOpenUIPrompt } = await import("@/lib/openui/prompt");
-        const systemPrompt = `${getSystemPrompt()}\n\n${CRATE_SOUL}\n\n${getCrateOpenUIPrompt()}`;
+
+        // Load user memories from mem0 to personalize the session
+        let memoryContext = "";
+        if (mem0Key) {
+          try {
+            const memories = await searchMemories(
+              mem0Key,
+              clerkId,
+              "user preferences music taste research interests",
+              10,
+            );
+            memoryContext = formatMemoriesForPrompt(memories);
+          } catch (err) {
+            console.error("[chat/mem0] Failed to load memories:", err);
+          }
+        }
+
+        const systemPrompt = [
+          getSystemPrompt(),
+          CRATE_SOUL,
+          getCrateOpenUIPrompt(),
+          memoryContext,
+        ].filter(Boolean).join("\n\n");
 
         // Run the agentic loop
         // Research commands get more turns since they need tool calls + final output
@@ -276,11 +315,28 @@ async function streamAgenticResponse(
           maxTurns: isResearchCommand ? 35 : 25,
         });
 
+        // Collect assistant text for mem0 conversation saving
+        let assistantText = "";
         for await (const event of events) {
           controller.enqueue(encoder.encode(sseEncode(event)));
+          if (event && typeof event === "object" && "type" in event) {
+            if (event.type === "answer_token" && "token" in event) {
+              assistantText += (event as { token: string }).token;
+            }
+          }
         }
 
         controller.enqueue(encoder.encode(sseEncode("[DONE]")));
+
+        // Save conversation to mem0 in the background (don't block response)
+        if (mem0Key && assistantText.length > 50) {
+          addMemories(mem0Key, clerkId, [
+            { role: "user", content: message },
+            { role: "assistant", content: assistantText },
+          ]).catch((err) =>
+            console.error("[chat/mem0] Failed to save memories:", err),
+          );
+        }
 
         // Restore env vars
         for (const [key, original] of Object.entries(envSnapshot)) {
@@ -407,5 +463,5 @@ export async function POST(req: Request) {
   // Agent-tier: full agentic loop with tools
   // Merge user keys + embedded keys for tool access
   const allEnvKeys = { ...embeddedKeys, ...userEnvKeys };
-  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, resolved.user._id, useOpenRouter, isResearchCommand);
+  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, resolved.user._id, clerkId, useOpenRouter, isResearchCommand);
 }

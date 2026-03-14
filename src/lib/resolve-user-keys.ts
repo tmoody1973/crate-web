@@ -53,6 +53,8 @@ export function getEmbeddedKeys(): Record<string, string> {
     embedded.FANART_API_KEY = process.env.EMBEDDED_FANART_KEY;
   if (process.env.GEMINI_API_KEY)
     embedded.GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  if (process.env.EMBEDDED_MEM0_KEY)
+    embedded.MEM0_API_KEY = process.env.EMBEDDED_MEM0_KEY;
   return embedded;
 }
 
