@@ -10,11 +10,11 @@ export function SectionDivider({
   return (
     <div
       className="flex items-center gap-4 px-12 max-md:px-5 mb-10"
-      style={{ color: dark ? "var(--cream)" : "var(--midnight)" }}
+      style={{ color: dark ? "#F5F0E8" : "#0A1628" }}
     >
       <span
         className="font-[family-name:var(--font-bebas)] text-5xl leading-none opacity-30"
-        style={{ color: "var(--orange)" }}
+        style={{ color: "#E8520E" }}
       >
         {number}
       </span>

@@ -51,10 +51,7 @@ export function Marquee() {
       }}
       aria-hidden="true"
     >
-      <div
-        className="flex gap-4 whitespace-nowrap"
-        style={{ animation: "marquee-scroll 30s linear infinite" }}
-      >
+      <div className="marquee-animate flex gap-4 whitespace-nowrap">
         <MarqueeItems />
         <MarqueeItems />
       </div>

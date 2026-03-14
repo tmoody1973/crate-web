@@ -73,7 +73,7 @@ export function Features() {
   return (
     <section
       className="py-20 px-12 max-md:px-5 max-md:py-12 relative overflow-hidden"
-      style={{ backgroundColor: "var(--midnight)" }}
+      style={{ backgroundColor: "#0A1628" }}
     >
       <SectionDivider number="02" label="FEATURES" dark={true} />
 
@@ -81,11 +81,11 @@ export function Features() {
         <div className="mb-10">
           <h2
             className="font-[family-name:var(--font-bebas)] text-[72px] max-lg:text-[64px] max-md:text-[48px] max-[375px]:text-[40px] leading-[0.9] tracking-[-2px]"
-            style={{ color: "var(--cream)" }}
+            style={{ color: "#F5F0E8" }}
           >
             WHAT&apos;S IN
             <br />
-            <span style={{ color: "var(--orange)" }}>THE CRATE</span>
+            <span style={{ color: "#E8520E" }}>THE CRATE</span>
           </h2>
           <p
             className="font-[family-name:var(--font-space)] text-[16px] mt-4 mb-12"
@@ -105,22 +105,18 @@ export function Features() {
                 className="border p-7 relative overflow-hidden group transition-colors"
                 style={{ borderColor: "rgba(245,240,232,0.08)" }}
               >
-                {/* Orange left bar */}
+                {/* Orange left bar on hover */}
                 <div
                   className="absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ backgroundColor: "var(--orange)" }}
+                  style={{ backgroundColor: "#E8520E" }}
                   aria-hidden="true"
                 />
 
-                <Icon
-                  size={24}
-                  className="mb-2.5"
-                  style={{ color: "var(--orange)" }}
-                />
+                <Icon size={24} className="mb-2.5" style={{ color: "#E8520E" }} />
 
                 <h3
                   className="font-[family-name:var(--font-bebas)] text-[22px] tracking-[1px] mb-1.5"
-                  style={{ color: "var(--cream)" }}
+                  style={{ color: "#F5F0E8" }}
                 >
                   {feature.title}
                 </h3>
@@ -145,8 +141,7 @@ export function Features() {
           bottom: "-40px",
           width: "400px",
           height: "300px",
-          backgroundImage:
-            "url('/photos/blocks-T3mKJXfdims-unsplash.jpg')",
+          backgroundImage: "url('/photos/blocks-T3mKJXfdims-unsplash.jpg')",
           backgroundSize: "cover",
           backgroundPosition: "center",
           clipPath: "polygon(20% 0%, 100% 10%, 90% 100%, 0% 80%)",
@@ -158,15 +153,14 @@ export function Features() {
 
       {/* Vertical text */}
       <p
-        className="absolute max-md:hidden"
+        className="absolute max-md:hidden font-[family-name:var(--font-bebas)]"
         style={{
           right: "16px",
           top: "80px",
           writingMode: "vertical-rl",
-          fontFamily: "var(--font-bebas)",
           fontSize: "11px",
           letterSpacing: "5px",
-          color: "var(--orange)",
+          color: "#E8520E",
           opacity: 0.25,
         }}
         aria-hidden="true"

@@ -3,7 +3,7 @@ import Link from "next/link";
 export function Hero() {
   return (
     <section
-      className="relative min-h-[600px] overflow-hidden pb-12"
+      className="relative min-h-[700px] overflow-hidden pb-20"
       style={{ backgroundColor: "#F5F0E8" }}
     >
       {/* 1. Orange accent block — behind photo, z-1 */}
@@ -110,7 +110,7 @@ export function Hero() {
       {/* 6. CTAs */}
       <div
         className="absolute flex gap-3 max-md:relative max-md:left-auto max-md:top-auto max-md:mt-6 max-md:flex-col max-md:px-5"
-        style={{ left: "52px", top: "540px", zIndex: 5 }}
+        style={{ left: "52px", top: "560px", zIndex: 5 }}
       >
         <Link
           href="/sign-in"

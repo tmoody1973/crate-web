@@ -37,7 +37,7 @@ export function Comparison() {
   return (
     <section
       className="py-20 px-12 max-md:px-5 max-md:py-12"
-      style={{ backgroundColor: "var(--cream)" }}
+      style={{ backgroundColor: "#F5F0E8" }}
     >
       <SectionDivider number="03" label="VS THE OLD WAY" />
 
@@ -45,11 +45,11 @@ export function Comparison() {
         <div className="mb-10">
           <h2
             className="font-[family-name:var(--font-bebas)] text-[72px] max-lg:text-[64px] max-md:text-[48px] max-[375px]:text-[40px] leading-[0.9] tracking-[-2px]"
-            style={{ color: "var(--midnight)" }}
+            style={{ color: "#0A1628" }}
           >
             WHY NOT JUST
             <br />
-            <span style={{ color: "var(--orange)" }}>GOOGLE IT?</span>
+            <span style={{ color: "#E8520E" }}>GOOGLE IT?</span>
           </h2>
           <p
             className="font-[family-name:var(--font-space)] text-[16px] mt-4 mb-12 max-w-[600px]"
@@ -146,13 +146,13 @@ export function Comparison() {
           <div
             className="p-7 border-2"
             style={{
-              backgroundColor: "var(--midnight)",
-              borderColor: "var(--orange)",
+              backgroundColor: "#0A1628",
+              borderColor: "#E8520E",
             }}
           >
             <h3
               className="font-[family-name:var(--font-bebas)] text-[20px] tracking-[2px] mb-4"
-              style={{ color: "var(--orange)" }}
+              style={{ color: "#E8520E" }}
             >
               WITH CRATE
             </h3>
@@ -164,7 +164,7 @@ export function Comparison() {
                 >
                   <span
                     className="text-[12px] font-bold shrink-0 mt-[5px]"
-                    style={{ color: "var(--orange)" }}
+                    style={{ color: "#E8520E" }}
                     aria-hidden="true"
                   >
                     ✓

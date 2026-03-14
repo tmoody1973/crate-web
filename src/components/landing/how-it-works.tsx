@@ -28,7 +28,7 @@ export function HowItWorks() {
     <section
       id="how-it-works"
       className="py-20 px-12 max-md:px-5 max-md:py-12"
-      style={{ backgroundColor: "var(--cream)" }}
+      style={{ backgroundColor: "#F5F0E8" }}
     >
       <SectionDivider number="01" label="HOW IT WORKS" />
 
@@ -36,11 +36,11 @@ export function HowItWorks() {
         <div className="mb-10">
           <h2
             className="font-[family-name:var(--font-bebas)] text-[72px] max-lg:text-[64px] max-md:text-[48px] max-[375px]:text-[40px] leading-[0.9] tracking-[-2px]"
-            style={{ color: "var(--midnight)" }}
+            style={{ color: "#0A1628" }}
           >
             THREE
             <br />
-            <span style={{ color: "var(--orange)" }}>STEPS</span>
+            <span style={{ color: "#E8520E" }}>STEPS</span>
           </h2>
           <p
             className="font-[family-name:var(--font-space)] text-[16px] mt-4 mb-12 max-w-[500px]"
@@ -63,24 +63,19 @@ export function HowItWorks() {
                   backgroundColor: "rgba(255,255,255,0.4)",
                 }}
               >
-                {/* Faded step number */}
                 <span
                   className="absolute top-3 right-4 font-[family-name:var(--font-bebas)] text-[64px] leading-none select-none"
-                  style={{ color: "var(--orange)", opacity: 0.2 }}
+                  style={{ color: "#E8520E", opacity: 0.2 }}
                   aria-hidden="true"
                 >
                   {String(index + 1).padStart(2, "0")}
                 </span>
 
-                <Icon
-                  size={28}
-                  className="mb-3"
-                  style={{ color: "var(--midnight)" }}
-                />
+                <Icon size={28} className="mb-3" style={{ color: "#0A1628" }} />
 
                 <h3
                   className="font-[family-name:var(--font-bebas)] text-[24px] tracking-[1px] mb-2"
-                  style={{ color: "var(--midnight)" }}
+                  style={{ color: "#0A1628" }}
                 >
                   {step.title}
                 </h3>

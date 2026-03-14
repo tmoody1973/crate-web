@@ -25,7 +25,7 @@ export function SourcesGrid() {
     <section
       id="sources"
       className="py-20 px-12 max-md:px-5 max-md:py-12 relative overflow-hidden"
-      style={{ backgroundColor: "var(--midnight)" }}
+      style={{ backgroundColor: "#0A1628" }}
     >
       <SectionDivider number="04" label="DATA SOURCES" dark={true} />
 
@@ -33,9 +33,9 @@ export function SourcesGrid() {
         <div className="mb-10">
           <h2
             className="font-[family-name:var(--font-bebas)] text-[72px] max-lg:text-[64px] max-md:text-[48px] max-[375px]:text-[40px] leading-[0.9] tracking-[-2px]"
-            style={{ color: "var(--cream)" }}
+            style={{ color: "#F5F0E8" }}
           >
-            <span style={{ color: "var(--orange)" }}>19+</span> SOURCES
+            <span style={{ color: "#E8520E" }}>19+</span> SOURCES
             <br />
             ONE AGENT
           </h2>
@@ -60,7 +60,7 @@ export function SourcesGrid() {
             >
               <p
                 className="font-[family-name:var(--font-bebas)] text-[16px] tracking-[2px] mb-1"
-                style={{ color: "var(--cream)" }}
+                style={{ color: "#F5F0E8" }}
               >
                 {source.name}
               </p>

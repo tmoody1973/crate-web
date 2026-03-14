@@ -27,6 +27,10 @@
   100% { transform: translateX(-50%); }
 }
 
+.marquee-animate {
+  animation: marquee-scroll 30s linear infinite;
+}
+
 .scroll-reveal {
   opacity: 0;
   transform: translateY(30px);

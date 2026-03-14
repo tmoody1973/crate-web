@@ -38,7 +38,7 @@ export function DjShowcase() {
     <section
       id="showcase"
       className="py-20 px-12 max-md:px-5 max-md:py-12 relative overflow-hidden"
-      style={{ backgroundColor: "var(--cream)" }}
+      style={{ backgroundColor: "#F5F0E8" }}
     >
       {/* Ghost background photo */}
       <div
@@ -65,11 +65,11 @@ export function DjShowcase() {
         <div className="mb-10">
           <h2
             className="font-[family-name:var(--font-bebas)] text-[72px] max-lg:text-[64px] max-md:text-[48px] max-[375px]:text-[40px] leading-[0.9] tracking-[-2px]"
-            style={{ color: "var(--midnight)" }}
+            style={{ color: "#0A1628" }}
           >
             ON THE
             <br />
-            <span style={{ color: "var(--orange)" }}>AIR</span>
+            <span style={{ color: "#E8520E" }}>AIR</span>
           </h2>
           <p
             className="font-[family-name:var(--font-space)] text-[16px] mt-4 mb-12 max-w-[500px]"
@@ -110,7 +110,7 @@ export function DjShowcase() {
                   className="absolute inset-0"
                   style={{
                     background:
-                      "linear-gradient(to bottom, transparent, transparent, var(--midnight))",
+                      "linear-gradient(to bottom, transparent, transparent, #0A1628)",
                   }}
                   aria-hidden="true"
                 />
@@ -120,13 +120,13 @@ export function DjShowcase() {
               <div className="p-6">
                 <h3
                   className="font-[family-name:var(--font-bebas)] text-[28px] tracking-[2px] mb-1"
-                  style={{ color: "var(--midnight)" }}
+                  style={{ color: "#0A1628" }}
                 >
                   {station.name}
                 </h3>
                 <p
                   className="font-[family-name:var(--font-bebas)] text-[12px] uppercase tracking-[2px] mb-3"
-                  style={{ color: "var(--orange)" }}
+                  style={{ color: "#E8520E" }}
                 >
                   {station.tagline}
                 </p>

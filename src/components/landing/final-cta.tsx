@@ -5,21 +5,20 @@ export function FinalCta() {
   return (
     <section
       className="py-24 px-12 max-md:px-5 max-md:py-16 text-center relative overflow-hidden"
-      style={{ backgroundColor: "var(--midnight)" }}
+      style={{ backgroundColor: "#0A1628" }}
     >
       {/* Vertical text left */}
       <p
-        className="absolute max-md:hidden"
+        className="absolute max-md:hidden font-[family-name:var(--font-bebas)]"
         style={{
           left: "16px",
           top: "50%",
           writingMode: "vertical-rl",
           transform: "translateY(-50%) rotate(180deg)",
-          fontFamily: "var(--font-bebas)",
           fontSize: "10px",
           letterSpacing: "5px",
-          color: "var(--orange)",
-          opacity: 0.20,
+          color: "#E8520E",
+          opacity: 0.2,
         }}
         aria-hidden="true"
       >
@@ -28,16 +27,15 @@ export function FinalCta() {
 
       {/* Vertical text right */}
       <p
-        className="absolute max-md:hidden"
+        className="absolute max-md:hidden font-[family-name:var(--font-bebas)]"
         style={{
           right: "16px",
           top: "50%",
           writingMode: "vertical-rl",
           transform: "translateY(-50%)",
-          fontFamily: "var(--font-bebas)",
           fontSize: "10px",
           letterSpacing: "5px",
-          color: "var(--cream)",
+          color: "#F5F0E8",
           opacity: 0.08,
         }}
         aria-hidden="true"
@@ -48,11 +46,11 @@ export function FinalCta() {
       <ScrollReveal>
         <h2
           className="font-[family-name:var(--font-bebas)] text-[96px] max-lg:text-[80px] max-md:text-[56px] max-[375px]:text-[44px] leading-[0.9] tracking-[-2px] mb-4"
-          style={{ color: "var(--cream)" }}
+          style={{ color: "#F5F0E8" }}
         >
           START
           <br />
-          <span style={{ color: "var(--orange)" }}>DIGGING.</span>
+          <span style={{ color: "#E8520E" }}>DIGGING.</span>
         </h2>
 
         <p
@@ -67,8 +65,8 @@ export function FinalCta() {
           href="/sign-in"
           className="inline-block font-[family-name:var(--font-bebas)] text-[20px] tracking-[2px] px-12 py-4 transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
           style={{
-            backgroundColor: "var(--orange)",
-            color: "var(--cream)",
+            backgroundColor: "#E8520E",
+            color: "#F5F0E8",
             paddingTop: "18px",
             paddingBottom: "18px",
           }}
