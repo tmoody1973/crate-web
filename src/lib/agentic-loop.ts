@@ -25,7 +25,8 @@ export type CrateEvent =
   | { type: "answer_token"; token: string }
   | { type: "done"; totalMs: number; toolsUsed: string[]; toolCallCount: number; costUsd: number }
   | { type: "error"; message: string }
-  | { type: "plan"; tasks: Array<{ id: number; description: string; done: boolean }> };
+  | { type: "plan"; tasks: Array<{ id: number; description: string; done: boolean }> }
+  | { type: "play_radio"; station: string; streamUrl: string; tags?: string; country?: string; favicon?: string };
 
 export interface AgenticLoopOptions {
   message: string;
@@ -60,6 +61,24 @@ async function* executeTools(
       : result.content;
 
     yield { type: "tool_end", tool: bare, server: result.serverName, durationMs, resultSummary };
+
+    // Emit play_radio event so the frontend can start the radio player
+    if (bare === "play_radio") {
+      try {
+        const parsed = JSON.parse(result.content);
+        if (parsed.status === "streaming" && parsed.stream_url) {
+          yield {
+            type: "play_radio",
+            station: parsed.station,
+            streamUrl: parsed.stream_url,
+            tags: parsed.tags,
+            country: parsed.country,
+            favicon: parsed.favicon,
+          };
+        }
+      } catch { /* not JSON, skip */ }
+    }
+
     yield { _toolResult: { id: call.id, content: result.content } };
   }
 }

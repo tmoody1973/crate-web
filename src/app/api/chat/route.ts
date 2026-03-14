@@ -8,6 +8,7 @@ import { createTumblrTools } from "@/lib/web-tools/tumblr";
 import { createImageTools } from "@/lib/web-tools/images";
 import { createInfluenceCacheTools } from "@/lib/web-tools/influence-cache";
 import { createInfographicTools } from "@/lib/web-tools/infographic";
+import { createRadioTools } from "@/lib/web-tools/radio";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 const SSE_HEADERS = {
@@ -206,14 +207,30 @@ async function streamAgenticResponse(
               )
             : [];
 
-        // Filter out crate-cli groups that use SQLite, inject web versions
+        // Web radio tool (replaces crate-cli's mpv-based play_radio)
+        const webRadioTools = createRadioTools();
+
+        // Filter out crate-cli groups that use SQLite or mpv, inject web versions
+        // For radio: keep crate-cli's search/browse/tags tools, replace play_radio
+        const cliRadioGroup = cliToolGroups.find(
+          (g: { serverName: string }) => g.serverName === "radio",
+        );
+        const cliRadioSearchTools = cliRadioGroup
+          ? cliRadioGroup.tools.filter(
+              (t: { name: string }) => t.name !== "play_radio",
+            )
+          : [];
+
         const allToolGroups = [
           ...cliToolGroups.filter(
             (g: { serverName: string }) =>
               g.serverName !== "telegraph" &&
               g.serverName !== "tumblr" &&
-              g.serverName !== "influencecache",
+              g.serverName !== "influencecache" &&
+              g.serverName !== "radio",
           ),
+          // Radio: crate-cli search/browse/tags + web play_radio
+          { serverName: "radio", tools: [...cliRadioSearchTools, ...webRadioTools] },
           ...(webTelegraphTools.length > 0
             ? [{ serverName: "telegraph", tools: webTelegraphTools }]
             : []),
