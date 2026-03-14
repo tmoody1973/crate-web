@@ -1280,6 +1280,74 @@ function groupConnections(conns: ParsedConnection[]): Record<GroupKey, ParsedCon
   return groups;
 }
 
+function ConnectionNode({ conn, id, isExpanded, onToggle, dotColor }: {
+  conn: ParsedConnection;
+  id: string;
+  isExpanded: boolean;
+  onToggle: (id: string) => void;
+  dotColor: (w: number) => string;
+}) {
+  const imageUrl = useAutoImage(conn.name, conn.imageUrl);
+  const weight = ensureNumber(conn.weight);
+  const sources = ensureArray<{ name: string; url: string }>(conn.sources);
+
+  return (
+    <div className="relative pl-5">
+      <div className={`absolute left-[-3px] top-2 h-2 w-2 rounded-full ${dotColor(weight)} ring-2 ring-zinc-900`} />
+      <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-3">
+        <div className="flex items-center gap-2">
+          {imageUrl ? (
+            <img src={imageUrl} alt={conn.name} className="h-9 w-9 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-700">
+              <span className="text-xs font-medium text-zinc-400">{conn.name.charAt(0)}</span>
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-white">{conn.name}</p>
+            <div className="flex items-center gap-1.5">
+              <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300">{conn.relationship}</span>
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                weight > 0.7 ? "bg-green-500/20 text-green-400" : weight >= 0.5 ? "bg-yellow-500/20 text-yellow-400" : "bg-zinc-500/20 text-zinc-400"
+              }`}>{weight.toFixed(2)}</span>
+            </div>
+          </div>
+          <button onClick={() => onToggle(id)} className="shrink-0 text-xs text-zinc-500 hover:text-zinc-300">
+            {isExpanded ? "Less" : "More"}
+          </button>
+        </div>
+        {isExpanded && (
+          <div className="mt-2 space-y-2 border-t border-zinc-700 pt-2">
+            <p className="text-sm text-zinc-300">{conn.context}</p>
+            {sources.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {sources.map((src) => (
+                  <a key={src.url} href={src.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-cyan-400 hover:underline">{src.name}</a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ArcNode({ name, imageUrl: initialUrl }: { name: string; imageUrl?: string }) {
+  const imageUrl = useAutoImage(name, initialUrl);
+  const [broken, setBroken] = useState(false);
+  const showImage = imageUrl && !broken;
+  return (
+    <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-zinc-700">
+      {showImage ? (
+        <img src={imageUrl} alt={name} className="h-7 w-7 rounded-full object-cover" onError={() => setBroken(true)} />
+      ) : (
+        <span className="text-[9px] font-medium text-zinc-400">{name.charAt(0)}</span>
+      )}
+    </div>
+  );
+}
+
 function buildLineageArc(
   artist: string,
   groups: Record<GroupKey, ParsedConnection[]>,
@@ -1405,13 +1473,7 @@ export const InfluenceChain = defineComponent({
                         <span className="text-[10px] font-bold text-white">{node.name.charAt(0)}</span>
                       </div>
                     ) : (
-                      <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-zinc-700">
-                        <SafeImage src={node.imageUrl} alt={node.name} className="h-7 w-7 rounded-full object-cover" />
-                        {/* Fallback initial shown when SafeImage returns null */}
-                        {!node.imageUrl && (
-                          <span className="text-[9px] font-medium text-zinc-400">{node.name.charAt(0)}</span>
-                        )}
-                      </div>
+                      <ArcNode name={node.name} imageUrl={node.imageUrl} />
                     )}
                     <span className={`max-w-[60px] truncate text-center text-[9px] ${
                       node.isCentral ? "font-bold text-white" : "text-zinc-400"
@@ -1463,76 +1525,16 @@ export const InfluenceChain = defineComponent({
           <div className="absolute left-0 top-0 bottom-0 w-px bg-zinc-700" />
 
           <div className="space-y-3">
-            {currentConnections.map((conn, i) => {
-              const id = `${currentTab}-${conn.name}-${i}`;
-              const isExpanded = expandedId === id;
-              const weight = ensureNumber(conn.weight);
-              const sources = ensureArray<{ name: string; url: string }>(conn.sources);
-
-              return (
-                <div key={id} className="relative pl-5">
-                  <div
-                    className={`absolute left-[-3px] top-2 h-2 w-2 rounded-full ${dotColor(weight)} ring-2 ring-zinc-900`}
-                  />
-
-                  <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-3">
-                    <div className="flex items-center gap-2">
-                      <SafeImage
-                        src={conn.imageUrl}
-                        alt={conn.name}
-                        className="h-9 w-9 rounded-full object-cover"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-white">{conn.name}</p>
-                        <div className="flex items-center gap-1.5">
-                          <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300">
-                            {conn.relationship}
-                          </span>
-                          <span
-                            className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                              weight > 0.7
-                                ? "bg-green-500/20 text-green-400"
-                                : weight >= 0.5
-                                  ? "bg-yellow-500/20 text-yellow-400"
-                                  : "bg-zinc-500/20 text-zinc-400"
-                            }`}
-                          >
-                            {weight.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setExpandedId(isExpanded ? null : id)}
-                        className="shrink-0 text-xs text-zinc-500 hover:text-zinc-300"
-                      >
-                        {isExpanded ? "Less" : "More"}
-                      </button>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="mt-2 space-y-2 border-t border-zinc-700 pt-2">
-                        <p className="text-sm text-zinc-300">{conn.context}</p>
-                        {sources.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {sources.map((src) => (
-                              <a
-                                key={src.url}
-                                href={src.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[10px] text-cyan-400 hover:underline"
-                              >
-                                {src.name}
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            {currentConnections.map((conn, i) => (
+              <ConnectionNode
+                key={`${currentTab}-${conn.name}-${i}`}
+                conn={conn}
+                id={`${currentTab}-${conn.name}-${i}`}
+                isExpanded={expandedId === `${currentTab}-${conn.name}-${i}`}
+                onToggle={(id) => setExpandedId(expandedId === id ? null : id)}
+                dotColor={dotColor}
+              />
+            ))}
           </div>
         </div>
       </div>
