@@ -47,6 +47,14 @@ export function Hero() {
         className="absolute max-md:relative max-md:left-auto max-md:top-auto max-md:px-5 max-md:pt-10"
         style={{ left: "48px", top: "60px", zIndex: 3 }}
       >
+        {/* Wordmark — aligned left with headline */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/branding/crate-logo_wordmark.svg"
+          alt="Crate"
+          className="mb-4 max-md:mb-3"
+          style={{ height: "28px", width: "auto" }}
+        />
         <span
           className="block font-[family-name:var(--font-bebas)] text-[140px] max-lg:text-[120px] max-md:text-[72px] max-[375px]:text-[56px]"
           style={{
