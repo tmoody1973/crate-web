@@ -221,17 +221,22 @@ export const ArtistCard = defineComponent({
             </div>
           )}
 
-          {/* Listen link */}
-          {props.listenUrl && (
-            <a
-              href={props.listenUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full bg-green-600/20 px-3 py-1 text-xs font-medium text-green-400 ring-1 ring-green-600/30 transition-colors hover:bg-green-600/30"
-            >
-              <span>▶</span> Listen on Spotify
-            </a>
-          )}
+          {/* Listen link — always show, auto-generate Spotify search URL if not provided */}
+          {(() => {
+            const url = props.listenUrl?.includes("spotify.com")
+              ? props.listenUrl
+              : `https://open.spotify.com/search/${encodeURIComponent(props.name)}`;
+            return (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full bg-green-600/20 px-3 py-1 text-xs font-medium text-green-400 ring-1 ring-green-600/30 transition-colors hover:bg-green-600/30"
+              >
+                <span>▶</span> Listen on Spotify
+              </a>
+            );
+          })()}
         </div>
       </div>
     );
