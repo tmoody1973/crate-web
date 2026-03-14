@@ -105,13 +105,15 @@ Shows connection path between two artists. \`path\` and \`hops\` are JSON array 
   - TrackContextCard: Use \`artworkUrl\` from search_itunes_songs for the \`imageUrl\` prop. iTunes is free and returns 600x600 artwork — always try it first.
   - Prioritize high-quality images: iTunes artwork > Discogs covers > Bandcamp images > Genius artwork > Wikipedia thumbnails.
 - Do not wrap simple text responses in components.
+- **ALWAYS FETCH IMAGES:** When responding about any artist or album, call search_spotify_artwork FIRST to get artwork before rendering a component. Use the returned image URL in the component's imageUrl prop. Do not render components without images — fetch them.
 - **IMAGE SOURCING PRIORITY (updated):**
-  1. Spotify: search_spotify_artwork (640x640, most reliable)
+  1. Spotify: search_spotify_artwork (640x640, most reliable) — ALWAYS try this first
   2. fanart.tv: get_fanart_images (HD backgrounds, logos — needs MusicBrainz ID)
   3. iTunes: search_itunes_songs/albums (600x600, free, no key needed)
   4. Discogs: cover_image from get_release_full
   5. Genius: song_art_image_thumbnail_url from search_songs
   6. Bandcamp: image_url from search_bandcamp
+- **ALBUM/ARTIST QUERIES:** When the user asks about a specific album or artist (e.g. "Show me Cosmogramma", "Tell me about Madlib"), ALWAYS: (1) call search_spotify_artwork to get the image, (2) research with your tools, (3) render an appropriate component (ArtistCard for artists, TrackContextCard or TrackList for albums) with the imageUrl included.
 - **INFLUENCE MAPPING — CRITICAL:** When the user uses /influence or asks about musical influences, you MUST output an InfluenceChain component. Do NOT output plain text/markdown for influence data. Use InfluenceChain for deep dives, InfluenceCard for quick mentions, InfluencePathTrace for connections between two artists. The connections prop is a JSON string — see Example 6 above.
 - **IMAGES FOR INFLUENCES:** For every artist in an InfluenceChain, call search_spotify_artwork to get their image URL. Include the imageUrl in every connection object. Do not skip images.
 - When generating infographics, use the generate_infographic tool with type influence_map, artist_profile, or timeline.
