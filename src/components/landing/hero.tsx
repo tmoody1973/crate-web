@@ -13,7 +13,7 @@ export function Hero() {
           right: "40px",
           top: "10px",
           width: "480px",
-          height: "540px",
+          height: "620px",
           backgroundColor: "#E8520E",
           clipPath: "polygon(0% 4%, 100% 0%, 96% 100%, 4% 94%)",
           zIndex: 1,
