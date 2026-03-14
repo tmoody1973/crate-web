@@ -47,45 +47,194 @@ function SafeImage({ src, alt, className }: { src?: string; alt?: string; classN
   return <img src={src} alt={alt ?? ""} className={className} onError={() => setBroken(true)} />;
 }
 
+// ── Auto-fetch artist image from Spotify if missing ─────────────
+
+function useAutoImage(name: string, existingUrl?: string): string | undefined {
+  const [url, setUrl] = useState(existingUrl);
+  useEffect(() => {
+    if (existingUrl) { setUrl(existingUrl); return; }
+    let cancelled = false;
+    fetch(`/api/artwork?q=${encodeURIComponent(name)}&type=artist&source=spotify`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!cancelled && data?.results?.[0]?.image) setUrl(data.results[0].image);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [name, existingUrl]);
+  return url;
+}
+
 // ── Crate Music Research Components ──────────────────────────────
 
 export const ArtistCard = defineComponent({
   name: "ArtistCard",
   description:
-    "Displays an artist with key metadata: name, genres, active years, origin.",
+    "Baseball-card style artist profile for DJs, producers, and music lovers. Includes hero image, real name, labels, key albums, collaborators, signature sound, influences, and a DJ talking point.",
   props: z.object({
-    name: z.string().describe("Artist name"),
-    genres: z.array(z.string()).describe("List of genres"),
-    activeYears: z.string().optional().describe("e.g. 1959–1991"),
+    name: z.string().describe("Artist/stage name"),
+    realName: z.string().optional().describe("Birth/legal name e.g. James Dewitt Yancey"),
+    genres: z.preprocess(jsonPreprocess, z.array(z.string())).describe("List of genres"),
+    activeYears: z.string().optional().describe("e.g. 1974–2006"),
     origin: z.string().optional().describe("City/country of origin"),
     imageUrl: z.string().optional().describe("Artist photo URL"),
+    labels: z.preprocess(jsonPreprocess, z.array(z.string()).optional()).describe("Record labels e.g. Stones Throw, MCA"),
+    keyAlbums: z.preprocess(jsonPreprocess, z.array(z.object({
+      title: z.string(),
+      year: z.string().optional(),
+    })).optional()).describe("Top 3-5 albums with year"),
+    collaborators: z.preprocess(jsonPreprocess, z.array(z.string()).optional()).describe("Notable collaborators"),
+    knownFor: z.string().optional().describe("Signature sound/style in one line e.g. Off-kilter swing, MPC chops, humanized drums"),
+    influences: z.preprocess(jsonPreprocess, z.array(z.string()).optional()).describe("Key influences on this artist"),
+    influenced: z.preprocess(jsonPreprocess, z.array(z.string()).optional()).describe("Artists this person influenced"),
+    djTalkingPoint: z.string().optional().describe("One-liner fun fact or on-air talking point"),
+    listenUrl: z.string().optional().describe("Spotify/streaming link"),
   }),
-  component: ({ props }) => (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
-      <div className="flex items-start gap-3">
-        <SafeImage src={props.imageUrl} alt={props.name} className="h-16 w-16 rounded-full object-cover" />
-        <div>
-          <h3 className="text-lg font-bold text-white">{props.name}</h3>
-          {props.origin && (
-            <p className="text-sm text-zinc-400">{props.origin}</p>
+  component: ({ props }) => {
+    const imageUrl = useAutoImage(props.name, props.imageUrl);
+    const genres = ensureArray<string>(props.genres);
+    const labels = ensureArray<string>(props.labels);
+    const keyAlbums = ensureArray<{ title: string; year?: string }>(props.keyAlbums);
+    const collaborators = ensureArray<string>(props.collaborators);
+    const influences = ensureArray<string>(props.influences);
+    const influenced = ensureArray<string>(props.influenced);
+
+    return (
+      <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900">
+        {/* Hero banner */}
+        <div className="relative h-36 w-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black">
+          {imageUrl && (
+            <img
+              src={imageUrl}
+              alt={props.name}
+              className="absolute inset-0 h-full w-full object-cover opacity-40"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
           )}
-          {props.activeYears && (
-            <p className="text-xs text-zinc-500">{props.activeYears}</p>
-          )}
-          <div className="mt-1 flex flex-wrap gap-1">
-            {props.genres.map((g) => (
-              <span
-                key={g}
-                className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs text-zinc-300"
-              >
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-transparent" />
+          <div className="absolute bottom-0 left-0 flex items-end gap-3 p-4">
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt={props.name}
+                className="h-20 w-20 rounded-lg border-2 border-zinc-600 object-cover shadow-lg"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            )}
+            <div className="pb-1">
+              <h3 className="text-xl font-bold leading-tight text-white drop-shadow-md">{props.name}</h3>
+              {props.realName && (
+                <p className="text-xs text-zinc-400">{props.realName}</p>
+              )}
+              <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-400">
+                {props.origin && <span>{props.origin}</span>}
+                {props.origin && props.activeYears && <span className="text-zinc-600">|</span>}
+                {props.activeYears && <span>{props.activeYears}</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 p-4">
+          {/* Genres */}
+          <div className="flex flex-wrap gap-1.5">
+            {genres.map((g) => (
+              <span key={g} className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-300 ring-1 ring-zinc-700">
                 {g}
               </span>
             ))}
           </div>
+
+          {/* Signature sound */}
+          {props.knownFor && (
+            <div className="rounded-lg bg-zinc-800/60 px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Known For</p>
+              <p className="mt-0.5 text-sm text-zinc-200">{props.knownFor}</p>
+            </div>
+          )}
+
+          {/* Stats row: labels + key albums side by side */}
+          <div className="grid grid-cols-2 gap-3">
+            {labels.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Labels</p>
+                <p className="mt-0.5 text-xs text-zinc-300">{labels.join(" · ")}</p>
+              </div>
+            )}
+            {keyAlbums.length > 0 && (
+              <div className={labels.length === 0 ? "col-span-2" : ""}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Key Albums</p>
+                <div className="mt-0.5 space-y-0.5">
+                  {keyAlbums.slice(0, 5).map((a) => (
+                    <p key={a.title} className="text-xs text-zinc-300">
+                      {a.title}{a.year && <span className="ml-1 text-zinc-500">({a.year})</span>}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Collaborators */}
+          {collaborators.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Collaborators</p>
+              <p className="mt-0.5 text-xs text-zinc-300">{collaborators.join(" · ")}</p>
+            </div>
+          )}
+
+          {/* Influence chain: who influenced them → who they influenced */}
+          {(influences.length > 0 || influenced.length > 0) && (
+            <div className="grid grid-cols-2 gap-3 rounded-lg bg-zinc-800/40 p-3">
+              {influences.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Influenced By</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {influences.slice(0, 6).map((a) => (
+                      <span key={a} className="rounded bg-zinc-700/60 px-1.5 py-0.5 text-[11px] text-zinc-300">{a}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {influenced.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Influenced</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {influenced.slice(0, 6).map((a) => (
+                      <span key={a} className="rounded bg-zinc-700/60 px-1.5 py-0.5 text-[11px] text-zinc-300">{a}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* DJ talking point */}
+          {props.djTalkingPoint && (
+            <div className="flex gap-2 rounded-lg border border-amber-900/30 bg-amber-950/20 px-3 py-2">
+              <span className="mt-0.5 text-sm">🎙️</span>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-400/70">On-Air Talking Point</p>
+                <p className="mt-0.5 text-sm text-zinc-200">{props.djTalkingPoint}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Listen link */}
+          {props.listenUrl && (
+            <a
+              href={props.listenUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full bg-green-600/20 px-3 py-1 text-xs font-medium text-green-400 ring-1 ring-green-600/30 transition-colors hover:bg-green-600/30"
+            >
+              <span>▶</span> Listen on Spotify
+            </a>
+          )}
         </div>
       </div>
-    </div>
-  ),
+    );
+  },
 });
 
 export const ConcertEvent = defineComponent({
@@ -1178,9 +1327,44 @@ export const InfluenceChain = defineComponent({
   component: ({ props }) => {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<GroupKey>("roots");
+    const [fetchedImages, setFetchedImages] = useState<Record<string, string>>({});
 
     // Runtime parse
-    const connections = ensureArray<ParsedConnection>(props.connections);
+    const rawConnections = ensureArray<ParsedConnection>(props.connections);
+
+    // Auto-fetch missing images from Spotify via artwork API
+    useEffect(() => {
+      const missing = rawConnections.filter(c => !c.imageUrl);
+      if (missing.length === 0) return;
+      let cancelled = false;
+      const fetchImages = async () => {
+        const results: Record<string, string> = {};
+        // Fetch in parallel, max 10 at a time
+        const batch = missing.slice(0, 10);
+        await Promise.allSettled(
+          batch.map(async (conn) => {
+            try {
+              const res = await fetch(
+                `/api/artwork?q=${encodeURIComponent(conn.name)}&type=artist&source=spotify`,
+              );
+              if (!res.ok) return;
+              const data = await res.json();
+              const img = data.results?.[0]?.image;
+              if (img && !cancelled) results[conn.name] = img;
+            } catch { /* skip */ }
+          }),
+        );
+        if (!cancelled) setFetchedImages(prev => ({ ...prev, ...results }));
+      };
+      fetchImages();
+      return () => { cancelled = true; };
+    }, [rawConnections.map(c => c.name).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Merge fetched images into connections
+    const connections = rawConnections.map(c =>
+      c.imageUrl ? c : { ...c, imageUrl: fetchedImages[c.name] },
+    );
+
     const groups = groupConnections(connections);
     const arc = buildLineageArc(props.artist, groups);
     // Defensive: if parser mis-splits JSON and leaks a URL into summary, ignore it

@@ -26,8 +26,8 @@ child2 = ChildComponent("arg1", "arg2")
 
 ### Available Components
 
-**ArtistCard(name, genres, activeYears?, origin?, imageUrl?)**
-Displays an artist with key metadata.
+**ArtistCard(name, genres, activeYears?, origin?, imageUrl?, realName?, labels?, keyAlbums?, collaborators?, knownFor?, influences?, influenced?, djTalkingPoint?, listenUrl?)**
+Baseball-card style artist profile. \`labels\` is a JSON array of label names. \`keyAlbums\` is a JSON array of [{title, year}] (top 3-5). \`collaborators\`, \`influences\`, and \`influenced\` are JSON arrays of artist name strings. \`knownFor\` is a one-line signature sound description. \`djTalkingPoint\` is a fun fact or on-air talking point. \`listenUrl\` is a Spotify or streaming link. Fill in as many fields as possible — this is a baseball card, not a stub.
 
 **ConcertEvent(artist, date, time?, venue, city?, priceRange?, status?, ticketUrl?)**
 A single concert/event entry.
@@ -130,9 +130,9 @@ e1 = ConcertEvent("Dark Star Orchestra", "Friday, March 13", "7:30 PM", "Riversi
 e2 = ConcertEvent("Hieroglyphics", "Friday, March 13", "8:00 PM", "Turner Hall Ballroom", "Milwaukee", "$25–$45", "On Sale")
 \`\`\`
 
-Example 2 — Artist card with photo:
+Example 2 — Artist baseball card (fill ALL available fields):
 \`\`\`
-root = ArtistCard("Miles Davis", ["Jazz", "Fusion", "Modal Jazz"], "1944–1991", "Alton, Illinois", "https://images.genius.com/miles-davis.jpg")
+root = ArtistCard("Miles Davis", ["Jazz", "Fusion", "Modal Jazz"], "1944–1991", "Alton, Illinois", "https://i.scdn.co/image/miles.jpg", "Miles Dewey Davis III", ["Columbia", "Prestige", "Blue Note", "Warner Bros."], [{"title":"Kind of Blue","year":"1959"},{"title":"Bitches Brew","year":"1970"},{"title":"In a Silent Way","year":"1969"},{"title":"Sketches of Spain","year":"1960"}], ["John Coltrane", "Herbie Hancock", "Wayne Shorter", "Gil Evans", "Tony Williams"], "Cool jazz restraint meets electric fusion — reinvented jazz at least five times", ["Charlie Parker", "Dizzy Gillespie", "Ahmad Jamal", "Duke Ellington"], ["Herbie Hancock", "Wayne Shorter", "John Coltrane", "Robert Glasper", "Kamasi Washington"], "Miles once said he changed music five times and got bored each time. Most musicians are lucky to do it once.", "https://open.spotify.com/artist/0kbYTNQb4Pb1rY2MferFf3")
 \`\`\`
 
 Example 3 — Sample tree:
