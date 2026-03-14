@@ -27,10 +27,15 @@ const MODELS: ModelOption[] = [
 
 const STORAGE_KEY = "crate-model";
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const VALID_IDS = new Set(MODELS.map((m) => m.id));
 
 export function getStoredModel(): string {
   if (typeof window === "undefined") return DEFAULT_MODEL;
-  return localStorage.getItem(STORAGE_KEY) || DEFAULT_MODEL;
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored && VALID_IDS.has(stored)) return stored;
+  // Clear stale model ID that no longer exists
+  if (stored) localStorage.removeItem(STORAGE_KEY);
+  return DEFAULT_MODEL;
 }
 
 export function ModelSelector({ hasOpenRouter }: { hasOpenRouter: boolean }) {

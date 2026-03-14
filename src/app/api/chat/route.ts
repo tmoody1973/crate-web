@@ -71,8 +71,11 @@ async function streamChatDirect(
   });
 
   if (!res.ok || !res.body) {
+    let detail = "";
+    try { detail = await res.text(); } catch { /* ignore */ }
+    console.error(`[chat/direct] ${res.status} from ${url} model=${modelId}:`, detail);
     return new Response(
-      sseEncode({ type: "error", message: `API error: ${res.status}` }) +
+      sseEncode({ type: "error", message: `API error: ${res.status} — ${detail || "unknown"}` }) +
         sseEncode("[DONE]"),
       { headers: SSE_HEADERS },
     );
@@ -380,6 +383,8 @@ export async function POST(req: Request) {
   const modelId = useOpenRouter && !rawModelId.includes("/")
     ? (ANTHROPIC_TO_OPENROUTER[rawModelId] ?? `anthropic/${rawModelId}`)
     : rawModelId;
+
+  console.log(`[chat] useOpenRouter=${useOpenRouter} rawModel=${rawModelId} resolvedModel=${modelId} isChatTier=${isChatTier(message)}`);
 
   // Chat-tier: fast direct call (no tools)
   if (isChatTier(message)) {
