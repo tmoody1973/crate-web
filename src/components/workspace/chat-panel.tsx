@@ -343,6 +343,7 @@ const SLASH_COMMANDS = [
   { command: "/influence", description: "Map an artist's musical influences", usage: "/influence [artist name]", example: "/influence Flying Lotus" },
   { command: "/published", description: "View all your published content", usage: "/published", example: "/published" },
   { command: "/publish", description: "Publish research to Telegraph or Tumblr", usage: "/publish [telegraph|tumblr] [content]", example: "/publish telegraph" },
+  { command: "/setup", description: "Open the quick start guide", usage: "/setup", example: "/setup" },
 ];
 
 function SlashCommandMenu({
@@ -545,7 +546,7 @@ function ShowPrepForm({ onSubmit, onCancel }: { onSubmit: (msg: string) => void;
   );
 }
 
-function ChatInput({ resendMessage, onResendConsumed }: { resendMessage?: string | null; onResendConsumed?: () => void }) {
+function ChatInput({ resendMessage, onResendConsumed, onOpenSetup }: { resendMessage?: string | null; onResendConsumed?: () => void; onOpenSetup?: () => void }) {
   const [input, setInput] = useState("");
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [showPrepForm, setShowPrepForm] = useState(false);
@@ -586,10 +587,16 @@ function ChatInput({ resendMessage, onResendConsumed }: { resendMessage?: string
   );
 
   const handleSelect = (cmd: string) => {
-    // If selecting /show-prep or /prep, open the form instead of filling input
     const trimmed = cmd.trim();
+    // If selecting /show-prep or /prep, open the form instead of filling input
     if (trimmed === "/show-prep" || trimmed === "/prep") {
       setShowPrepForm(true);
+      setShowSlashMenu(false);
+      setInput("");
+      return;
+    }
+    if (trimmed === "/setup") {
+      onOpenSetup?.();
       setShowSlashMenu(false);
       setInput("");
       return;
@@ -629,6 +636,12 @@ function ChatInput({ resendMessage, onResendConsumed }: { resendMessage?: string
       const trimmedInput = input.trim().toLowerCase();
       if (trimmedInput === "/prep" || trimmedInput === "/show-prep" || trimmedInput === "/showprep") {
         setShowPrepForm(true);
+        setShowSlashMenu(false);
+        setInput("");
+        return;
+      }
+      if (trimmedInput === "/setup") {
+        onOpenSetup?.();
         setShowSlashMenu(false);
         setInput("");
         return;
@@ -810,7 +823,7 @@ function ChatPersistence({ user }: { user: { _id: Id<"users"> } | null | undefin
   return null;
 }
 
-function ChatHeader() {
+function ChatHeader({ onOpenSetup }: { onOpenSetup?: () => void }) {
   const [hasOpenRouter, setHasOpenRouter] = useState(false);
 
   useEffect(() => {
@@ -823,6 +836,16 @@ function ChatHeader() {
   return (
     <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
       <ModelSelector hasOpenRouter={hasOpenRouter} />
+      {onOpenSetup && (
+        <button
+          type="button"
+          onClick={onOpenSetup}
+          title="Quick start guide"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
+        >
+          <span className="text-sm font-medium">?</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -969,14 +992,19 @@ export function ChatPanel() {
     keyVerifiedRef.current = true;
   }, []);
 
+  const handleOpenSetup = useCallback(() => {
+    setWizardInitialStep(1);
+    setShowWizard(true);
+  }, []);
+
   return (
     <ToolActivityContext.Provider value={{ steps }}>
       <ChatProvider processMessage={processMessage} streamProtocol={adapter}>
         <div className="flex h-full flex-col bg-zinc-950">
-          <ChatHeader />
+          <ChatHeader onOpenSetup={handleOpenSetup} />
           <ChatHydration />
           <ChatMessages />
-          <ChatInput resendMessage={resendMessage} onResendConsumed={() => setResendMessage(null)} />
+          <ChatInput resendMessage={resendMessage} onResendConsumed={() => setResendMessage(null)} onOpenSetup={handleOpenSetup} />
           <ChatPersistence user={user} />
         </div>
         {showWizard && user && (
