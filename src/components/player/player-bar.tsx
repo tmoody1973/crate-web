@@ -80,20 +80,16 @@ export function PlayerBar() {
         ) : (
           <div className="flex w-full max-w-md items-center gap-2">
             <span className="text-xs text-zinc-500">{formatTime(currentTime)}</span>
-            <div
-              className="relative h-1 flex-1 cursor-pointer rounded-full bg-zinc-700"
-              onClick={(e) => {
-                if (duration <= 0) return;
-                const rect = e.currentTarget.getBoundingClientRect();
-                const pct = (e.clientX - rect.left) / rect.width;
-                seek(pct * duration);
-              }}
-            >
-              <div
-                className="absolute h-full rounded-full bg-white"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+            <input
+              type="range"
+              min={0}
+              max={duration || 1}
+              value={currentTime}
+              onChange={(e) => seek(Number(e.target.value))}
+              aria-label="Seek"
+              aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+              className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-zinc-700 accent-white [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+            />
             <span className="text-xs text-zinc-500">{formatTime(duration)}</span>
           </div>
         )}

@@ -27,18 +27,36 @@ interface RadioStation {
   favicon: string;
 }
 
+/** Reject URLs pointing to internal/private networks (SSRF protection). */
+function isPrivateHost(hostname: string): boolean {
+  const lower = hostname.toLowerCase();
+  if (lower === "localhost" || lower === "127.0.0.1" || lower === "::1" || lower === "[::1]") return true;
+  if (lower === "metadata.google.internal" || lower === "169.254.169.254") return true;
+  const ipv4Match = lower.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (ipv4Match) {
+    const [, a, b] = ipv4Match.map(Number);
+    if (a === 10) return true;
+    if (a === 172 && b !== undefined && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 0) return true;
+  }
+  return false;
+}
+
+/** Race all mirrors in parallel, return first success. */
 async function radioFetch(path: string): Promise<RadioStation[]> {
-  for (const mirror of RADIO_API_MIRRORS) {
-    try {
+  const results = await Promise.allSettled(
+    RADIO_API_MIRRORS.map(async (mirror) => {
       const res = await fetch(`${mirror}${path}`, {
         headers: { "User-Agent": "Crate/1.0.0" },
         signal: AbortSignal.timeout(15_000),
       });
-      if (res.ok) return (await res.json()) as RadioStation[];
-    } catch {
-      continue;
-    }
-  }
+      if (!res.ok) throw new Error(`${mirror} returned ${res.status}`);
+      return (await res.json()) as RadioStation[];
+    }),
+  );
+  const first = results.find((r): r is PromiseFulfilledResult<RadioStation[]> => r.status === "fulfilled");
+  if (first) return first.value;
   throw new Error("All radio-browser.info mirrors failed.");
 }
 
@@ -74,6 +92,9 @@ async function handlePlayRadio(args: PlayRadioArgs): Promise<{
     if (!["http:", "https:"].includes(parsed.protocol)) {
       throw new Error("Stream URL must use HTTP or HTTPS.");
     }
+    if (isPrivateHost(parsed.hostname)) {
+      throw new Error("Private/internal URLs are not allowed.");
+    }
     streamUrl = args.url;
     stationName = args.name ?? "Radio";
   } else {
@@ -93,6 +114,9 @@ async function handlePlayRadio(args: PlayRadioArgs): Promise<{
     const parsed = new URL(streamUrl);
     if (!["http:", "https:"].includes(parsed.protocol)) {
       throw new Error("Station stream URL must use HTTP or HTTPS.");
+    }
+    if (isPrivateHost(parsed.hostname)) {
+      throw new Error("Station stream URL points to a private network.");
     }
     stationName = station.name?.trim() || args.name!;
     tags = station.tags;

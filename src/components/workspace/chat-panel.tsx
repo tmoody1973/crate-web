@@ -820,6 +820,8 @@ function ChatHeader() {
 export function ChatPanel() {
   const [steps, setSteps] = useState<ToolStep[]>([]);
   const { play } = usePlayer();
+  const playRef = useRef(play);
+  playRef.current = play;
 
   const onToolStartRef = useRef<((info: { tool: string; server: string; input: unknown }) => void) | null>(null);
   const onToolEndRef = useRef<((info: { tool: string; server: string }) => void) | null>(null);
@@ -846,7 +848,7 @@ export function ChatPanel() {
         onToolStart: (info) => onToolStartRef.current?.(info),
         onToolEnd: (info) => onToolEndRef.current?.(info),
         onPlayRadio: (info) => {
-          play({
+          playRef.current({
             title: info.station,
             artist: "Live Radio",
             source: "radio",

@@ -24,17 +24,24 @@ export function RadioPlayer() {
   const metaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Preserve the original station name — metadata updates overwrite currentTrack.title
   const stationNameRef = useRef<string>("");
+  // Track whether radio is the active source so listeners don't interfere with YouTube
+  const isRadioActiveRef = useRef(false);
 
   // Create audio element once
   useEffect(() => {
     const audio = new Audio();
     audio.preload = "none";
 
-    audio.addEventListener("playing", () => setIsPlaying(true));
-    audio.addEventListener("pause", () => setIsPlaying(false));
+    audio.addEventListener("playing", () => {
+      if (isRadioActiveRef.current) setIsPlaying(true);
+    });
+    audio.addEventListener("pause", () => {
+      if (isRadioActiveRef.current) setIsPlaying(false);
+    });
     audio.addEventListener("error", () => {
       // Ignore empty src errors — happens during cleanup when switching tracks
       if (!audio.src || audio.src === window.location.href) return;
+      if (!isRadioActiveRef.current) return;
       console.error("[RadioPlayer] Stream error:", audio.error?.message);
       setIsPlaying(false);
     });
@@ -49,17 +56,24 @@ export function RadioPlayer() {
     };
   }, [setIsPlaying]);
 
-  // ICY metadata polling
+  // ICY metadata polling — depends only on stable keys, not the full currentTrack object
+  const sourceId = currentTrack?.sourceId;
+  const source = currentTrack?.source;
+
   useEffect(() => {
     if (metaTimerRef.current) {
       clearInterval(metaTimerRef.current);
       metaTimerRef.current = null;
     }
 
-    if (!currentTrack || currentTrack.source !== "radio" || !isPlaying) return;
+    if (!sourceId || source !== "radio" || !isPlaying) return;
 
-    const streamUrl = currentTrack.sourceId;
-    const stationName = stationNameRef.current || currentTrack.title;
+    const streamUrl = sourceId;
+    const stationName = stationNameRef.current || "Radio";
+
+    // Use a request ID to ignore stale responses
+    const requestId = Symbol();
+    let currentRequestId: symbol = requestId;
 
     async function fetchMeta() {
       try {
@@ -67,6 +81,7 @@ export function RadioPlayer() {
           `/api/radio-metadata?url=${encodeURIComponent(streamUrl)}`,
         );
         if (!res.ok) return;
+        if (currentRequestId !== requestId) return; // stale
         const data = await res.json();
 
         // Validate metadata — reject empty, protocol garbage, or suspiciously short values
@@ -89,18 +104,20 @@ export function RadioPlayer() {
     metaTimerRef.current = setInterval(fetchMeta, METADATA_POLL_MS);
 
     return () => {
+      currentRequestId = Symbol(); // invalidate in-flight requests
       if (metaTimerRef.current) {
         clearInterval(metaTimerRef.current);
         metaTimerRef.current = null;
       }
     };
-  }, [currentTrack?.sourceId, currentTrack?.source, isPlaying, currentTrack, updateTrackMeta]);
+  }, [sourceId, source, isPlaying, updateTrackMeta]);
 
   // Load new radio stream when track changes
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentTrack || currentTrack.source !== "radio") {
       // Stop radio if switched to a non-radio track
+      isRadioActiveRef.current = false;
       if (audioRef.current && lastSourceIdRef.current) {
         audioRef.current.pause();
         audioRef.current.removeAttribute("src");
@@ -116,6 +133,7 @@ export function RadioPlayer() {
     lastSourceIdRef.current = currentTrack.sourceId;
     // Preserve original station name before metadata overwrites it
     stationNameRef.current = currentTrack.title;
+    isRadioActiveRef.current = true;
 
     audio.src = currentTrack.sourceId;
     audio.load();

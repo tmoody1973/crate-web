@@ -4,6 +4,23 @@
  * the current artist/song playing on the station.
  */
 
+/** Reject URLs pointing to internal/private networks (SSRF protection). */
+function isPrivateHost(hostname: string): boolean {
+  const lower = hostname.toLowerCase();
+  if (lower === "localhost" || lower === "127.0.0.1" || lower === "::1" || lower === "[::1]") return true;
+  if (lower === "metadata.google.internal" || lower === "169.254.169.254") return true;
+  // IPv4 private ranges
+  const ipv4Match = lower.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (ipv4Match) {
+    const [, a, b] = ipv4Match.map(Number);
+    if (a === 10) return true;                          // 10.0.0.0/8
+    if (a === 172 && b !== undefined && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true;            // 192.168.0.0/16
+    if (a === 0) return true;                           // 0.0.0.0/8
+  }
+  return false;
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const streamUrl = searchParams.get("url");
@@ -16,6 +33,9 @@ export async function GET(req: Request) {
     const parsed = new URL(streamUrl);
     if (!["http:", "https:"].includes(parsed.protocol)) {
       return Response.json({ error: "Invalid stream URL" }, { status: 400 });
+    }
+    if (isPrivateHost(parsed.hostname)) {
+      return Response.json({ error: "Private/internal URLs are not allowed" }, { status: 403 });
     }
 
     // Request ICY metadata from the stream
