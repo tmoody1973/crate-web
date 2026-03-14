@@ -1,16 +1,29 @@
-# Crate Web
+<p align="center">
+  <img src="public/branding/crate-logo_Dark.svg" alt="Crate" width="280" />
+</p>
 
-> AI-powered music research workspace in the browser — the web companion to [Crate CLI](https://github.com/tmoody1973/crate-cli).
+<p align="center">
+  <strong>AI-powered music research workspace in the browser</strong><br />
+  The web companion to <a href="https://github.com/tmoody1973/crate-cli">Crate CLI</a>
+</p>
+
+<p align="center">
+  <a href="https://crate-web.vercel.app">Live Site</a> · <a href="https://crate-web.vercel.app/docs">Documentation</a> · <a href="https://crate-cli.dev">CLI</a>
+</p>
+
+---
 
 Crate Web brings the same multi-source research agent from Crate CLI to a collaborative browser workspace. Ask about any artist, track, sample, or genre and the AI agent queries up to 19 MCP data sources in real time, generating dynamic visual components alongside conversational answers.
 
 ## Features
 
 - **AI Research Agent** — Claude-powered agent with tool-use across Discogs, MusicBrainz, Last.fm, Genius, Bandcamp, Wikipedia, Ticketmaster, and more
-- **Dynamic OpenUI Components** — Agent generates interactive album grids, track lists, sample trees, and collection buttons at runtime
+- **Influence Mapping** — Network-based artist influence discovery using review co-mentions, Last.fm similarity, and MusicBrainz credits with Convex-backed graph cache
+- **Dynamic OpenUI Components** — Agent generates interactive album grids, track lists, influence chains, sample trees, and collection buttons at runtime
+- **Publishing** — Publish research to Telegraph or Tumblr directly from the chat
 - **Persistent Chat** — Sessions, messages, and artifacts saved to Convex with real-time sync
 - **Multi-Model Support** — Switch between Claude Sonnet 4.6, GPT-4o, Gemini 2.5, Llama 4, DeepSeek R1, and more via OpenRouter
-- **Album Artwork** — Cover art from Discogs, Bandcamp, Genius, and iTunes with automatic fallback chain
+- **Album Artwork** — Cover art from Spotify, fanart.tv, iTunes, Discogs, Bandcamp, and Genius with automatic fallback chain
 - **Audio Player** — Persistent bottom bar with YouTube playback (Spotify-style)
 - **Team Key Sharing** — Admins share encrypted API keys with `@domain` teammates so the whole team can research without individual setup
 - **AgentMail + Slack** — Send any research response to Slack or email with one click (Perplexity-style action bar)
@@ -108,13 +121,15 @@ Open [http://localhost:3000](http://localhost:3000). Sign in with Clerk, add you
 ```
 crate-web/
 ├── convex/                            # Convex backend
-│   ├── schema.ts                      # Database schema (8 tables)
+│   ├── schema.ts                      # Database schema
 │   ├── sessions.ts                    # Chat session CRUD
 │   ├── messages.ts                    # Message persistence
 │   ├── artifacts.ts                   # OpenUI artifact storage
 │   ├── playlists.ts                   # Playlist management
 │   ├── collection.ts                  # Vinyl collection
 │   ├── crates.ts                      # Research project groups
+│   ├── influence.ts                   # Influence graph cache (artists, edges, sources)
+│   ├── published.ts                   # Published research (Telegraph, Tumblr)
 │   ├── users.ts                       # User sync (Clerk → Convex)
 │   ├── keys.ts                        # Encrypted API key storage
 │   └── orgKeys.ts                     # Team shared key storage
@@ -132,6 +147,23 @@ crate-web/
 │   │   ├── sign-in/                   # Clerk sign-in
 │   │   └── sign-up/                   # Clerk sign-up
 │   ├── components/
+│   │   ├── landing/                   # Landing page (Blue Note-inspired)
+│   │   │   ├── hero.tsx               # DIG DEEPER. headline + photo + orange accent
+│   │   │   ├── nav.tsx                # Sticky navigation
+│   │   │   ├── marquee.tsx            # Scrolling source ticker
+│   │   │   ├── app-showcase.tsx       # App screenshot section
+│   │   │   ├── features.tsx           # 9-card feature grid
+│   │   │   ├── sources-grid.tsx       # 16 data source cards
+│   │   │   ├── dj-showcase.tsx        # Station use case cards
+│   │   │   ├── comparison.tsx         # Crate vs alternatives
+│   │   │   └── footer.tsx             # Footer with links
+│   │   ├── docs/                      # Documentation page (/docs)
+│   │   │   ├── commands.tsx           # Slash command reference
+│   │   │   ├── prompt-examples.tsx    # 12 example prompts
+│   │   │   ├── use-cases.tsx          # Station workflow case studies
+│   │   │   ├── data-sources.tsx       # 16 source descriptions
+│   │   │   ├── api-keys.tsx           # API key configuration guide
+│   │   │   └── docs-faq.tsx           # FAQ section
 │   │   ├── workspace/
 │   │   │   ├── chat-panel.tsx         # Main chat with OpenUI rendering
 │   │   │   ├── artifact-slide-in.tsx  # Artifact panel (Claude-style)
