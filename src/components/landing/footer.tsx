@@ -19,7 +19,7 @@ export function Footer() {
     >
       {/* Logo */}
       <Image
-        src="/branding/crate-logo-light_wordmark.svg"
+        src="/branding/crate-logo_Light.svg"
         alt="Crate"
         width={120}
         height={24}

@@ -3,10 +3,10 @@ import Link from "next/link";
 export function Hero() {
   return (
     <section
-      className="relative min-h-[600px] overflow-hidden"
+      className="relative min-h-[600px] overflow-hidden pb-12"
       style={{ backgroundColor: "var(--cream)" }}
     >
-      {/* 1. Orange accent block — hidden on mobile */}
+      {/* 1. Orange accent block — behind photo, z-1 */}
       <div
         className="absolute max-md:hidden"
         style={{
@@ -17,15 +17,16 @@ export function Hero() {
           backgroundColor: "var(--orange)",
           opacity: 0.9,
           clipPath: "polygon(0% 4%, 100% 0%, 96% 100%, 4% 94%)",
+          zIndex: 1,
         }}
         aria-hidden="true"
       />
 
-      {/* 2. Photo div */}
+      {/* 2. Photo — on top of orange block, z-2 */}
       <div
-        className="absolute max-md:relative max-md:h-[300px] max-md:w-full"
+        className="absolute max-md:relative max-md:right-auto max-md:top-auto max-md:h-[300px] max-md:w-full"
         role="img"
-        aria-label="Record store wall filled with vinyl crates"
+        aria-label="Record store shelves with vinyl albums by Nina Simone and Sun Ra"
         style={{
           right: "-30px",
           top: "50px",
@@ -38,32 +39,55 @@ export function Hero() {
           clipPath: "polygon(12% 0%, 100% 0%, 100% 82%, 0% 100%)",
           filter: "grayscale(40%) contrast(1.1)",
           opacity: 0.85,
+          zIndex: 2,
         }}
       />
 
-      {/* 3. Headline */}
+      {/* 3. Headline — z-3, with DEEP at z-4 to overlap photo */}
       <div
-        className="absolute max-md:relative max-md:px-5 max-md:pt-10"
+        className="absolute max-md:relative max-md:left-auto max-md:top-auto max-md:px-5 max-md:pt-10"
         style={{ left: "48px", top: "60px", zIndex: 3 }}
       >
-        <div
-          className="flex flex-col font-[family-name:var(--font-bebas)] leading-[0.88] tracking-[-3px] text-[140px] max-lg:text-[120px] max-md:text-[72px] max-[375px]:text-[56px]"
+        <span
+          className="block font-[family-name:var(--font-bebas)] text-[140px] max-lg:text-[120px] max-md:text-[72px] max-[375px]:text-[56px]"
+          style={{
+            color: "var(--midnight)",
+            lineHeight: "0.88",
+            letterSpacing: "-3px",
+          }}
         >
-          <span style={{ color: "var(--midnight)" }}>DIG</span>
-          <span style={{ color: "var(--orange)", zIndex: 4, position: "relative" }}>
-            DEEP
-          </span>
-          <span style={{ color: "var(--midnight)" }}>ER.</span>
-        </div>
+          DIG
+        </span>
+        <span
+          className="block font-[family-name:var(--font-bebas)] text-[140px] max-lg:text-[120px] max-md:text-[72px] max-[375px]:text-[56px] relative"
+          style={{
+            color: "var(--orange)",
+            lineHeight: "0.88",
+            letterSpacing: "-3px",
+            zIndex: 4,
+          }}
+        >
+          DEEP
+        </span>
+        <span
+          className="block font-[family-name:var(--font-bebas)] text-[140px] max-lg:text-[120px] max-md:text-[72px] max-[375px]:text-[56px]"
+          style={{
+            color: "var(--midnight)",
+            lineHeight: "0.88",
+            letterSpacing: "-3px",
+          }}
+        >
+          ER.
+        </span>
       </div>
 
       {/* 4. Tagline */}
       <div
-        className="absolute max-md:relative max-md:mt-4 max-md:px-5"
-        style={{ left: "52px", top: "400px", zIndex: 5 }}
+        className="absolute max-md:relative max-md:left-auto max-md:top-auto max-md:mt-4 max-md:px-5"
+        style={{ left: "52px", top: "410px", zIndex: 5 }}
       >
         <p
-          className="font-[family-name:var(--font-bebas)] text-[28px] tracking-[2px] max-md:text-xl"
+          className="font-[family-name:var(--font-bebas)] text-[28px] max-md:text-xl tracking-[2px]"
           style={{ color: "var(--orange)" }}
         >
           Crate is Spotify for The Curious
@@ -72,11 +96,11 @@ export function Hero() {
 
       {/* 5. Subhead */}
       <div
-        className="absolute max-md:relative max-md:mt-2 max-md:px-5"
-        style={{ left: "52px", top: "450px", zIndex: 5, maxWidth: "360px" }}
+        className="absolute max-md:relative max-md:left-auto max-md:top-auto max-md:mt-2 max-md:px-5 max-md:max-w-none"
+        style={{ left: "52px", top: "460px", zIndex: 5, maxWidth: "360px" }}
       >
         <p
-          className="font-[family-name:var(--font-space)] text-[17px] leading-snug"
+          className="font-[family-name:var(--font-space)] text-[17px] max-md:text-[15px] leading-relaxed"
           style={{ color: "#3a4a5c" }}
         >
           AI-powered music research for DJs, producers, and crate diggers. 19
@@ -86,19 +110,19 @@ export function Hero() {
 
       {/* 6. CTAs */}
       <div
-        className="absolute flex gap-3 max-md:relative max-md:mt-6 max-md:flex-col max-md:px-5"
-        style={{ left: "52px", top: "520px", zIndex: 5 }}
+        className="absolute flex gap-3 max-md:relative max-md:left-auto max-md:top-auto max-md:mt-6 max-md:flex-col max-md:px-5"
+        style={{ left: "52px", top: "540px", zIndex: 5 }}
       >
         <Link
           href="/sign-in"
-          className="font-[family-name:var(--font-bebas)] rounded px-8 py-3.5 text-[16px] tracking-[2px] transition-opacity hover:opacity-90"
+          className="font-[family-name:var(--font-bebas)] px-8 py-3.5 text-[16px] tracking-[2px] border-none transition-all hover:opacity-90 hover:-translate-y-px text-center"
           style={{ backgroundColor: "var(--orange)", color: "var(--cream)" }}
         >
           START DIGGING
         </Link>
         <a
           href="#how-it-works"
-          className="font-[family-name:var(--font-bebas)] rounded border-2 bg-transparent px-8 py-3.5 text-[16px] tracking-[2px] transition-opacity hover:opacity-70"
+          className="font-[family-name:var(--font-bebas)] border-2 bg-transparent px-8 py-3.5 text-[16px] tracking-[2px] transition-all hover:opacity-80 text-center"
           style={{ borderColor: "var(--midnight)", color: "var(--midnight)" }}
         >
           HOW IT WORKS
@@ -106,49 +130,48 @@ export function Hero() {
       </div>
 
       {/* 7. Vertical text right */}
-      <p
-        className="absolute max-md:hidden"
+      <div
+        className="absolute max-md:hidden font-[family-name:var(--font-bebas)]"
         style={{
           right: "16px",
           top: "100px",
           writingMode: "vertical-rl",
-          fontFamily: "var(--font-bebas)",
           fontSize: "11px",
           letterSpacing: "5px",
           color: "var(--orange)",
           opacity: 0.5,
+          zIndex: 2,
         }}
         aria-hidden="true"
       >
         AI-POWERED MUSIC INTELLIGENCE
-      </p>
+      </div>
 
       {/* 8. Vertical text left */}
-      <p
-        className="absolute max-md:hidden"
+      <div
+        className="absolute max-md:hidden font-[family-name:var(--font-bebas)]"
         style={{
           left: "16px",
           bottom: "60px",
           writingMode: "vertical-rl",
           transform: "rotate(180deg)",
-          fontFamily: "var(--font-bebas)",
           fontSize: "10px",
           letterSpacing: "4px",
           color: "var(--midnight)",
           opacity: 0.15,
+          zIndex: 2,
         }}
         aria-hidden="true"
       >
         CRATE — MILWAUKEE 2024
-      </p>
+      </div>
 
       {/* 9. Edition mark */}
-      <p
-        className="absolute max-md:hidden"
+      <div
+        className="absolute max-md:hidden font-[family-name:var(--font-bebas)]"
         style={{
           right: "48px",
           bottom: "16px",
-          fontFamily: "var(--font-bebas)",
           fontSize: "11px",
           letterSpacing: "3px",
           color: "var(--midnight)",
@@ -157,7 +180,7 @@ export function Hero() {
         aria-hidden="true"
       >
         VOL. 1 — WEB EDITION
-      </p>
+      </div>
     </section>
   );
 }

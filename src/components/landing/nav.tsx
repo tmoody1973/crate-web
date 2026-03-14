@@ -24,7 +24,7 @@ export function Nav() {
         {/* Logo */}
         <Link href="/" className="shrink-0">
           <Image
-            src="/branding/crate-logo-light_wordmark.svg"
+            src="/branding/crate-logo_Light.svg"
             alt="Crate"
             height={32}
             width={120}
