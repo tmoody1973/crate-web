@@ -363,13 +363,22 @@ export async function POST(req: Request) {
 
   // Force Sonnet for research-heavy commands that need deep tool use + structured output
   const isResearchCommand = /^\/(?:influence|show-prep|prep|news)\b/i.test(rawMessage.trim());
+
+  // Anthropic direct API → OpenRouter model ID mapping
+  // Anthropic uses dashes (claude-sonnet-4-6), OpenRouter uses dots (anthropic/claude-sonnet-4.6)
+  const ANTHROPIC_TO_OPENROUTER: Record<string, string> = {
+    "claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
+    "claude-haiku-4-5-20251001": "anthropic/claude-sonnet-4.6", // Haiku not on OpenRouter, fall back to Sonnet
+    "claude-opus-4-6": "anthropic/claude-opus-4.6",
+  };
+
   const rawModelId = isResearchCommand
     ? "claude-sonnet-4-6"
     : (model || "claude-haiku-4-5-20251001");
 
-  // OpenRouter needs `anthropic/` prefix for Anthropic model IDs
+  // Map Anthropic model IDs to OpenRouter format when needed
   const modelId = useOpenRouter && !rawModelId.includes("/")
-    ? `anthropic/${rawModelId}`
+    ? (ANTHROPIC_TO_OPENROUTER[rawModelId] ?? `anthropic/${rawModelId}`)
     : rawModelId;
 
   // Chat-tier: fast direct call (no tools)
