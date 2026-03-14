@@ -708,9 +708,63 @@ export const AddToPlaylist = defineComponent({
   },
 });
 
+// ── Playlist cover art generator ─────────────────────────────────
+
+function PlaylistCover({ title, trackSummary }: { title: string; trackSummary: string }) {
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const requested = useRef(false);
+
+  useEffect(() => {
+    if (requested.current || !title || !trackSummary) return;
+    requested.current = true;
+    setLoading(true);
+
+    fetch("/api/generate-infographic", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "playlist_cover",
+        title,
+        data: trackSummary,
+      }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.imageDataUrl) setCoverUrl(data.imageDataUrl);
+        else setError(true);
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [title, trackSummary]);
+
+  if (error) return null;
+
+  return (
+    <div className="relative mb-3 aspect-square w-full max-w-[280px] overflow-hidden rounded-lg bg-zinc-800">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-600 border-t-violet-400" />
+            <span className="text-[10px] text-zinc-500">Generating cover art...</span>
+          </div>
+        </div>
+      )}
+      {coverUrl && (
+        <img
+          src={coverUrl}
+          alt={`${title} playlist cover`}
+          className="h-full w-full object-cover"
+        />
+      )}
+    </div>
+  );
+}
+
 export const TrackList = defineComponent({
   name: "TrackList",
-  description: "A playlist or track listing with playable tracks. Uses TrackItem children.",
+  description: "A playlist or track listing with playable tracks and AI-generated cover art. Uses TrackItem children.",
   props: z.object({
     title: z.string().describe("Playlist or list title"),
     tracks: z.array(TrackItem.ref).describe("List of TrackItem references"),
@@ -728,12 +782,19 @@ export const TrackList = defineComponent({
       };
     });
 
+    // Build a summary string for the cover art generator
+    const trackSummary = trackData
+      .slice(0, 10)
+      .map((t) => `${t.artist} - ${t.name}`)
+      .join(", ");
+
     return (
       <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-lg font-bold text-white">{props.title}</h2>
           <AutoSavePlaylist title={props.title} tracks={trackData} />
         </div>
+        <PlaylistCover title={props.title} trackSummary={trackSummary} />
         <div className="space-y-1">{renderNode(props.tracks)}</div>
       </div>
     );

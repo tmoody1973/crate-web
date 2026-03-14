@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 // ── Gemini API config ────────────────────────────────────────────
 
 const GEMINI_API_BASE =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent";
 
 const INFOGRAPHIC_PROMPTS: Record<string, (title: string, data: string) => string> = {
   influence_map: (title, data) =>
@@ -20,6 +20,9 @@ const INFOGRAPHIC_PROMPTS: Record<string, (title: string, data: string) => strin
 
   timeline: (title, data) =>
     `Create an artistic timeline infographic. Title: ${title}. Data: ${data}. Style: dark background, horizontal flow, album covers as nodes, era-specific color coding.`,
+
+  playlist_cover: (title, data) =>
+    `Create a square album-cover-style artwork for a music playlist called "${title}". The playlist contains these tracks: ${data}. Style: moody, textured, abstract — think vinyl record aesthetics meets modern graphic design. Dark background with rich color accents. Include the playlist title "${title}" as bold text integrated into the design. NO photographs of real people. Use abstract shapes, typography, textures, and color to evoke the mood of the music. Aspect ratio: square 1:1.`,
 };
 
 // ── Types ────────────────────────────────────────────────────────
@@ -49,7 +52,7 @@ interface InfographicRequestBody {
 
 // ── Validation ───────────────────────────────────────────────────
 
-const VALID_TYPES = new Set(["influence_map", "artist_profile", "timeline"]);
+const VALID_TYPES = new Set(["influence_map", "artist_profile", "timeline", "playlist_cover"]);
 
 function validateBody(
   body: unknown,
