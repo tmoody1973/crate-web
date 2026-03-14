@@ -52,25 +52,11 @@ export function SourcesGrid() {
         {sources.map((source) => (
           <ScrollReveal key={source.name}>
             <div
-              className="border p-5 text-center transition-all duration-200 hover:-translate-y-0.5"
-              style={{
-                borderColor: source.highlight
-                  ? "var(--orange)"
-                  : "rgba(245,240,232,0.06)",
-                backgroundColor: source.highlight
-                  ? "rgba(232,82,14,0.06)"
-                  : "transparent",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor =
-                  "var(--orange)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor =
-                  source.highlight
-                    ? "var(--orange)"
-                    : "rgba(245,240,232,0.06)";
-              }}
+              className={`border p-5 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E8520E] ${
+                source.highlight
+                  ? "border-[#E8520E] bg-[rgba(232,82,14,0.06)]"
+                  : "border-[rgba(245,240,232,0.06)]"
+              }`}
             >
               <p
                 className="font-[family-name:var(--font-bebas)] text-[16px] tracking-[2px] mb-1"

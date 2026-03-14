@@ -85,19 +85,7 @@ export function DjShowcase() {
         {stations.map((station) => (
           <ScrollReveal key={station.name}>
             <div
-              className="border overflow-hidden group transition-colors"
-              style={{
-                borderColor: "rgba(10,22,40,0.10)",
-                backgroundColor: "rgba(255,255,255,0.50)",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor =
-                  "var(--orange)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor =
-                  "rgba(10,22,40,0.10)";
-              }}
+              className="border border-[rgba(10,22,40,0.10)] bg-[rgba(255,255,255,0.50)] overflow-hidden group transition-colors hover:border-[#E8520E]"
             >
               {/* Photo area */}
               <div

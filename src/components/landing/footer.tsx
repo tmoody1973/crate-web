@@ -33,16 +33,7 @@ export function Footer() {
           <Link
             key={link.label}
             href={link.href}
-            className="font-[family-name:var(--font-bebas)] text-[12px] tracking-[2px] transition-colors"
-            style={{ color: "rgba(245,240,232,0.40)" }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.color =
-                "rgba(245,240,232,0.70)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.color =
-                "rgba(245,240,232,0.40)";
-            }}
+            className="font-[family-name:var(--font-bebas)] text-[12px] tracking-[2px] transition-colors text-[rgba(245,240,232,0.40)] hover:text-[rgba(245,240,232,0.70)]"
           >
             {link.label}
           </Link>
