@@ -21,7 +21,7 @@ export function Footer() {
       <img
         src="/branding/crate-logo_Light.svg"
         alt="Crate"
-        style={{ height: "24px", width: "auto" }}
+        style={{ height: "48px", width: "auto" }}
       />
 
       {/* Nav links */}

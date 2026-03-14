@@ -19,14 +19,14 @@ export function Nav() {
       className="sticky top-0 z-50 w-full"
       style={{ backgroundColor: "#0A1628" }}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
         <Link href="/" className="shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/branding/crate-logo_Light.svg"
             alt="Crate"
-            style={{ height: "32px", width: "auto" }}
+            style={{ height: "64px", width: "auto" }}
           />
         </Link>
 

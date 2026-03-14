@@ -10,12 +10,11 @@ export function Hero() {
       <div
         className="absolute max-md:hidden"
         style={{
-          right: "100px",
-          top: "30px",
-          width: "320px",
-          height: "380px",
+          right: "60px",
+          top: "20px",
+          width: "420px",
+          height: "460px",
           backgroundColor: "#E8520E",
-          opacity: 0.9,
           clipPath: "polygon(0% 4%, 100% 0%, 96% 100%, 4% 94%)",
           zIndex: 1,
         }}
@@ -29,9 +28,9 @@ export function Hero() {
         aria-label="Record store shelves with vinyl albums"
         style={{
           right: "-30px",
-          top: "50px",
-          width: "52%",
-          height: "480px",
+          top: "60px",
+          width: "48%",
+          height: "440px",
           backgroundImage:
             "url('/photos/mick-haupt-CbNBjnXXhNg-unsplash.jpg')",
           backgroundSize: "cover",
