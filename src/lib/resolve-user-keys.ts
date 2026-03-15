@@ -69,6 +69,8 @@ export interface ResolvedKeys {
   hasAnthropic: boolean;
   /** Whether user has an OpenRouter key */
   hasOpenRouter: boolean;
+  /** Platform-owned Anthropic key for users without BYOK */
+  platformKey: string | undefined;
   /** The Convex user record */
   user: {
     _id: string;
@@ -129,6 +131,7 @@ export async function resolveUserKeys(clerkId: string): Promise<ResolvedKeys> {
     embeddedKeys,
     hasAnthropic: !!rawKeys.anthropic,
     hasOpenRouter: !!rawKeys.openrouter,
+    platformKey: process.env.PLATFORM_ANTHROPIC_KEY,
     user: user as ResolvedKeys["user"],
   };
 }
