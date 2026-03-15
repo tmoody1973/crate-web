@@ -15,6 +15,7 @@ import {
   bareToolName,
   serverFromToolName,
 } from "./tool-adapter";
+import { TOOL_CALL_CAP } from "@/lib/plans";
 
 /** CrateEvent types — matches crate-cli/dist/agent/events.d.ts exactly. */
 export type CrateEvent =
@@ -151,6 +152,12 @@ async function* anthropicLoop(
 
     if (toolCalls.length === 0 || response.stop_reason === "end_turn") break;
 
+    // Enforce tool call cap
+    if (toolCallCount + toolCalls.length > TOOL_CALL_CAP) {
+      for (const ev of emitText("\n\nI've gathered a lot of information. Here's what I found so far.")) yield ev;
+      break;
+    }
+
     // If we're on the last turn, don't execute more tools — force output
     if (turnsRemaining <= 1) break;
 
@@ -255,6 +262,12 @@ async function* openRouterLoop(
         name: tc.function.name,
         input: JSON.parse(tc.function.arguments || "{}") as Record<string, unknown>,
       }));
+
+    // Enforce tool call cap
+    if (toolCallCount + parsedCalls.length > TOOL_CALL_CAP) {
+      for (const ev of emitText("\n\nI've gathered a lot of information. Here's what I found so far.")) yield ev;
+      break;
+    }
 
     for await (const ev of executeTools(handlers, parsedCalls)) {
       if ("_toolResult" in ev) {
