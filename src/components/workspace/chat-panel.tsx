@@ -937,12 +937,39 @@ export function ChatPanel() {
         .map((c) => c.text)
         .join("");
 
+      // Build conversation history from prior messages (excluding current)
+      const priorMessages = messages.slice(0, -1);
+      const history: Array<{ role: "user" | "assistant"; content: string }> = [];
+      for (const m of priorMessages) {
+        if (m.role !== "user" && m.role !== "assistant") continue;
+        const parts2 = getContentParts(m.content);
+        const text = parts2
+          .filter((c): c is { type: "text"; text: string } => c.type === "text")
+          .map((c) => c.text)
+          .join("");
+        if (text) {
+          history.push({ role: m.role as "user" | "assistant", content: text });
+        }
+      }
+
+      // Trim oldest messages to fit within token budget (~15-20K tokens)
+      const MAX_HISTORY_CHARS = 60_000;
+      let totalChars = history.reduce((sum, m) => sum + m.content.length, 0);
+      while (totalChars > MAX_HISTORY_CHARS && history.length > 0) {
+        const removed = history.shift()!;
+        totalChars -= removed.content.length;
+      }
+
       const model = getStoredModel();
 
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: messageText, model }),
+        body: JSON.stringify({
+          message: messageText,
+          model,
+          history: history.length > 0 ? history : undefined,
+        }),
         signal: abortController.signal,
       });
 
