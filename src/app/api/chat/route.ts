@@ -19,6 +19,15 @@ import {
   createMemoryTools,
 } from "@/lib/mem0-client";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../convex/_generated/api";
+import {
+  isAdmin,
+  PLAN_LIMITS,
+  PAST_DUE_GRACE_MS,
+  checkRateLimit,
+} from "@/lib/plans";
+import type { PlanId } from "@/lib/plans";
 
 const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
@@ -411,13 +420,46 @@ export async function POST(req: Request) {
   const { rawKeys, userEnvKeys, embeddedKeys, hasAnthropic, hasOpenRouter } =
     resolved;
 
-  if (!hasAnthropic && !hasOpenRouter) {
-    return new Response(
-      JSON.stringify({
-        error:
-          "An Anthropic or OpenRouter API key is required. Add one in Settings.",
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+  const userEmail = resolved.user.email ?? "";
+  const adminBypass = isAdmin(userEmail);
+
+  // Look up subscription
+  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+  let plan: PlanId = "free";
+  // For free users without a subscription, use first-of-month as synthetic period start
+  const now = new Date();
+  let periodStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  let teamDomain: string | undefined;
+
+  if (!adminBypass) {
+    const sub = await convex.query(api.subscriptions.getByUserId, {
+      userId: resolved.user._id as Id<"users">,
+    });
+    if (sub) {
+      // Check past_due grace period
+      if (sub.status === "past_due") {
+        const graceExpired = Date.now() > sub.currentPeriodEnd + PAST_DUE_GRACE_MS;
+        plan = graceExpired ? "free" : sub.plan;
+      } else if (sub.status === "active") {
+        plan = sub.plan;
+      }
+      // else "canceled" → stay on free
+      periodStart = sub.currentPeriodStart;
+      teamDomain = sub.teamDomain ?? undefined;
+    }
+  }
+
+  const limits = PLAN_LIMITS[plan];
+
+  // Determine if user has BYOK
+  const hasBYOK = hasAnthropic || hasOpenRouter;
+  const { platformKey } = resolved;
+
+  // If no BYOK and no platform key, user can't proceed at all
+  if (!hasBYOK && !platformKey && !adminBypass) {
+    return Response.json(
+      { error: "An API key is required. Add one in Settings or upgrade to Pro." },
+      { status: 400 },
     );
   }
 
@@ -437,6 +479,20 @@ export async function POST(req: Request) {
       JSON.stringify({ error: "message field is required" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
+  }
+
+  // Rate limiting (admin bypasses)
+  if (!adminBypass) {
+    const isAgent = !isChatTier(rawMessage);
+    const rlKey = isAgent ? `agent:${clerkId}` : `chat:${clerkId}`;
+    const rlMax = isAgent ? 5 : 30;
+    const rl = checkRateLimit(rlKey, rlMax);
+    if (!rl.allowed) {
+      return Response.json(
+        { error: "Rate limit exceeded. Please wait a moment." },
+        { status: 429 },
+      );
+    }
   }
 
   // Sanitize history — only allow user/assistant roles with string content
@@ -482,6 +538,10 @@ export async function POST(req: Request) {
     };
     apiKey = rawKeys.openrouter;
     modelId = ANTHROPIC_TO_OPENROUTER[rawModelId] ?? `anthropic/${rawModelId}`;
+  } else if (platformKey) {
+    // No BYOK — use platform key (admin or quota-checked user)
+    apiKey = platformKey;
+    modelId = rawModelId;
   } else {
     apiKey = "";
     modelId = rawModelId;
@@ -492,6 +552,30 @@ export async function POST(req: Request) {
   // Chat-tier: fast direct call (no tools)
   if (isChatTier(message)) {
     return streamChatDirect(message, apiKey, modelId, useOpenRouter, history);
+  }
+
+  // Agent-tier: check quota (admin and BYOK users bypass)
+  if (!adminBypass && !hasBYOK) {
+    const quota = await convex.mutation(api.usage.recordAndCheckQuota, {
+      userId: resolved.user._id as Id<"users">,
+      type: "agent_query",
+      periodStart,
+      limit: limits.agentQueriesPerMonth,
+      teamDomain,
+    });
+
+    if (!quota.allowed) {
+      return Response.json(
+        {
+          error: "quota_exceeded",
+          message: `You've used all ${quota.limit} research queries this month.`,
+          used: quota.used,
+          limit: quota.limit,
+          upgradeUrl: "/api/stripe/checkout",
+        },
+        { status: 402 },
+      );
+    }
   }
 
   // Agent-tier: full agentic loop with tools

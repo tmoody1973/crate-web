@@ -20,6 +20,7 @@ import type * as published from "../published.js";
 import type * as sessions from "../sessions.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as telegraph from "../telegraph.js";
+import type * as usage from "../usage.js";
 import type * as toolCalls from "../toolCalls.js";
 import type * as tumblr from "../tumblr.js";
 import type * as users from "../users.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   subscriptions: typeof subscriptions;
   telegraph: typeof telegraph;
   toolCalls: typeof toolCalls;
+  usage: typeof usage;
   tumblr: typeof tumblr;
   users: typeof users;
 }>;
