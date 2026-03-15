@@ -177,6 +177,8 @@ async function streamAgenticResponse(
   useOpenRouter?: boolean,
   isResearchCommand?: boolean,
   history?: Array<{ role: "user" | "assistant"; content: string }>,
+  hasMemory?: boolean,
+  hasInfluenceWrite?: boolean,
 ): Promise<Response> {
   const encoder = new TextEncoder();
 
@@ -242,9 +244,9 @@ async function streamAgenticResponse(
         // Web radio tool (replaces crate-cli's mpv-based play_radio)
         const webRadioTools = createRadioTools();
 
-        // Mem0 memory tools (if API key available)
+        // Mem0 memory tools (if API key available and plan allows)
         const mem0Key = envKeys.MEM0_API_KEY || process.env.MEM0_API_KEY;
-        const webMemoryTools = mem0Key
+        const webMemoryTools = mem0Key && hasMemory !== false
           ? createMemoryTools(mem0Key, clerkId)
           : [];
 
@@ -320,7 +322,7 @@ async function streamAgenticResponse(
 
         // Load user memories from mem0 to personalize the session
         let memoryContext = "";
-        if (mem0Key) {
+        if (mem0Key && hasMemory !== false) {
           try {
             const memories = await searchMemories(
               mem0Key,
@@ -368,7 +370,7 @@ async function streamAgenticResponse(
         controller.enqueue(encoder.encode(sseEncode("[DONE]")));
 
         // Save conversation to mem0 in the background (don't block response)
-        if (mem0Key && assistantText.length > 50) {
+        if (mem0Key && hasMemory !== false && assistantText.length > 50) {
           addMemories(mem0Key, clerkId, [
             { role: "user", content: message },
             { role: "assistant", content: assistantText },
@@ -601,5 +603,10 @@ export async function POST(req: Request) {
   // Agent-tier: full agentic loop with tools
   // Merge user keys + embedded keys for tool access
   const allEnvKeys = { ...embeddedKeys, ...userEnvKeys };
-  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, resolved.user._id, clerkId, useOpenRouter, isResearchCommand, history);
+  return streamAgenticResponse(
+    message, apiKey, modelId, allEnvKeys, resolved.user._id, clerkId,
+    useOpenRouter, isResearchCommand, history,
+    adminBypass || limits.hasMemory,
+    adminBypass || limits.hasInfluenceCache,
+  );
 }
