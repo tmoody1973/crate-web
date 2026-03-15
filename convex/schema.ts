@@ -8,6 +8,7 @@ export default defineSchema({
     name: v.optional(v.string()),
     encryptedKeys: v.optional(v.bytes()),
     onboardingCompleted: v.optional(v.boolean()),
+    helpPersona: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_clerk_id", ["clerkId"]),
 
