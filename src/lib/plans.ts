@@ -40,8 +40,11 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
 };
 
-/** Super admin emails — bypass all limits and feature gates. */
-const ADMIN_EMAILS = ["tarikjmoody@gmail.com"];
+/** Super admin emails — bypass all limits and feature gates. Set via ADMIN_EMAILS env var (comma-separated). */
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 export function isAdmin(email: string): boolean {
   return ADMIN_EMAILS.includes(email.toLowerCase());
@@ -59,7 +62,14 @@ export const BLOCKED_TEAM_DOMAINS = [
   "aol.com", "icloud.com", "protonmail.com", "mail.com",
 ];
 
-/** In-memory rate limiter. */
+/** Rate limit caps per minute. */
+export const RATE_LIMIT_AGENT_PER_MINUTE = 5;
+export const RATE_LIMIT_CHAT_PER_MINUTE = 30;
+
+/**
+ * In-memory rate limiter. Note: on Vercel serverless each cold start gets a fresh Map,
+ * so this is best-effort only. The Convex-backed quota check is the authoritative limit.
+ */
 const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
 
 export function checkRateLimit(

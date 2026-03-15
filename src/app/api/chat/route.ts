@@ -26,8 +26,12 @@ import {
   PLAN_LIMITS,
   PAST_DUE_GRACE_MS,
   checkRateLimit,
+  RATE_LIMIT_AGENT_PER_MINUTE,
+  RATE_LIMIT_CHAT_PER_MINUTE,
 } from "@/lib/plans";
 import type { PlanId } from "@/lib/plans";
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
@@ -423,8 +427,7 @@ export async function POST(req: Request) {
   const userEmail = resolved.user.email ?? "";
   const adminBypass = isAdmin(userEmail);
 
-  // Look up subscription
-  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+  // Look up subscription (uses module-level convex client)
   let plan: PlanId = "free";
   // For free users without a subscription, use first-of-month as synthetic period start
   const now = new Date();
@@ -485,7 +488,7 @@ export async function POST(req: Request) {
   if (!adminBypass) {
     const isAgent = !isChatTier(rawMessage);
     const rlKey = isAgent ? `agent:${clerkId}` : `chat:${clerkId}`;
-    const rlMax = isAgent ? 5 : 30;
+    const rlMax = isAgent ? RATE_LIMIT_AGENT_PER_MINUTE : RATE_LIMIT_CHAT_PER_MINUTE;
     const rl = checkRateLimit(rlKey, rlMax);
     if (!rl.allowed) {
       return Response.json(
@@ -555,6 +558,8 @@ export async function POST(req: Request) {
   }
 
   // Agent-tier: check quota (admin and BYOK users bypass)
+  // Note: quota is recorded before the agent runs. If the agent call fails, the query is still consumed.
+  // This is intentional — it prevents abuse via intentional failures and keeps the atomic check simple.
   if (!adminBypass && !hasBYOK) {
     const quota = await convex.mutation(api.usage.recordAndCheckQuota, {
       userId: resolved.user._id as Id<"users">,
