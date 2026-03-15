@@ -50,8 +50,8 @@ On any tier, adding your own Anthropic or OpenRouter key removes the agent query
 ```typescript
 subscriptions: defineTable({
   userId: v.id("users"),
-  plan: v.string(),                    // "free" | "pro" | "team"
-  status: v.string(),                  // "active" | "canceled" | "past_due"
+  plan: v.union(v.literal("free"), v.literal("pro"), v.literal("team")),
+  status: v.union(v.literal("active"), v.literal("canceled"), v.literal("past_due")),
   stripeCustomerId: v.optional(v.string()),
   stripeSubscriptionId: v.optional(v.string()),
   currentPeriodStart: v.number(),      // Unix timestamp
@@ -59,6 +59,7 @@ subscriptions: defineTable({
   cancelAtPeriodEnd: v.boolean(),
   teamDomain: v.optional(v.string()),  // For team plans only
   createdAt: v.number(),
+  updatedAt: v.number(),
 }).index("by_user", ["userId"])
   .index("by_stripe_sub", ["stripeSubscriptionId"])
   .index("by_team_domain", ["teamDomain"])
@@ -69,14 +70,22 @@ subscriptions: defineTable({
 ```typescript
 usageEvents: defineTable({
   userId: v.id("users"),
-  type: v.string(),                    // "agent_query" | "chat_query"
+  type: v.union(v.literal("agent_query"), v.literal("chat_query")),
+  teamDomain: v.optional(v.string()),  // Denormalized for efficient team pooled counting
   periodStart: v.number(),            // Billing period start (for grouping)
   createdAt: v.number(),
 }).index("by_user_period", ["userId", "periodStart"])
-  .index("by_domain_period", ["type", "periodStart"])
+  .index("by_user_type_period", ["userId", "type", "periodStart"])
+  .index("by_team_domain_period", ["teamDomain", "periodStart"])
 ```
 
-No changes to existing `users` or `orgKeys` tables. Subscription references users by ID. Team plans reference domains — same model `orgKeys` already uses.
+### Add to `users` table
+
+```typescript
+stripeCustomerId: v.optional(v.string()),  // Persists across subscription lifecycle
+```
+
+No other changes to existing `users` or `orgKeys` tables. Subscription references users by ID. Team plans reference domains — same model `orgKeys` already uses.
 
 ### New Convex functions: `convex/subscriptions.ts`
 
@@ -88,9 +97,9 @@ No changes to existing `users` or `orgKeys` tables. Subscription references user
 
 ### New Convex functions: `convex/usage.ts`
 
-- `recordEvent(userId, type, periodStart)` — write a usage event row
-- `countAgentQueries(userId, periodStart)` — count agent queries for user in period
-- `countTeamAgentQueries(teamDomain, periodStart)` — count pooled team queries in period
+- `recordAndCheckQuota(userId, type, periodStart, plan, teamDomain?)` — **atomic mutation**: counts current usage, checks against plan limit, writes event if under limit, returns `{ allowed: boolean, used: number, limit: number }`. Must be a single mutation to prevent race conditions between concurrent requests.
+- `countAgentQueries(userId, periodStart)` — count agent queries for user in period (read-only, for Settings UI)
+- `countTeamAgentQueries(teamDomain, periodStart)` — count pooled team queries using `by_team_domain_period` index
 - `getUsageSummary(userId)` — returns { agentQueriesUsed, agentQueriesLimit, periodEnd }
 
 ---
@@ -165,6 +174,24 @@ Events handled:
     → Delete subscription record (user reverts to free)
 ```
 
+### Webhook Security
+
+The webhook handler MUST verify Stripe signatures before processing any event:
+
+```typescript
+// Must use request.text() (not request.json()) for signature verification
+const body = await request.text();
+const signature = request.headers.get("stripe-signature");
+const event = stripe.webhooks.constructEvent(body, signature, STRIPE_WEBHOOK_SECRET);
+// Return 400 if verification fails
+```
+
+**Idempotency:** Before processing `checkout.session.completed`, check if a subscription with that `stripeSubscriptionId` already exists. Stripe can deliver events multiple times.
+
+**Subscription deletion:** On `customer.subscription.deleted`, set `status: "canceled"` and `plan: "free"` instead of deleting the record (preserves audit trail).
+
+**Past-due handling:** Users with `status: "past_due"` retain Pro/Team features for a 7-day grace period after `currentPeriodEnd`. After that, they're treated as free tier until payment succeeds.
+
 ### Environment Variables (new)
 
 ```
@@ -174,26 +201,125 @@ STRIPE_WEBHOOK_SECRET=whsec_xxx
 STRIPE_PRO_MONTHLY_PRICE_ID=price_xxx
 STRIPE_PRO_ANNUAL_PRICE_ID=price_xxx
 STRIPE_TEAM_MONTHLY_PRICE_ID=price_xxx
+PLATFORM_ANTHROPIC_KEY=sk-ant-xxx   # Crate's own key for free/pro users without BYOK
 ```
 
 ---
 
-## 4. Enforcement
+## 4. Platform Key Resolution
+
+The current chat route rejects users with no Anthropic or OpenRouter key. The subscription model changes this: users on Crate's included quota use a platform-owned API key.
+
+### Key resolution order (updated)
+
+```
+1. Admin bypass? (email in ADMIN_EMAILS) → use PLATFORM_ANTHROPIC_KEY, skip all limits
+2. User has BYOK key? → use their key, skip query cap (feature gates still apply)
+3. User has remaining quota on plan? → use PLATFORM_ANTHROPIC_KEY
+4. User over quota, no BYOK? → return 402 upgrade prompt
+```
+
+### Changes to `src/lib/resolve-user-keys.ts`
+
+Add a new function or extend `resolveUserKeys` to return a `platformKey` field:
+
+```typescript
+platformKey: process.env.PLATFORM_ANTHROPIC_KEY  // Always available
+usePlatformKey: boolean  // True when user has no BYOK and has remaining quota
+```
+
+### Changes to `src/app/api/chat/route.ts`
+
+Replace the current hard-rejection (lines 414-421) with the new resolution:
+
+```typescript
+// OLD: reject if no user key
+// NEW: fall through to platform key if quota allows
+if (!hasAnthropic && !hasOpenRouter) {
+  if (isAdmin) {
+    apiKey = platformKey; // Admin bypass
+  } else if (hasRemainingQuota) {
+    apiKey = platformKey; // Use Crate's key within quota
+  } else {
+    return new Response(JSON.stringify({
+      error: "quota_exceeded",
+      message: "You've used all your research queries this month.",
+      upgradeUrl: "/api/stripe/checkout"
+    }), { status: 402 });
+  }
+}
+```
+
+---
+
+## 5. Guardrails
+
+### Admin Bypass
+
+Defined in `src/lib/plans.ts`:
+
+```typescript
+const ADMIN_EMAILS = ["tarikjmoody@gmail.com"];
+
+function isAdmin(email: string): boolean {
+  return ADMIN_EMAILS.includes(email.toLowerCase());
+}
+```
+
+Admin users (`tarikjmoody@gmail.com`) get:
+- All Pro/Team features unlocked (no plan required)
+- No agent query cap (unlimited on platform key)
+- No rate limits
+- No content scope filter
+- No tool call cap
+- Effectively a "super admin" tier that bypasses all enforcement
+
+Checked once at the top of the chat route. If admin, skip all guardrail and quota checks.
+
+### Rate Limiting
+
+| Limit | Scope | Purpose |
+|---|---|---|
+| 5 agent queries/minute | Per user | Prevent API hammering |
+| 30 chat queries/minute | Per user | Prevent chat spam |
+| 5 requests/minute | `/api/stripe/checkout`, `/api/stripe/portal` | Prevent Stripe session spam |
+
+Implementation: In-memory rate limiter in the chat route using a `Map<userId, { count, windowStart }>`. Resets every 60 seconds. Returns 429 if exceeded. Simple, no external dependency.
+
+### Content Scope Filter
+
+The agent should stay focused on music-related queries. Two layers:
+
+**Layer 1: System prompt reinforcement** — the existing system prompt already has personality ("obsessive record store clerk"). Add explicit instruction: "If a user asks something completely unrelated to music, artists, albums, genres, radio, DJs, or the music industry, politely redirect: 'I'm built for music research. Try asking me about an artist, genre, or album.'"
+
+**Layer 2: Pre-filter (optional, v2)** — a lightweight Haiku call before the main agent that classifies intent as music-related or not. Costs ~$0.001 per check. Skip for v1 — the system prompt redirection is sufficient and free.
+
+### Tool Call Cap
+
+Max **25 tool calls per agent query**. Prevents runaway research sessions that burn through API credits on a single question. The agentic loop already tracks tool calls — add a counter and break the loop at 25 with a graceful response: "I've gathered a lot of information. Here's what I found so far."
+
+---
+
+## 6. Enforcement
 
 ### Query Gating (in `src/app/api/chat/route.ts`)
 
 Before processing any message in the existing chat route:
 
 ```
-1. Look up user's subscription (Convex query by userId)
-2. No subscription → plan = "free"
-3. Determine query type: chat or agent
-4. If chat → always allow (unlimited on all tiers)
-5. If agent → count usageEvents for current billing period
-6. Get limit for plan: free=10, pro=50, team=200 (pooled by domain)
-7. If over limit AND user has BYOK key → proceed using their key
-8. If over limit AND no BYOK key → return 402 with upgrade message
-9. If under limit → proceed, write usageEvent to Convex
+1. Check admin bypass → if admin email, skip all checks, use platform key
+2. Look up user's subscription (Convex query by userId)
+3. No subscription → plan = "free"
+4. Check subscription.status → if "past_due" and past 7-day grace, treat as free
+5. Check rate limit → if exceeded, return 429
+6. Determine query type: chat or agent
+7. If chat → always allow (unlimited on all tiers)
+8. If agent → call recordAndCheckQuota mutation (atomic count + check + write)
+9. Get limit for plan: free=10, pro=50, team=200 (pooled by domain via teamDomain field)
+10. If over limit AND user has BYOK key → proceed using their key
+11. If over limit AND no BYOK key → return 402 with upgrade message
+12. If under limit → quota mutation already wrote the event, proceed
+13. If agent query → enforce 25 tool call cap in agentic loop
 ```
 
 ### Feature Gating
@@ -206,19 +332,30 @@ Pro-only features check plan before executing:
 | `/published` | Chat route command handling | Same upgrade message |
 | Mem0 memory | Agentic loop (skip Mem0 tool) | Memory tools not registered for free users |
 | Influence cache write | `influence-cache.ts` | Read from cache allowed, write skipped |
-| Session saving (>5) | Chat persistence | Oldest session auto-deleted when 6th is created |
+| Session saving (>5) | Chat persistence | Oldest unstarred, unarchived session auto-deleted when 6th is created (starred/archived sessions exempt) |
 
 ### Team Pooled Quota
 
 For team plan users:
 1. Look up subscription by userId → get teamDomain
-2. Count agent queries WHERE email domain matches teamDomain AND periodStart matches current period
+2. Count agent queries using `by_team_domain_period` index on `usageEvents` table
 3. Compare against 200 pooled limit
 4. Same BYOK overflow rule applies per-member
 
+### Team Domain Validation
+
+When creating a team plan, block common public email domains:
+
+```typescript
+const BLOCKED_DOMAINS = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com",
+  "aol.com", "icloud.com", "protonmail.com", "mail.com"];
+```
+
+Team plans require a private domain (e.g., `radiomilwaukee.org`). The checkout endpoint validates the `teamDomain` parameter against this blocklist before creating the Stripe session.
+
 ---
 
-## 5. Upgrade UX
+## 7. Upgrade UX
 
 ### Conversion Trigger 1: Agent Query Limit Hit
 
@@ -280,7 +417,7 @@ Usage this period:
 
 ---
 
-## 6. Pre-Launch Dependencies
+## 8. Pre-Launch Dependencies
 
 - [ ] **Move Clerk to production instance** — dev mode has rate limits and branded UI
 - [ ] **Create Stripe account** (if not exists) and set up products/prices
@@ -289,7 +426,7 @@ Usage this period:
 
 ---
 
-## 7. What's NOT in v1
+## 9. What's NOT in v1
 
 - Per-seat team pricing (flat domain rate for now)
 - Usage-based overage charges (hard cap → BYOK, no overage billing)
@@ -301,7 +438,7 @@ Usage this period:
 
 ---
 
-## 8. Files to Create or Modify
+## 10. Files to Create or Modify
 
 ### New Files
 | File | Purpose |
@@ -316,8 +453,10 @@ Usage this period:
 ### Modified Files
 | File | Change |
 |---|---|
-| `convex/schema.ts` | Add `subscriptions` and `usageEvents` tables |
-| `src/app/api/chat/route.ts` | Add quota check before processing, write usage events |
+| `convex/schema.ts` | Add `subscriptions` and `usageEvents` tables, add `stripeCustomerId` to users |
+| `src/app/api/chat/route.ts` | Add admin bypass, quota check, rate limiting, platform key fallback, tool call cap |
+| `src/lib/resolve-user-keys.ts` | Add platform key resolution when user has no BYOK and has quota |
+| `src/lib/agentic-loop.ts` | Add 25 tool call cap counter |
 | `src/components/workspace/chat-panel.tsx` | Render upgrade prompts on 402 responses |
 | `src/components/settings/` | Add "Your Plan" section with usage stats and upgrade/manage buttons |
-| `.env.local.example` | Add Stripe env vars |
+| `.env.local.example` | Add Stripe + platform key env vars |
