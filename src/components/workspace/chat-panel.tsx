@@ -344,6 +344,7 @@ const SLASH_COMMANDS = [
   { command: "/published", description: "View all your published content", usage: "/published", example: "/published" },
   { command: "/publish", description: "Publish research to Telegraph or Tumblr", usage: "/publish [telegraph|tumblr] [content]", example: "/publish telegraph" },
   { command: "/setup", description: "Open the quick start guide", usage: "/setup", example: "/setup" },
+  { command: "/help", description: "Open the help guide", usage: "/help [section]", example: "/help api-keys" },
 ];
 
 function SlashCommandMenu({
@@ -601,6 +602,14 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup }: { resendMes
       setInput("");
       return;
     }
+    if (trimmed === "/help" || trimmed.startsWith("/help ")) {
+      const arg = trimmed.replace("/help", "").trim();
+      const hash = arg ? `#${arg.replace(/\s+/g, "-")}` : "";
+      window.location.href = `/help${hash}`;
+      setShowSlashMenu(false);
+      setInput("");
+      return;
+    }
     setInput(cmd);
     setShowSlashMenu(false);
     inputRef.current?.focus();
@@ -642,6 +651,14 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup }: { resendMes
       }
       if (trimmedInput === "/setup") {
         onOpenSetup?.();
+        setShowSlashMenu(false);
+        setInput("");
+        return;
+      }
+      if (trimmedInput === "/help" || trimmedInput.startsWith("/help ")) {
+        const arg = trimmedInput.replace("/help", "").trim();
+        const hash = arg ? `#${arg.replace(/\s+/g, "-")}` : "";
+        window.location.href = `/help${hash}`;
         setShowSlashMenu(false);
         setInput("");
         return;
@@ -836,16 +853,14 @@ function ChatHeader({ onOpenSetup }: { onOpenSetup?: () => void }) {
   return (
     <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
       <ModelSelector hasOpenRouter={hasOpenRouter} />
-      {onOpenSetup && (
-        <button
-          type="button"
-          onClick={onOpenSetup}
-          title="Quick start guide"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
-        >
-          <span className="text-sm font-medium">?</span>
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => window.open("/help", "_blank")}
+        title="Help guide"
+        className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
+      >
+        <span className="text-sm font-medium">?</span>
+      </button>
     </div>
   );
 }
