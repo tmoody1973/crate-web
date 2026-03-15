@@ -44,7 +44,7 @@ Sidebar + main content, matching the Stripe/Tailwind docs pattern.
 
 | Persona | "For You" workflow guides |
 |---------|--------------------------|
-| New User | What is Crate?, Your First Session, Understanding Results, Next Steps |
+| New User | What is Crate?, Your First Session, Understanding Results, Next Steps (Getting Started section IS the New User persona content — no duplicate) |
 | Radio Host / Music Director | Show Prep, Interview Research, Influence Mapping, Publishing |
 | DJ / Producer | Sample Digging, Genre Exploration, Playlist Building, Bandcamp Discovery |
 | Record Collector | Collection Management, Album Research, Discography Deep Dives |
@@ -72,13 +72,17 @@ const DOMAIN_PERSONAS: Record<string, string[]> = {
 
 **Changing persona:** "Change" link in sidebar persona badge reopens the picker inline. New selection saved immediately.
 
+**Unauthenticated visitors:** `/help` is a public page (no auth required — it replaces the public `/docs` and `/guide` pages). Anonymous users see the persona picker on every visit. Their selection is stored in `localStorage` under `crate-help-persona`. When a user later signs in, the `localStorage` value is synced to their Convex user record on first authenticated page load. Authenticated users always read/write to Convex.
+
 ### 4. Entry points
 
 **Sidebar button:** Permanent "Help" link in the workspace sidebar, below search. Navigates to `/help`.
 
-**Chat header button:** The existing "?" button in ChatHeader navigates to `/help` instead of opening QuickStartWizard.
+**Chat header button:** The existing "?" button in ChatHeader is context-dependent:
+- Default: navigates to `/help`
+- When triggered by a 400 "no API key" error: still opens the focused key-setup modal (QuickStartWizard stays as the error-recovery flow only, not general help). The `pendingMessageRef` retry logic stays intact for this path.
 
-**`/help` slash command:** Typing `/help` in chat navigates to `/help`. Supports deep linking: `/help commands` → `/help#commands`, `/help api-keys` → `/help#api-keys`.
+**`/help` slash command:** Typing `/help` in chat navigates to `/help`. The interception happens **client-side** in `chat-panel.tsx` (same pattern as `/setup` — intercept before sending to API). `chat-utils.ts` is NOT modified for this command. Supports deep linking: `/help commands` → `/help#commands`, `/help api-keys` → `/help#api-keys`.
 
 **Redirects:**
 - `/docs` → redirect to `/help#commands`
@@ -104,7 +108,29 @@ Table of all slash commands with name, description, and example usage:
 `/show-prep`, `/influence`, `/publish`, `/published`, `/radio`, `/news`, `/help`
 
 #### Data Sources
-Grid of all 19 data sources. Each card shows: source name, icon/logo, what data it provides, whether it requires a user API key.
+Grid of all 19 data sources. Each card shows: source name, what data it provides, whether it requires a user API key.
+
+| Source | Data | Key Required? |
+|--------|------|---------------|
+| Discogs | Releases, labels, credits, cover art | Embedded (free) |
+| MusicBrainz | Artist metadata, relationships, recordings | No key needed |
+| Last.fm | Similar artists, tags, listening stats | Embedded (free) |
+| Genius | Lyrics, annotations, song metadata | User key |
+| Bandcamp | Album search, tag exploration, related tags | No key needed |
+| WhoSampled | Sample origins, covers, remixes | Embedded (Kernel) |
+| Wikipedia | Artist bios, discography context | No key needed |
+| Ticketmaster | Concert listings, ticket availability | Embedded (free) |
+| Spotify | Album/artist artwork (640x640) | User key |
+| fanart.tv | HD artist backgrounds, logos, album covers | User key |
+| iTunes | Album artwork (600x600), track search | No key needed |
+| AllMusic | Reviews, ratings, style classifications | No key needed |
+| Pitchfork | Reviews (via 26-publication search) | No key needed |
+| Rate Your Music | Community ratings and lists | No key needed |
+| Setlist.fm | Live setlist history | No key needed |
+| YouTube | Music videos, live performances | Embedded |
+| Exa.ai | Semantic web search | User key |
+| Tavily | AI-optimized web search | User key |
+| Mem0 | Cross-session user memory | User key |
 
 #### API Keys Setup
 Collapsible cards grouped into three tiers:
@@ -165,18 +191,21 @@ Collapsible Q&A. Covers: "What models can I use?", "Is my API key stored securel
 | File | Change |
 |------|--------|
 | `convex/schema.ts` | Add optional `helpPersona` string field to users table |
-| `convex/users.ts` | Add `setHelpPersona` mutation |
-| `src/lib/chat-utils.ts` | Add `/help` command with optional deep-link argument |
-| `src/components/workspace/chat-panel.tsx` | `/help` navigates to help page |
-| `src/components/sidebar/sidebar.tsx` | Add Help link |
+| `convex/users.ts` | Add `setHelpPersona` mutation + `getConfiguredKeyNames` query (returns which keys are set, without values) |
+| `src/components/workspace/chat-panel.tsx` | Intercept `/help` client-side (navigate to `/help` page). Keep QuickStartWizard for 400 error recovery only. |
+| `src/components/sidebar/sidebar.tsx` | Add Help link in sidebar |
 | `src/app/docs/page.tsx` | Redirect to `/help#commands` |
 | `src/app/guide/page.tsx` | Redirect to `/help` |
 
-### No changes to
+### Files NOT modified
+- `src/lib/chat-utils.ts` — `/help` is intercepted client-side, not server-side
 - Landing page (keeps its own "How it works" section)
 - Chat API routes
 - OpenUI components
-- Existing Convex queries/mutations (except users)
+
+### Files to eventually remove (after `/help` is stable)
+- `src/components/docs/` — all 6 doc section components (content migrated to `src/components/help/`)
+- `src/components/onboarding/quick-start-wizard.tsx` — content absorbed into getting-started section (keep the error-recovery modal flow in chat-panel.tsx)
 
 ---
 
