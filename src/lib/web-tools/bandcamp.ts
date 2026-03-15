@@ -50,9 +50,7 @@ interface RelatedTagsResponse {
     tag: { name: string; norm_name: string };
     related_tags: RelatedTag[];
   }>;
-  combo_result?: {
-    related_tags: RelatedTag[];
-  };
+  combo_results?: RelatedTag[];
 }
 
 export function createBandcampWebTools(): CrateToolDef[] {
@@ -115,9 +113,9 @@ export function createBandcampWebTools(): CrateToolDef[] {
                 is_location: t.isloc,
               })),
             })),
-            ...(data.combo_result && args.tags.length > 1
+            ...(data.combo_results && args.tags.length > 1
               ? {
-                  combined: data.combo_result.related_tags.map((t) => ({
+                  combined: data.combo_results.map((t) => ({
                     name: t.name,
                     weight: Math.round(t.relation * 1000) / 1000,
                     is_location: t.isloc,
