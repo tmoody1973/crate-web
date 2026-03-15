@@ -42,6 +42,7 @@ async function streamChatDirect(
   apiKey: string,
   modelId: string,
   useOpenRouter?: boolean,
+  history?: Array<{ role: "user" | "assistant"; content: string }>,
 ): Promise<Response> {
   // OpenRouter uses OpenAI format; Anthropic uses its own Messages format
   const url = useOpenRouter
@@ -62,6 +63,7 @@ async function streamChatDirect(
         stream: true,
         messages: [
           { role: "system", content: CHAT_SYSTEM },
+          ...(history ?? []).map((m) => ({ role: m.role, content: m.content })),
           { role: "user", content: message },
         ],
       }
@@ -70,7 +72,10 @@ async function streamChatDirect(
         max_tokens: 1024,
         stream: true,
         system: CHAT_SYSTEM,
-        messages: [{ role: "user", content: message }],
+        messages: [
+          ...(history ?? []).map((m) => ({ role: m.role, content: m.content })),
+          { role: "user", content: message },
+        ],
       };
 
   const res = await fetch(url, {
@@ -158,6 +163,7 @@ async function streamAgenticResponse(
   clerkId: string,
   useOpenRouter?: boolean,
   isResearchCommand?: boolean,
+  history?: Array<{ role: "user" | "assistant"; content: string }>,
 ): Promise<Response> {
   const encoder = new TextEncoder();
 
@@ -326,6 +332,7 @@ async function streamAgenticResponse(
         // Research commands get more turns since they need tool calls + final output
         const events = agenticLoop({
           message,
+          history,
           systemPrompt,
           model: modelId,
           apiKey,
@@ -414,7 +421,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: { message?: string; model?: string };
+  let body: { message?: string; model?: string; history?: Array<{ role: string; content: string }> };
   try {
     body = await req.json();
   } catch {
@@ -431,6 +438,14 @@ export async function POST(req: Request) {
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
+
+  // Sanitize history — only allow user/assistant roles with string content
+  const history = (body.history ?? []).filter(
+    (m): m is { role: "user" | "assistant"; content: string } =>
+      (m.role === "user" || m.role === "assistant") &&
+      typeof m.content === "string" &&
+      m.content.length > 0,
+  );
 
   // Slash command preprocessing
   const message = preprocessSlashCommand(rawMessage);
@@ -476,11 +491,11 @@ export async function POST(req: Request) {
 
   // Chat-tier: fast direct call (no tools)
   if (isChatTier(message)) {
-    return streamChatDirect(message, apiKey, modelId, useOpenRouter);
+    return streamChatDirect(message, apiKey, modelId, useOpenRouter, history);
   }
 
   // Agent-tier: full agentic loop with tools
   // Merge user keys + embedded keys for tool access
   const allEnvKeys = { ...embeddedKeys, ...userEnvKeys };
-  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, resolved.user._id, clerkId, useOpenRouter, isResearchCommand);
+  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, resolved.user._id, clerkId, useOpenRouter, isResearchCommand, history);
 }
