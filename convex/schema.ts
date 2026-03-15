@@ -9,6 +9,7 @@ export default defineSchema({
     encryptedKeys: v.optional(v.bytes()),
     onboardingCompleted: v.optional(v.boolean()),
     helpPersona: v.optional(v.string()),
+    stripeCustomerId: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_clerk_id", ["clerkId"]),
 
@@ -232,4 +233,30 @@ export default defineSchema({
     snippet: v.optional(v.string()),
     discoveredAt: v.number(),
   }).index("by_edge", ["edgeId"]),
+
+  subscriptions: defineTable({
+    userId: v.id("users"),
+    plan: v.union(v.literal("free"), v.literal("pro"), v.literal("team")),
+    status: v.union(v.literal("active"), v.literal("canceled"), v.literal("past_due")),
+    stripeCustomerId: v.optional(v.string()),
+    stripeSubscriptionId: v.optional(v.string()),
+    currentPeriodStart: v.number(),
+    currentPeriodEnd: v.number(),
+    cancelAtPeriodEnd: v.boolean(),
+    teamDomain: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_stripe_sub", ["stripeSubscriptionId"])
+    .index("by_team_domain", ["teamDomain"]),
+
+  usageEvents: defineTable({
+    userId: v.id("users"),
+    type: v.union(v.literal("agent_query"), v.literal("chat_query")),
+    teamDomain: v.optional(v.string()),
+    periodStart: v.number(),
+    createdAt: v.number(),
+  }).index("by_user_period", ["userId", "periodStart"])
+    .index("by_user_type_period", ["userId", "type", "periodStart"])
+    .index("by_team_domain_period", ["teamDomain", "periodStart"]),
 });
