@@ -254,7 +254,8 @@ async function streamAgenticResponse(
               g.serverName !== "telegraph" &&
               g.serverName !== "tumblr" &&
               g.serverName !== "influencecache" &&
-              g.serverName !== "radio",
+              g.serverName !== "radio" &&
+              g.serverName !== "memory",
           ),
           // Radio: crate-cli search/browse/tags + web play_radio
           { serverName: "radio", tools: [...cliRadioSearchTools, ...webRadioTools] },
