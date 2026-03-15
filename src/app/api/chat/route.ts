@@ -9,6 +9,9 @@ import { createImageTools } from "@/lib/web-tools/images";
 import { createInfluenceCacheTools } from "@/lib/web-tools/influence-cache";
 import { createInfographicTools } from "@/lib/web-tools/infographic";
 import { createRadioTools } from "@/lib/web-tools/radio";
+import { createWhoSampledTools } from "@/lib/web-tools/whosampled";
+import { createBrowserTools } from "@/lib/web-tools/browser";
+import { createBandcampWebTools } from "@/lib/web-tools/bandcamp";
 import {
   searchMemories,
   addMemories,
@@ -226,6 +229,14 @@ async function streamAgenticResponse(
           ? createMemoryTools(mem0Key, clerkId)
           : [];
 
+        // Kernel.sh browser tools (WhoSampled + browse/screenshot)
+        const hasKernel = !!(envKeys.KERNEL_API_KEY || process.env.KERNEL_API_KEY);
+        const webWhoSampledTools = hasKernel ? createWhoSampledTools() : [];
+        const webBrowserTools = hasKernel ? createBrowserTools() : [];
+
+        // Bandcamp related tags (no key needed)
+        const webBandcampTools = createBandcampWebTools();
+
         // Filter out crate-cli groups that use SQLite or mpv, inject web versions
         // For radio: keep crate-cli's search/browse/tags tools, replace play_radio
         const cliRadioGroup = cliToolGroups.find(
@@ -263,14 +274,21 @@ async function streamAgenticResponse(
           ...(webMemoryTools.length > 0
             ? [{ serverName: "memory", tools: webMemoryTools }]
             : []),
+          ...(webWhoSampledTools.length > 0
+            ? [{ serverName: "whosampled", tools: webWhoSampledTools }]
+            : []),
+          ...(webBrowserTools.length > 0
+            ? [{ serverName: "browser", tools: webBrowserTools }]
+            : []),
+          { serverName: "bandcamp-web", tools: webBandcampTools },
         ];
 
         // For research-heavy commands, only include relevant tool servers
         // to stay under the 200K token context limit (tool defs alone can be 80K+ tokens)
         const RESEARCH_SERVERS = new Set([
-          "influence", "influencecache", "web-search", "musicbrainz",
+          "influence", "influencecache", "websearch", "musicbrainz",
           "genius", "lastfm", "discogs", "images", "infographic", "itunes",
-          "memory",
+          "memory", "whosampled", "browser", "bandcamp-web",
         ]);
         const toolGroups = isResearchCommand
           ? allToolGroups.filter((g: { serverName: string }) => RESEARCH_SERVERS.has(g.serverName))
