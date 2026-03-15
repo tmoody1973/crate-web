@@ -66,3 +66,13 @@ export const completeOnboarding = mutation({
     await ctx.db.patch(user._id, { onboardingCompleted: true });
   },
 });
+
+export const updateStripeCustomerId = mutation({
+  args: {
+    userId: v.id("users"),
+    stripeCustomerId: v.string(),
+  },
+  handler: async (ctx, { userId, stripeCustomerId }) => {
+    await ctx.db.patch(userId, { stripeCustomerId });
+  },
+});
