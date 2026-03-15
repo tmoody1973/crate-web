@@ -30,6 +30,7 @@ function toolError(err: unknown) {
 export function createInfluenceCacheTools(
   convexUrl: string,
   userId: Id<"users">,
+  canWrite: boolean = true,
 ): CrateToolDef[] {
   const convex = new ConvexHttpClient(convexUrl);
 
@@ -48,6 +49,9 @@ export function createInfluenceCacheTools(
     from_image_url?: string;
     to_image_url?: string;
   }) => {
+    if (!canWrite) {
+      return toolResult({ message: "Influence cache writing requires Pro plan. Your lookups still work — upgrade to save discoveries." });
+    }
     try {
       const edgeId = await convex.mutation(api.influence.cacheEdge, {
         userId,
@@ -97,6 +101,9 @@ export function createInfluenceCacheTools(
       to_image_url?: string;
     }>;
   }) => {
+    if (!canWrite) {
+      return toolResult({ message: "Influence cache writing requires Pro plan. Your lookups still work — upgrade to save discoveries." });
+    }
     try {
       const edgeIds = await convex.mutation(api.influence.cacheBatchEdges, {
         userId,
@@ -188,6 +195,9 @@ export function createInfluenceCacheTools(
   };
 
   const removeEdgeHandler = async (args: { edge_id: string }) => {
+    if (!canWrite) {
+      return toolResult({ message: "Influence cache writing requires Pro plan. Your lookups still work — upgrade to save discoveries." });
+    }
     try {
       await convex.mutation(api.influence.removeEdge, {
         edgeId: args.edge_id as Id<"influenceEdges">,

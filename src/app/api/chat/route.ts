@@ -229,7 +229,9 @@ async function streamAgenticResponse(
             : [];
 
         // Influence cache tools (Convex-backed, replaces SQLite influencecache)
-        const webInfluenceCacheTools = createInfluenceCacheTools(convexUrl, userId);
+        const webInfluenceCacheTools = createInfluenceCacheTools(
+          convexUrl, userId, hasInfluenceWrite !== false,
+        );
 
         // Infographic generation (Gemini)
         const webInfographicTools =
