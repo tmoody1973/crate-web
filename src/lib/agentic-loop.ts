@@ -30,6 +30,7 @@ export type CrateEvent =
 
 export interface AgenticLoopOptions {
   message: string;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
   systemPrompt: string;
   model: string;
   apiKey: string;
@@ -97,13 +98,17 @@ function emitText(text: string): CrateEvent[] {
 async function* anthropicLoop(
   options: AgenticLoopOptions,
 ): AsyncGenerator<CrateEvent> {
-  const { message, systemPrompt, model, apiKey, maxTurns = 25, signal } = options;
+  const { message, history, systemPrompt, model, apiKey, maxTurns = 25, signal } = options;
 
   const client = new Anthropic({ apiKey });
   const { tools, handlers } = buildAnthropicToolkit(options.toolGroups);
 
   const messages: Anthropic.MessageParam[] = [
-    { role: "user", content: message },
+    ...(history ?? []).map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    })),
+    { role: "user" as const, content: message },
   ];
 
   const startTime = Date.now();
@@ -178,7 +183,7 @@ async function* anthropicLoop(
 async function* openRouterLoop(
   options: AgenticLoopOptions,
 ): AsyncGenerator<CrateEvent> {
-  const { message, systemPrompt, model, apiKey, maxTurns = 25, signal } = options;
+  const { message, history, systemPrompt, model, apiKey, maxTurns = 25, signal } = options;
 
   const client = new OpenAI({
     apiKey,
@@ -188,8 +193,12 @@ async function* openRouterLoop(
   const { tools, handlers } = buildOpenAIToolkit(options.toolGroups);
 
   const messages: OpenAI.ChatCompletionMessageParam[] = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: message },
+    { role: "system" as const, content: systemPrompt },
+    ...(history ?? []).map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    })),
+    { role: "user" as const, content: message },
   ];
 
   const startTime = Date.now();
