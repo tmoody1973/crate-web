@@ -881,11 +881,13 @@ export function ChatPanel() {
   const [wizardInitialStep, setWizardInitialStep] = useState(1);
   const pendingMessageRef = useRef<string | null>(null);
   const keyVerifiedRef = useRef(false);
+  const wizardDismissedRef = useRef(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   // Show wizard on first sign-in (user loaded, onboarding not completed)
+  // Only trigger once — wizardDismissedRef prevents re-opening on user object changes
   useEffect(() => {
-    if (user && user.onboardingCompleted !== true) {
+    if (user && user.onboardingCompleted !== true && !wizardDismissedRef.current) {
       setShowWizard(true);
     }
   }, [user]);
@@ -1014,6 +1016,7 @@ export function ChatPanel() {
 
   const handleWizardComplete = useCallback(async () => {
     setShowWizard(false);
+    wizardDismissedRef.current = true;
     if (keyVerifiedRef.current && pendingMessageRef.current) {
       setResendMessage(pendingMessageRef.current);
       pendingMessageRef.current = null;
