@@ -164,3 +164,47 @@ export const touchLastMessage = mutation({
     });
   },
 });
+
+/**
+ * For free-tier users: if they have more than maxSessions non-starred,
+ * non-archived sessions, delete the oldest ones.
+ */
+export const enforceSessionLimit = mutation({
+  args: {
+    userId: v.id("users"),
+    maxSessions: v.number(),
+  },
+  handler: async (ctx, { userId, maxSessions }) => {
+    // Get all sessions for this user
+    const allSessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    // Filter to deletable sessions (not starred, not archived)
+    const deletable = allSessions
+      .filter((s) => !s.isStarred && !s.isArchived)
+      .sort((a, b) => a.lastMessageAt - b.lastMessageAt);
+
+    // Count total active sessions (all non-archived)
+    const activeCount = allSessions.filter((s) => !s.isArchived).length;
+
+    if (activeCount <= maxSessions) return { deleted: 0 };
+
+    // Delete oldest deletable sessions to get under limit
+    const toDelete = deletable.slice(0, activeCount - maxSessions);
+    for (const session of toDelete) {
+      // Delete messages first
+      const messages = await ctx.db
+        .query("messages")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const msg of messages) {
+        await ctx.db.delete(msg._id);
+      }
+      await ctx.db.delete(session._id);
+    }
+
+    return { deleted: toDelete.length };
+  },
+});
