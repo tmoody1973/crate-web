@@ -320,18 +320,28 @@ export const AlbumEntry = defineComponent({
     label: z.string().optional().describe("Record label"),
     format: z.string().optional().describe("e.g. LP, CD, Digital"),
     imageUrl: z.string().optional().describe("Album cover art URL"),
+    url: z.string().optional().describe("Link to album on Bandcamp, Discogs, etc."),
   }),
-  component: ({ props }) => (
-    <div className="flex items-center gap-3 border-b border-zinc-800 py-2">
-      <SafeImage src={props.imageUrl} className="h-10 w-10 shrink-0 rounded object-cover" />
-      <div className="min-w-0 flex-1">
-        <p className="font-medium text-white">{props.title}</p>
-        <p className="text-xs text-zinc-500">
-          {[props.year, props.label, props.format].filter(Boolean).join(" · ")}
-        </p>
+  component: ({ props }) => {
+    const titleEl = props.url ? (
+      <a href={props.url} target="_blank" rel="noopener noreferrer" className="font-medium text-white hover:text-amber-400 transition-colors">
+        {props.title}
+      </a>
+    ) : (
+      <p className="font-medium text-white">{props.title}</p>
+    );
+    return (
+      <div className="flex items-center gap-3 border-b border-zinc-800 py-2">
+        <SafeImage src={props.imageUrl} className="h-10 w-10 shrink-0 rounded object-cover" />
+        <div className="min-w-0 flex-1">
+          {titleEl}
+          <p className="text-xs text-zinc-500">
+            {[props.year, props.label, props.format].filter(Boolean).join(" · ")}
+          </p>
+        </div>
       </div>
-    </div>
-  ),
+    );
+  },
 });
 
 export const AlbumGrid = defineComponent({
@@ -343,13 +353,14 @@ export const AlbumGrid = defineComponent({
   }),
   component: ({ props, renderNode }) => {
     const albumData = (props.albums ?? []).map((ref: unknown) => {
-      const r = ref as { props?: { title?: string; year?: string; label?: string; format?: string; imageUrl?: string } };
+      const r = ref as { props?: { title?: string; year?: string; label?: string; format?: string; imageUrl?: string; url?: string } };
       return {
         title: r?.props?.title ?? "",
         year: r?.props?.year,
         label: r?.props?.label,
         format: r?.props?.format,
         imageUrl: r?.props?.imageUrl,
+        url: r?.props?.url,
       };
     });
 
@@ -525,13 +536,18 @@ export const TrackItem = defineComponent({
     album: z.string().optional().describe("Album name"),
     year: z.string().optional().describe("Release year"),
     imageUrl: z.string().optional().describe("Album art or thumbnail URL"),
+    url: z.string().optional().describe("Link to track on Bandcamp, Spotify, etc."),
   }),
   component: ({ props }) => (
     <div className="group flex items-center gap-2 border-b border-zinc-800 py-1.5">
       <PlayButton name={props.name} artist={props.artist} />
       <SafeImage src={props.imageUrl} className="h-8 w-8 shrink-0 rounded object-cover" />
       <div className="min-w-0 flex-1">
-        <span className="text-sm text-white">{props.name}</span>
+        {props.url ? (
+          <a href={props.url} target="_blank" rel="noopener noreferrer" className="text-sm text-white hover:text-amber-400 transition-colors">{props.name}</a>
+        ) : (
+          <span className="text-sm text-white">{props.name}</span>
+        )}
         <span className="ml-2 text-xs text-zinc-500">{props.artist}</span>
       </div>
       {(props.album || props.year) && (
