@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { resolveUserKeys } from "@/lib/resolve-user-keys";
-import { preprocessSlashCommand, isChatTier } from "@/lib/chat-utils";
+import { preprocessSlashCommand, isChatTier, getGatedCommand } from "@/lib/chat-utils";
 import { agenticLoop } from "@/lib/agentic-loop";
 import type { CrateEvent } from "@/lib/agentic-loop";
 import { createTelegraphTools } from "@/lib/web-tools/telegraph";
@@ -508,6 +508,21 @@ export async function POST(req: Request) {
 
   // Slash command preprocessing
   const message = preprocessSlashCommand(rawMessage);
+
+  // Feature gate: Pro-only commands
+  if (!adminBypass) {
+    const gatedCmd = getGatedCommand(rawMessage);
+    if (gatedCmd && !limits.hasPublishing) {
+      return Response.json(
+        {
+          error: "feature_gated",
+          message: `/${gatedCmd} requires Pro ($15/mo). Pro includes publishing, cross-session memory, influence caching, and 50 research queries/month.`,
+          feature: gatedCmd,
+        },
+        { status: 402 },
+      );
+    }
+  }
 
   // Force Sonnet for research-heavy commands that need deep tool use + structured output
   const isResearchCommand = /^\/(?:influence|show-prep|prep|news)\b/i.test(rawMessage.trim());

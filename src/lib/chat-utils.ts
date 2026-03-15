@@ -328,6 +328,21 @@ export function preprocessSlashCommand(message: string): string {
   }
 }
 
+/** Commands that require Pro or Team plan. */
+const PRO_COMMANDS = new Set(["publish", "published"]);
+
+/**
+ * Check if a slash command requires Pro plan.
+ * Returns the command name if gated, or null if not.
+ */
+export function getGatedCommand(message: string): string | null {
+  const trimmed = message.trim();
+  if (!trimmed.startsWith("/")) return null;
+  const spaceIdx = trimmed.indexOf(" ");
+  const cmd = (spaceIdx === -1 ? trimmed.slice(1) : trimmed.slice(1, spaceIdx)).toLowerCase();
+  return PRO_COMMANDS.has(cmd) ? cmd : null;
+}
+
 /** Simple chat-tier classifier — returns true for greetings and short conversational messages. */
 export function isChatTier(message: string): boolean {
   const lower = message.toLowerCase().trim();
