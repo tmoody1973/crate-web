@@ -25,6 +25,7 @@ import { getToolLabel, type ToolStep } from "@/lib/tool-labels";
 import { ModelSelector, getStoredModel } from "./model-selector";
 import { ResponseActions } from "./response-actions";
 import { QuickStartWizard } from "@/components/onboarding/quick-start-wizard";
+import { UpgradePrompt } from "@/components/chat/upgrade-prompt";
 
 // --- Tool activity context ---
 const ToolActivityContext = createContext<{ steps: ToolStep[] }>({ steps: [] });
@@ -883,6 +884,10 @@ export function ChatPanel() {
   const keyVerifiedRef = useRef(false);
   const wizardDismissedRef = useRef(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [upgradePrompt, setUpgradePrompt] = useState<{
+    type: "quota_exceeded" | "feature_gated";
+    message: string;
+  } | null>(null);
 
   // Show wizard on first sign-in (user loaded, onboarding not completed)
   // Only trigger once — wizardDismissedRef prevents re-opening on user object changes
@@ -946,6 +951,7 @@ export function ChatPanel() {
   const processMessage = useCallback(
     async ({ messages, abortController }: { threadId: string; messages: Array<{ role: string; content?: unknown }>; abortController: AbortController }) => {
       setSteps([]);
+      setUpgradePrompt(null);
 
       const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
       const parts = getContentParts(lastUserMsg?.content);
@@ -1009,6 +1015,24 @@ export function ChatPanel() {
         }
       }
 
+      // Handle 402 — quota exceeded or feature gated
+      if (res.status === 402) {
+        try {
+          const cloned = res.clone();
+          const body = await cloned.json();
+          setUpgradePrompt({
+            type: body.error === "quota_exceeded" ? "quota_exceeded" : "feature_gated",
+            message: body.message || "Upgrade required.",
+          });
+          return new Response(
+            `data: ${JSON.stringify({ type: "done", totalMs: 0, toolsUsed: [], toolCallCount: 0, costUsd: 0 })}\n\ndata: "[DONE]"\n\n`,
+            { headers: { "Content-Type": "text/event-stream" } },
+          );
+        } catch {
+          // Fall through to normal error handling
+        }
+      }
+
       return res;
     },
     [],
@@ -1049,6 +1073,26 @@ export function ChatPanel() {
           <ChatHeader onOpenSetup={handleOpenSetup} />
           <ChatHydration />
           <ChatMessages />
+          {upgradePrompt && (
+            <UpgradePrompt
+              type={upgradePrompt.type}
+              message={upgradePrompt.message}
+              onUpgrade={async () => {
+                const res = await fetch("/api/stripe/checkout", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID || "price_pro_monthly" }),
+                });
+                const data = await res.json();
+                if (data.url) window.location.href = data.url;
+              }}
+              onAddKey={() => {
+                setUpgradePrompt(null);
+                setWizardInitialStep(2);
+                setShowWizard(true);
+              }}
+            />
+          )}
           <ChatInput resendMessage={resendMessage} onResendConsumed={() => setResendMessage(null)} onOpenSetup={handleOpenSetup} />
           <ChatPersistence user={user} />
         </div>
