@@ -4,7 +4,9 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
 import { checkRateLimit } from "@/lib/plans";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
 
 export async function POST(req: Request) {
   const { userId: clerkId } = await auth();
@@ -29,7 +31,7 @@ export async function POST(req: Request) {
   }
 
   const origin = req.headers.get("origin") || "https://crate.fm";
-  const session = await stripe.billingPortal.sessions.create({
+  const session = await getStripe().billingPortal.sessions.create({
     customer: sub.stripeCustomerId,
     return_url: `${origin}/settings`,
   });

@@ -4,7 +4,9 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
 import { checkRateLimit, BLOCKED_TEAM_DOMAINS } from "@/lib/plans";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
 
 export async function POST(req: Request) {
   const { userId: clerkId } = await auth();
@@ -44,7 +46,7 @@ export async function POST(req: Request) {
   // Look up or create Stripe customer
   let stripeCustomerId = user.stripeCustomerId;
   if (!stripeCustomerId) {
-    const customer = await stripe.customers.create({
+    const customer = await getStripe().customers.create({
       email: user.email,
       metadata: { clerkId, convexUserId: user._id },
     });
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
   }
 
   const origin = req.headers.get("origin") || "https://crate.fm";
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: stripeCustomerId,
     line_items: [{ price: priceId, quantity: 1 }],
     mode: "subscription",

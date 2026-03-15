@@ -3,7 +3,9 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
 
 // Determine plan from Stripe price ID
 function planFromPriceId(priceId: string): "pro" | "team" {
@@ -19,7 +21,7 @@ function planFromPriceId(priceId: string): "pro" | "team" {
 async function getSubPeriod(
   stripeSubId: string,
 ): Promise<{ currentPeriodStart: number; currentPeriodEnd: number }> {
-  const stripeSub = await stripe.subscriptions.retrieve(stripeSubId, {
+  const stripeSub = await getStripe().subscriptions.retrieve(stripeSubId, {
     expand: ["latest_invoice"],
   });
   const invoice = stripeSub.latest_invoice as Stripe.Invoice | null;
@@ -50,7 +52,7 @@ export async function POST(req: Request) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       body,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET!,
@@ -78,7 +80,7 @@ export async function POST(req: Request) {
       if (existing) break;
 
       // Fetch subscription details from Stripe
-      const stripeSub = await stripe.subscriptions.retrieve(stripeSubId);
+      const stripeSub = await getStripe().subscriptions.retrieve(stripeSubId);
       const priceId = stripeSub.items.data[0]?.price.id ?? "";
       const plan = planFromPriceId(priceId);
       const period = await getSubPeriod(stripeSubId);
