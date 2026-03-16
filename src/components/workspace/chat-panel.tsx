@@ -884,13 +884,25 @@ export function ChatPanel() {
   const wizardDismissedRef = useRef(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
 
-  // Show wizard on first sign-in (user loaded, onboarding not completed)
-  // Only trigger once — wizardDismissedRef prevents re-opening on user object changes
+  // Show wizard on first sign-in only — never again after onboarding is completed in DB
   useEffect(() => {
-    if (user && user.onboardingCompleted !== true && !wizardDismissedRef.current) {
-      setShowWizard(true);
+    if (user && user.onboardingCompleted !== true && !wizardDismissedRef.current && !showWizard) {
+      // Double-check: if user already has API keys, skip the wizard and mark onboarding done
+      fetch("/api/keys")
+        .then((r) => r.json())
+        .then((data) => {
+          const keys = data.keys || {};
+          if (keys.anthropic || keys.openrouter) {
+            // User has keys — just mark onboarding complete, don't show wizard
+            wizardDismissedRef.current = true;
+            if (clerkId) completeOnboarding({ clerkId }).catch(() => {});
+          } else if (!wizardDismissedRef.current) {
+            setShowWizard(true);
+          }
+        })
+        .catch(() => {});
     }
-  }, [user]);
+  }, [user, clerkId, completeOnboarding, showWizard]);
 
   // Check if user already has keys saved
   const [hasExistingKey, setHasExistingKey] = useState(false);
