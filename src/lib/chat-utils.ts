@@ -149,28 +149,17 @@ export function preprocessSlashCommand(message: string): string {
       // Budget: reserve 2 calls for events/overhead, divide rest among tracks
       const callsPerTrack = trackCount > 0 ? Math.max(1, Math.floor(20 / trackCount)) : 3;
 
-      // Scale research strategy by track count
-      let researchStrategy: string;
-      if (trackCount <= 3) {
-        // Deep: 2-3 sources per track
-        researchStrategy = [
-          `RESEARCH (max ${callsPerTrack} tool calls per track, ${trackCount * callsPerTrack} total):`,
-          `For each track, use UP TO ${callsPerTrack} of these (highest value first):`,
-          `1. search_web (Exa or Tavily) for "[artist] [track] production story" — BEST source for context`,
-          `2. search_discogs for release year, label, format`,
-          callsPerTrack >= 3 ? `3. search_itunes_songs for artwork (600x600, free, no key)` : ``,
-          callsPerTrack >= 4 ? `4. get_track_info (Last.fm) for tags and listener stats` : ``,
-        ].filter(Boolean).join("\n");
-      } else {
-        // Light: 1-2 sources per track, prioritize web search
-        researchStrategy = [
-          `RESEARCH (max ${callsPerTrack} tool call${callsPerTrack > 1 ? "s" : ""} per track, ${trackCount * callsPerTrack} total):`,
-          `You have ${trackCount} tracks — be efficient. For each track:`,
-          `1. search_web (Exa or Tavily) for "[artist] [track]" — this gives you context, production, and story in one call`,
-          callsPerTrack >= 2 ? `2. search_itunes_songs for artwork URL (optional, skip if running low)` : ``,
-          `DO NOT use MusicBrainz, Genius, Bandcamp, or Last.fm — web search covers these for show prep.`,
-        ].filter(Boolean).join("\n");
-      }
+      // Research strategy: prefer research_track (Perplexity) — 1 call per track, pre-synthesized
+      const researchStrategy = [
+        `RESEARCH (1 call per track, ${trackCount} total):`,
+        `For EACH track in the setlist, call research_track(artist, track${prepStation ? `, station="${prepStation}"` : ""}).`,
+        `This returns a complete research brief (origin, production, connections, hook) in one call.`,
+        `Do NOT use MusicBrainz, Discogs, Genius, Bandcamp, or Last.fm — research_track covers all of these.`,
+        trackCount <= 4
+          ? `After research_track calls, optionally call search_itunes_songs for artwork URLs.`
+          : `Skip artwork lookups — prioritize getting all ${trackCount} tracks researched and outputting.`,
+        `If research_track is not available, fall back to search_web (Exa or Tavily) for each track.`,
+      ].join("\n");
 
       return [
         `Generate ${intentLabel} for a radio DJ.`,

@@ -55,6 +55,8 @@ export function getEmbeddedKeys(): Record<string, string> {
     embedded.GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   if (process.env.EMBEDDED_MEM0_KEY)
     embedded.MEM0_API_KEY = process.env.EMBEDDED_MEM0_KEY;
+  if (process.env.EMBEDDED_PERPLEXITY_KEY)
+    embedded.PERPLEXITY_API_KEY = process.env.EMBEDDED_PERPLEXITY_KEY;
   return embedded;
 }
 

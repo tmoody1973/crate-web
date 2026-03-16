@@ -12,6 +12,7 @@ import { createRadioTools } from "@/lib/web-tools/radio";
 import { createWhoSampledTools } from "@/lib/web-tools/whosampled";
 import { createBrowserTools } from "@/lib/web-tools/browser";
 import { createBandcampWebTools } from "@/lib/web-tools/bandcamp";
+import { createPrepResearchTools } from "@/lib/web-tools/prep-research";
 import {
   searchMemories,
   addMemories,
@@ -252,6 +253,12 @@ async function streamAgenticResponse(
           ? createMemoryTools(mem0Key, clerkId)
           : [];
 
+        // Perplexity-powered track research (show prep)
+        const perplexityKey = envKeys.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY;
+        const webPrepResearchTools = perplexityKey
+          ? createPrepResearchTools(perplexityKey)
+          : [];
+
         // Kernel.sh browser tools (WhoSampled + browse/screenshot)
         const hasKernel = !!(envKeys.KERNEL_API_KEY || process.env.KERNEL_API_KEY);
         const webWhoSampledTools = hasKernel ? createWhoSampledTools() : [];
@@ -305,6 +312,9 @@ async function streamAgenticResponse(
             ? [{ serverName: "browser", tools: webBrowserTools }]
             : []),
           { serverName: "bandcamp-web", tools: webBandcampTools },
+          ...(webPrepResearchTools.length > 0
+            ? [{ serverName: "prep-research", tools: webPrepResearchTools }]
+            : []),
         ];
 
         // For research-heavy commands, only include relevant tool servers
@@ -312,7 +322,7 @@ async function streamAgenticResponse(
         const RESEARCH_SERVERS = new Set([
           "influence", "influencecache", "websearch", "musicbrainz",
           "genius", "lastfm", "discogs", "images", "infographic", "itunes",
-          "memory", "whosampled", "browser", "bandcamp-web",
+          "memory", "whosampled", "browser", "bandcamp-web", "prep-research",
         ]);
         const toolGroups = isResearchCommand
           ? allToolGroups.filter((g: { serverName: string }) => RESEARCH_SERVERS.has(g.serverName))
