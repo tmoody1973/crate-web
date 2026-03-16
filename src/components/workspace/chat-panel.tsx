@@ -26,6 +26,7 @@ import { ModelSelector, getStoredModel } from "./model-selector";
 import { ResponseActions } from "./response-actions";
 import { QuickStartWizard } from "@/components/onboarding/quick-start-wizard";
 import { UpgradePrompt } from "@/components/chat/upgrade-prompt";
+import { getSessionTitle } from "@/lib/chat-utils";
 
 // --- Tool activity context ---
 const ToolActivityContext = createContext<{ steps: ToolStep[] }>({ steps: [] });
@@ -817,7 +818,7 @@ function ChatPersistence({ user }: { user: { _id: Id<"users"> } | null | undefin
           // Set session title from first user message
           if (!titleSetRef.current) {
             titleSetRef.current = true;
-            const title = text.length > 60 ? text.slice(0, 60) + "..." : text;
+            const title = getSessionTitle(text);
             updateTitle({ id: sessionId, title });
           }
         }
