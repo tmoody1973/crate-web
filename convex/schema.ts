@@ -259,4 +259,21 @@ export default defineSchema({
   }).index("by_user_period", ["userId", "periodStart"])
     .index("by_user_type_period", ["userId", "type", "periodStart"])
     .index("by_team_domain_period", ["teamDomain", "periodStart"]),
+
+  userSkills: defineTable({
+    userId: v.id("users"),
+    command: v.string(),
+    name: v.string(),
+    description: v.string(),
+    promptTemplate: v.string(),
+    toolHints: v.array(v.string()),
+    sourceUrl: v.optional(v.string()),
+    visibility: v.literal("private"),
+    isEnabled: v.boolean(),
+    schedule: v.optional(v.string()),
+    lastRunAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_user_command", ["userId", "command"]),
 });
