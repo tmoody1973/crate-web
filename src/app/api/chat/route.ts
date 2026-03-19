@@ -13,6 +13,7 @@ import { createWhoSampledTools } from "@/lib/web-tools/whosampled";
 import { createBrowserTools } from "@/lib/web-tools/browser";
 import { createBandcampWebTools } from "@/lib/web-tools/bandcamp";
 import { createPrepResearchTools } from "@/lib/web-tools/prep-research";
+import { createUserSkillTools } from "@/lib/web-tools/user-skills";
 import {
   searchMemories,
   addMemories,
@@ -180,6 +181,7 @@ async function streamAgenticResponse(
   history?: Array<{ role: "user" | "assistant"; content: string }>,
   hasMemory?: boolean,
   hasInfluenceWrite?: boolean,
+  maxSkills?: number,
 ): Promise<Response> {
   const encoder = new TextEncoder();
 
@@ -267,6 +269,11 @@ async function streamAgenticResponse(
         // Bandcamp related tags (no key needed)
         const webBandcampTools = createBandcampWebTools();
 
+        // User skill management tools (create-skill, list skills)
+        const webUserSkillTools = createUserSkillTools(
+          convexUrl, userId, maxSkills ?? 3,
+        );
+
         // Filter out crate-cli groups that use SQLite or mpv, inject web versions
         // For radio: keep crate-cli's search/browse/tags tools, replace play_radio
         const cliRadioGroup = cliToolGroups.find(
@@ -315,6 +322,7 @@ async function streamAgenticResponse(
           ...(webPrepResearchTools.length > 0
             ? [{ serverName: "prep-research", tools: webPrepResearchTools }]
             : []),
+          { serverName: "user-skills", tools: webUserSkillTools },
         ];
 
         // For research-heavy commands, only include relevant tool servers
@@ -648,5 +656,6 @@ export async function POST(req: Request) {
     useOpenRouter, isResearchCommand, history,
     adminBypass || limits.hasMemory,
     adminBypass || limits.hasInfluenceCache,
+    adminBypass ? 999 : limits.maxCustomSkills,
   );
 }
