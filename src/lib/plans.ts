@@ -8,6 +8,8 @@ export interface PlanLimits {
   hasInfluenceCache: boolean;
   hasAdminDashboard: boolean;
   hasSharedOrgKeys: boolean;
+  maxCustomSkills: number;
+  maxScheduledSkills: number;
 }
 
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
@@ -19,6 +21,8 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     hasInfluenceCache: false,
     hasAdminDashboard: false,
     hasSharedOrgKeys: false,
+    maxCustomSkills: 3,
+    maxScheduledSkills: 0,
   },
   pro: {
     agentQueriesPerMonth: 50,
@@ -28,6 +32,8 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     hasInfluenceCache: true,
     hasAdminDashboard: false,
     hasSharedOrgKeys: false,
+    maxCustomSkills: 20,
+    maxScheduledSkills: 3,
   },
   team: {
     agentQueriesPerMonth: 200, // pooled by domain
@@ -37,6 +43,8 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     hasInfluenceCache: true,
     hasAdminDashboard: true,
     hasSharedOrgKeys: true,
+    maxCustomSkills: 50,
+    maxScheduledSkills: 10,
   },
 };
 
