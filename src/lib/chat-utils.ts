@@ -323,6 +323,52 @@ export function preprocessSlashCommand(message: string): string {
       ].join("\n");
     }
 
+    case "create-skill": {
+      if (!arg) {
+        return [
+          `I'll help you create a custom command. Describe what you want it to do.`,
+          ``,
+          `Examples:`,
+          `- "Pull upcoming events from The Rave Milwaukee website"`,
+          `- "Check Discogs for new vinyl releases in jazz"`,
+          `- "Find this week's local Milwaukee music news"`,
+          ``,
+          `What should your command do?`,
+        ].join("\n");
+      }
+
+      return [
+        `The user wants to create a custom skill. Here's what they described:`,
+        `"${arg}"`,
+        ``,
+        `SKILL CREATION WORKFLOW:`,
+        `1. First, run the task they described using available tools (this is the dry run)`,
+        `2. Show the results to the user`,
+        `3. If the results look good, ask the user to confirm saving it as a custom command`,
+        `4. Ask what they want to call the command (suggest a name based on the task)`,
+        `5. When confirmed, call save_user_skill with:`,
+        `   - command: the chosen name (lowercase, hyphens, no spaces)`,
+        `   - name: a human-readable name`,
+        `   - description: one sentence describing what it does`,
+        `   - promptTemplate: the prompt that produced the successful dry run`,
+        `   - toolHints: array of tool names that worked during the dry run`,
+        `   - sourceUrl: the URL if a website was involved`,
+        ``,
+        `IMPORTANT: Actually run the research first using real tools. Do not skip the dry run.`,
+      ].join("\n");
+    }
+
+    case "skills": {
+      return [
+        `List all of the user's custom skills.`,
+        `Call list_user_skills to get them, then display each one with:`,
+        `- Command name (e.g. /rave-events)`,
+        `- Description`,
+        `- Whether it's enabled or disabled`,
+        `If the user has no custom skills, suggest they create one with /create-skill.`,
+      ].join("\n");
+    }
+
     default:
       // Unknown slash command — pass through as-is
       return message;
@@ -364,6 +410,10 @@ export function getSessionTitle(message: string): string {
         return "Published Content";
       case "radio":
         return arg ? `Radio: ${arg.trim().slice(0, 30)}` : "Radio";
+      case "create-skill":
+        return arg ? `Create Skill: ${arg.slice(0, 30)}` : "Create Skill";
+      case "skills":
+        return "My Skills";
       default:
         break;
     }
