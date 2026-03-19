@@ -43,6 +43,7 @@ export const create = mutation({
     promptTemplate: v.string(),
     toolHints: v.array(v.string()),
     sourceUrl: v.optional(v.string()),
+    triggerPattern: v.optional(v.string()),
     maxSkills: v.number(),
   },
   handler: async (ctx, args) => {
@@ -70,6 +71,7 @@ export const create = mutation({
     const { maxSkills: _maxSkills, ...skillFields } = args;
     return await ctx.db.insert("userSkills", {
       ...skillFields,
+      runCount: 0,
       visibility: "private" as const,
       isEnabled: true,
       createdAt: now,
@@ -105,6 +107,38 @@ export const toggleEnabled = mutation({
       isEnabled: !skill.isEnabled,
       updatedAt: Date.now(),
     });
+  },
+});
+
+export const recordRun = mutation({
+  args: {
+    skillId: v.id("userSkills"),
+    lastResults: v.optional(v.string()),
+    gotcha: v.optional(v.string()),
+  },
+  handler: async (ctx, { skillId, lastResults, gotcha }) => {
+    const skill = await ctx.db.get(skillId);
+    if (!skill) return;
+
+    const updates: Record<string, unknown> = {
+      runCount: skill.runCount + 1,
+      lastRunAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    if (lastResults) {
+      // Cap at 2000 chars
+      updates.lastResults = lastResults.slice(0, 2000);
+    }
+
+    if (gotcha) {
+      // Append to existing gotchas, cap at 1000 chars
+      const existing = skill.gotchas ?? "";
+      const appended = existing ? `${existing}\n- ${gotcha}` : `- ${gotcha}`;
+      updates.gotchas = appended.slice(-1000);
+    }
+
+    await ctx.db.patch(skillId, updates);
   },
 });
 

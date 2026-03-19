@@ -548,12 +548,15 @@ export async function POST(req: Request) {
 
       if (skill && skill.isEnabled) {
         isCustomSkill = true;
-        // Inject prompt template with optional user argument
+        // Inject prompt template with memory, gotchas, and optional user argument
         message = [
-          `[Running custom skill: ${skill.name}]`,
+          `[Running custom skill: ${skill.name} (id: ${skill._id})]`,
           ``,
           skill.promptTemplate,
+          skill.gotchas ? `\nKNOWN ISSUES (from previous runs):\n${skill.gotchas}` : ``,
+          skill.lastResults ? `\nPREVIOUS RESULTS (from last run):\n${skill.lastResults}\nCompare with current results and highlight what's NEW, CHANGED, or REMOVED.` : ``,
           cmdArg ? `\nUser specified: "${cmdArg}"` : ``,
+          `\nAfter completing the task, call save_skill_results with skillId="${skill._id}" to save a JSON summary of key data points. If something went wrong, include a gotcha note.`,
         ].filter(Boolean).join("\n");
       }
     }

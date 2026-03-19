@@ -30,13 +30,17 @@ userSkills
   command        → string           // "rave-events" (no slash, lowercase, alphanumeric + hyphens)
   name           → string           // "The Rave Events"
   description    → string           // "Pull upcoming events from The Rave Milwaukee"
+  triggerPattern → optional string  // "upcoming shows, concerts, or events at The Rave, Riverside, or Milwaukee venues"
   promptTemplate → string           // Full prompt injected into the agentic loop
   toolHints      → string[]         // ["browse_url", "search_web"] — discovered at creation
   sourceUrl      → optional string  // "therave.com/events" if URL-based
+  lastResults    → optional string  // JSON snapshot of last execution results (for change detection)
+  gotchas        → optional string  // Accumulated failure notes — appended when execution fails
+  runCount       → number           // Times executed (0 on creation)
   visibility     → "private"        // Future: "team", "public"
   isEnabled      → boolean          // User can disable without deleting
   schedule       → optional string  // Future: "weekly:monday:9am", "daily:8am"
-  lastRunAt      → optional number  // Future: timestamp of last scheduled execution
+  lastRunAt      → optional number  // Timestamp of last execution (manual or scheduled)
   createdAt      → number
   updatedAt      → number
 
@@ -87,33 +91,57 @@ User confirms → Convex mutation saves the skill.
 
 ### Recognition
 
-When a user types a slash command:
+Two trigger paths:
 
+**Slash command (explicit):**
 1. Check built-in commands first (`/news`, `/prep`, `/influence`, etc.)
 2. If no match → query Convex for a `userSkill` matching that command + user
 3. If found → inject the `promptTemplate` as the message, pass `toolHints`
 
+**Natural language (implicit):**
+When a message doesn't match any slash command and isn't chat-tier, the agent sees the user's installed skills (via `list_user_skills`) in its tool list. If the user says "what's coming up at The Rave?", the agent can match it against a skill's `triggerPattern` ("upcoming shows, concerts, or events at The Rave") and run that skill's prompt template.
+
+This works because the `triggerPattern` is included in the `list_user_skills` response, and the agent naturally matches user intent to available tools. No special routing logic needed — the agent figures it out.
+
 ### Prompt Injection
 
-The template gets wrapped with context:
+The template gets wrapped with context, memory, and gotchas:
 
 ```
 [Running custom skill: The Rave Events]
 
 {promptTemplate}
+
+{if gotchas}
+KNOWN ISSUES (from previous runs):
+{gotchas}
+{endif}
+
+{if lastResults}
+PREVIOUS RESULTS (from last run):
+{lastResults}
+Compare with current results and highlight what's NEW, CHANGED, or REMOVED.
+{endif}
+
+{if userArg}
+User specified: "{userArg}"
+{endif}
 ```
+
+This turns every skill into a **change detector** — the agent doesn't just fetch data, it tells you what's different since last time.
 
 ### Arguments
 
-Skills accept optional arguments naturally. `/rave-events this weekend` becomes:
+Skills accept optional arguments naturally. `/rave-events this weekend` becomes the `userArg` above. The agent scopes its output accordingly. No argument parsing logic needed.
 
-```
-{promptTemplate}
+### Post-Execution Updates
 
-User specified: "this weekend"
-```
+After each skill execution, the chat route:
+1. Increments `runCount` and sets `lastRunAt`
+2. Saves a summary of results to `lastResults` (agent extracts key data points)
+3. If the execution failed or produced poor results, appends to `gotchas`
 
-The agent scopes its output accordingly. No argument parsing logic needed.
+The `save_skill_results` tool handles steps 2-3 — the agent calls it at the end of a skill execution.
 
 ### Slash Command Menu
 
@@ -143,6 +171,52 @@ Typing `/skills` in chat lists active custom skills with descriptions. Quick ref
 | Team | 50 | 10 |
 
 Stored as `maxCustomSkills` and `maxScheduledSkills` in `PLAN_LIMITS`.
+
+## Skill Memory & Self-Improvement
+
+Inspired by [Anthropic's lessons from building Claude Code skills](https://www.anthropic.com/engineering/claude-code-skills).
+
+### Memory (lastResults)
+
+Every skill execution saves a summary of its results. On the next run, the agent sees what changed:
+
+- `/rave-events` → "3 new shows added since last week. The Roots on April 5 is new."
+- `/vinyl-drops` → "12 new jazz releases on Discogs. 3 match artists in your collection."
+- `/tour-watch` → "No new Milwaukee dates for Flying Lotus. Last checked: 2 days ago."
+
+The `lastResults` field stores a JSON summary (not the full output — just key data points the agent extracts). This is capped at 2000 characters to avoid bloating the prompt.
+
+### Self-Improving Gotchas
+
+When a skill execution fails or produces poor results, the agent appends a note to the `gotchas` field:
+
+- "therave.com returned a login wall on 2026-03-15. browse_url failed, fell back to search_web."
+- "Discogs rate-limited after 3 rapid calls. Space out requests."
+
+On subsequent runs, these gotchas are injected into the prompt so the agent avoids known pitfalls. Skills get more reliable over time without manual editing.
+
+The agent calls `save_skill_results` with `gotcha` parameter when something goes wrong. The gotchas field is append-only, capped at 1000 characters (oldest entries trimmed).
+
+### Description as Trigger Condition
+
+Per Anthropic: "The description field is not a summary — it's when to trigger."
+
+The `triggerPattern` field captures this. During skill creation, the agent generates both:
+- `description`: human-readable ("Pull upcoming events from The Rave Milwaukee")
+- `triggerPattern`: model-readable ("when user asks about upcoming shows, concerts, events at The Rave, Riverside, Pabst, Turner Hall, or Milwaukee music venues")
+
+### Skill Composition
+
+Skills can reference other skills in their prompt templates:
+
+```
+Browse therave.com/events... [extract events]
+
+After listing events, check if any performing artists have been researched
+before by calling list_user_skills and running any matching artist monitoring skills.
+```
+
+No special infrastructure — the agent already handles multi-tool orchestration.
 
 ## Scheduled Triggers (Future)
 

@@ -26,6 +26,7 @@ export function createUserSkillTools(
     command: string;
     name: string;
     description: string;
+    triggerPattern?: string;
     promptTemplate: string;
     toolHints: string[];
     sourceUrl?: string;
@@ -44,6 +45,7 @@ export function createUserSkillTools(
         promptTemplate: args.promptTemplate,
         toolHints: args.toolHints,
         sourceUrl: args.sourceUrl,
+        triggerPattern: args.triggerPattern,
         maxSkills,
       });
       return toolResult({
@@ -70,12 +72,16 @@ export function createUserSkillTools(
     }
     return toolResult({
       skills: skills.map((s) => ({
+        id: s._id,
         command: `/${s.command}`,
         name: s.name,
         description: s.description,
+        triggerPattern: s.triggerPattern ?? null,
         isEnabled: s.isEnabled,
         sourceUrl: s.sourceUrl ?? null,
         toolHints: s.toolHints,
+        runCount: s.runCount,
+        lastRunAt: s.lastRunAt ?? null,
       })),
       count: skills.length,
       limit: maxSkills,
@@ -94,14 +100,36 @@ export function createUserSkillTools(
         promptTemplate: z.string().describe("The full prompt that produced the successful dry run results"),
         toolHints: z.array(z.string()).describe("Tool names that worked during the dry run"),
         sourceUrl: z.string().optional().describe("URL if a website was involved"),
+        triggerPattern: z.string().optional().describe("Natural language description of WHEN to trigger this skill (e.g. 'when user asks about upcoming shows at The Rave or Milwaukee music venues')"),
       },
       handler: saveSkillHandler,
     },
     {
       name: "list_user_skills",
-      description: "List all custom skills the user has created. Shows command name, description, and status.",
+      description: "List all custom skills the user has created. Shows command name, description, trigger pattern, and status. Use this to check if a user's request matches an existing skill.",
       inputSchema: {},
       handler: listSkillsHandler,
+    },
+    {
+      name: "save_skill_results",
+      description: "Save the results of a custom skill execution for change detection on the next run. Call this after running a custom skill. Also use to record gotchas when something goes wrong.",
+      inputSchema: {
+        skillId: z.string().describe("The skill's Convex ID"),
+        lastResults: z.string().optional().describe("JSON summary of key data points from this execution (max 2000 chars)"),
+        gotcha: z.string().optional().describe("A note about what went wrong, if anything (e.g. 'site returned login wall')"),
+      },
+      handler: async (args: { skillId: string; lastResults?: string; gotcha?: string }) => {
+        try {
+          await convex.mutation(api.userSkills.recordRun, {
+            skillId: args.skillId as Id<"userSkills">,
+            lastResults: args.lastResults,
+            gotcha: args.gotcha,
+          });
+          return toolResult({ success: true, message: "Skill results saved." });
+        } catch (err) {
+          return toolResult({ error: err instanceof Error ? err.message : "Failed to save results" });
+        }
+      },
     },
   ];
 }
