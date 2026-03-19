@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const create = mutation({
@@ -169,7 +169,7 @@ export const touchLastMessage = mutation({
  * For free-tier users: if they have more than maxSessions non-starred,
  * non-archived sessions, delete the oldest ones.
  */
-export const enforceSessionLimit = mutation({
+export const enforceSessionLimit = internalMutation({
   args: {
     userId: v.id("users"),
     maxSessions: v.number(),
@@ -186,13 +186,12 @@ export const enforceSessionLimit = mutation({
       .filter((s) => !s.isStarred && !s.isArchived)
       .sort((a, b) => a.lastMessageAt - b.lastMessageAt);
 
-    // Count total active sessions (all non-archived)
-    const activeCount = allSessions.filter((s) => !s.isArchived).length;
+    // Only count non-starred, non-archived sessions against the limit
+    // (starred and archived sessions are exempt)
+    if (deletable.length <= maxSessions) return { deleted: 0 };
 
-    if (activeCount <= maxSessions) return { deleted: 0 };
-
-    // Delete oldest deletable sessions to get under limit
-    const toDelete = deletable.slice(0, activeCount - maxSessions);
+    // Delete oldest to get under limit
+    const toDelete = deletable.slice(0, deletable.length - maxSessions);
     for (const session of toDelete) {
       // Delete messages first
       const messages = await ctx.db
@@ -219,6 +218,15 @@ export const enforceSessionLimit = mutation({
         .collect();
       for (const t of toolCalls) {
         await ctx.db.delete(t._id);
+      }
+
+      // Delete player queue
+      const queues = await ctx.db
+        .query("playerQueue")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const queue of queues) {
+        await ctx.db.delete(queue._id);
       }
 
       await ctx.db.delete(session._id);

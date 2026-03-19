@@ -22,7 +22,7 @@ export function PlanSection() {
 
   if (!data) return null;
 
-  const isPaid = data.plan === "pro" || data.plan === "team";
+  const isPaid = data.plan === "pro" || data.plan === "team" || data.plan === "admin";
   const priceLabel = data.plan === "team" ? "$25/mo" : data.plan === "pro" ? "$15/mo" : "";
 
   return (
