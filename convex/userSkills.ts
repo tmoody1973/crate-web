@@ -43,8 +43,18 @@ export const create = mutation({
     promptTemplate: v.string(),
     toolHints: v.array(v.string()),
     sourceUrl: v.optional(v.string()),
+    maxSkills: v.number(),
   },
   handler: async (ctx, args) => {
+    // Atomic skill count check (prevents race condition)
+    const allSkills = await ctx.db
+      .query("userSkills")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    if (allSkills.length >= args.maxSkills) {
+      throw new Error(`Skill limit reached (${args.maxSkills}). Delete an existing skill or upgrade.`);
+    }
+
     const existing = await ctx.db
       .query("userSkills")
       .withIndex("by_user_command", (q) =>
@@ -56,8 +66,10 @@ export const create = mutation({
     }
 
     const now = Date.now();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { maxSkills: _maxSkills, ...skillFields } = args;
     return await ctx.db.insert("userSkills", {
-      ...args,
+      ...skillFields,
       visibility: "private" as const,
       isEnabled: true,
       createdAt: now,

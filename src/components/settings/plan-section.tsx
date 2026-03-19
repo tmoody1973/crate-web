@@ -37,7 +37,7 @@ export function PlanSection() {
 
       <div className="space-y-1 text-sm text-zinc-300">
         <p>
-          Agent queries: {data.hasBYOK ? "Unlimited (BYOK)" : `${data.agentQueriesUsed} of ${data.agentQueriesLimit} used`}
+          Agent queries: {data.hasBYOK || data.agentQueriesLimit === -1 ? "Unlimited" : `${data.agentQueriesUsed} of ${data.agentQueriesLimit} used`}
         </p>
         <p>Chat queries: Unlimited</p>
         {data.periodEnd && (

@@ -21,7 +21,7 @@ export async function GET() {
     return Response.json({
       plan: "admin",
       agentQueriesUsed: 0,
-      agentQueriesLimit: Infinity,
+      agentQueriesLimit: -1,
       periodEnd: "",
       hasBYOK: true,
     });

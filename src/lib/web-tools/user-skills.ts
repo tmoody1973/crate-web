@@ -35,13 +35,6 @@ export function createUserSkillTools(
       return toolResult({ error: "Command must be 2-30 characters, lowercase letters, numbers, and hyphens only." });
     }
 
-    const count = await convex.query(api.userSkills.countByUser, { userId });
-    if (count >= maxSkills) {
-      return toolResult({
-        error: `Skill limit reached (${maxSkills}). Delete an existing skill or upgrade your plan.`,
-      });
-    }
-
     try {
       const id = await convex.mutation(api.userSkills.create, {
         userId,
@@ -51,6 +44,7 @@ export function createUserSkillTools(
         promptTemplate: args.promptTemplate,
         toolHints: args.toolHints,
         sourceUrl: args.sourceUrl,
+        maxSkills,
       });
       return toolResult({
         success: true,
