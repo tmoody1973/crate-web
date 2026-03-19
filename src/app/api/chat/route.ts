@@ -520,8 +520,36 @@ export async function POST(req: Request) {
       m.content.length > 0,
   );
 
-  // Slash command preprocessing
-  const message = preprocessSlashCommand(rawMessage);
+  // Slash command preprocessing — built-in commands first
+  let message = preprocessSlashCommand(rawMessage);
+
+  // If message still starts with / and wasn't transformed, check for custom skill
+  let isCustomSkill = false;
+  if (message === rawMessage && rawMessage.trim().startsWith("/")) {
+    const trimmed = rawMessage.trim();
+    const spaceIdx = trimmed.indexOf(" ");
+    const cmd = (spaceIdx === -1 ? trimmed.slice(1) : trimmed.slice(1, spaceIdx)).toLowerCase();
+    const cmdArg = spaceIdx === -1 ? "" : trimmed.slice(spaceIdx + 1).trim();
+
+    // Skip built-in non-preprocessed commands (setup, help)
+    if (!["setup", "help", "skills", "create-skill"].includes(cmd)) {
+      const skill = await convex.query(api.userSkills.getByUserCommand, {
+        userId: resolved.user._id as Id<"users">,
+        command: cmd,
+      });
+
+      if (skill && skill.isEnabled) {
+        isCustomSkill = true;
+        // Inject prompt template with optional user argument
+        message = [
+          `[Running custom skill: ${skill.name}]`,
+          ``,
+          skill.promptTemplate,
+          cmdArg ? `\nUser specified: "${cmdArg}"` : ``,
+        ].filter(Boolean).join("\n");
+      }
+    }
+  }
 
   // Feature gate: Pro-only commands
   if (!adminBypass) {

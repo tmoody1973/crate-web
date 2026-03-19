@@ -23,6 +23,7 @@ import type * as telegraph from "../telegraph.js";
 import type * as usage from "../usage.js";
 import type * as toolCalls from "../toolCalls.js";
 import type * as tumblr from "../tumblr.js";
+import type * as userSkills from "../userSkills.js";
 import type * as users from "../users.js";
 
 import type {
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   toolCalls: typeof toolCalls;
   usage: typeof usage;
   tumblr: typeof tumblr;
+  userSkills: typeof userSkills;
   users: typeof users;
 }>;
 
