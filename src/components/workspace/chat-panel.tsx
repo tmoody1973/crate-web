@@ -347,26 +347,24 @@ const SLASH_COMMANDS = [
   { command: "/publish", description: "Publish research to Telegraph or Tumblr", usage: "/publish [telegraph|tumblr] [content]", example: "/publish telegraph" },
   { command: "/setup", description: "Open the quick start guide", usage: "/setup", example: "/setup" },
   { command: "/help", description: "Open the help guide", usage: "/help [section]", example: "/help api-keys" },
+  { command: "/skills", description: "List your custom skills", usage: "/skills", example: "/skills" },
+  { command: "/create-skill", description: "Create a new custom command", usage: "/create-skill [description]", example: "/create-skill pull events from The Rave" },
 ];
 
 function SlashCommandMenu({
-  filter,
+  commands,
   onSelect,
   selectedIndex,
 }: {
-  filter: string;
+  commands: Array<{ command: string; description: string; usage?: string; isCustom?: boolean }>;
   onSelect: (cmd: string) => void;
   selectedIndex: number;
 }) {
-  const filtered = SLASH_COMMANDS.filter(
-    (c) => c.command.startsWith(filter.toLowerCase()) || c.description.toLowerCase().includes(filter.slice(1).toLowerCase()),
-  );
-
-  if (filtered.length === 0) return null;
+  if (commands.length === 0) return null;
 
   return (
     <div className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
-      {filtered.map((cmd, i) => (
+      {commands.map((cmd, i) => (
         <button
           key={cmd.command}
           type="button"
@@ -377,7 +375,12 @@ function SlashCommandMenu({
         >
           <span className="shrink-0 font-mono text-sm font-medium text-cyan-400">{cmd.command}</span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-zinc-300">{cmd.description}</p>
+            <p className="text-sm text-zinc-300">
+              {cmd.description}
+              {"isCustom" in cmd && cmd.isCustom && (
+                <span className="ml-1 rounded bg-zinc-700 px-1 py-0.5 text-[10px] text-zinc-400">custom</span>
+              )}
+            </p>
             <p className="text-xs text-zinc-600">{cmd.usage}</p>
           </div>
         </button>
@@ -549,7 +552,7 @@ function ShowPrepForm({ onSubmit, onCancel }: { onSubmit: (msg: string) => void;
   );
 }
 
-function ChatInput({ resendMessage, onResendConsumed, onOpenSetup }: { resendMessage?: string | null; onResendConsumed?: () => void; onOpenSetup?: () => void }) {
+function ChatInput({ resendMessage, onResendConsumed, onOpenSetup, customSkills }: { resendMessage?: string | null; onResendConsumed?: () => void; onOpenSetup?: () => void; customSkills?: Array<{ command: string; description: string; name: string; isCustom: boolean }> }) {
   const [input, setInput] = useState("");
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [showPrepForm, setShowPrepForm] = useState(false);
@@ -585,7 +588,18 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup }: { resendMes
     }
   }, [resendMessage, processMessage, onResendConsumed]);
 
-  const filteredCommands = SLASH_COMMANDS.filter(
+  const allCommands = useMemo(() => [
+    ...SLASH_COMMANDS,
+    ...(customSkills ?? []).map((s) => ({
+      command: s.command,
+      description: s.description,
+      usage: `${s.command} [optional args]`,
+      example: s.command,
+      isCustom: true as const,
+    })),
+  ], [customSkills]);
+
+  const filteredCommands = allCommands.filter(
     (c) => c.command.startsWith(slashFilter.toLowerCase()) || c.description.toLowerCase().includes(slashFilter.slice(1).toLowerCase()),
   );
 
@@ -703,7 +717,7 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup }: { resendMes
       <div className="relative">
         {showSlashMenu && (
           <SlashCommandMenu
-            filter={slashFilter}
+            commands={filteredCommands}
             onSelect={handleSelect}
             selectedIndex={selectedIndex}
           />
@@ -872,6 +886,17 @@ export function ChatPanel() {
   const { play } = usePlayer();
   const playRef = useRef(play);
   playRef.current = play;
+
+  const [customSkills, setCustomSkills] = useState<
+    Array<{ command: string; description: string; name: string; isCustom: boolean }>
+  >([]);
+
+  useEffect(() => {
+    fetch("/api/skills")
+      .then((r) => r.json())
+      .then((data) => setCustomSkills(data.skills ?? []))
+      .catch(() => {});
+  }, []);
 
   // --- User query (shared by onboarding wizard + ChatPersistence) ---
   const { userId: clerkId } = useAuth();
@@ -1106,7 +1131,7 @@ export function ChatPanel() {
               }}
             />
           )}
-          <ChatInput resendMessage={resendMessage} onResendConsumed={() => setResendMessage(null)} onOpenSetup={handleOpenSetup} />
+          <ChatInput resendMessage={resendMessage} onResendConsumed={() => setResendMessage(null)} onOpenSetup={handleOpenSetup} customSkills={customSkills} />
           <ChatPersistence user={user} />
         </div>
         {showWizard && user && (
