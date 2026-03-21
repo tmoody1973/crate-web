@@ -44,7 +44,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="en" style={{ colorScheme: "dark" }}>
         <body>
           <ConvexClientProvider>{children}</ConvexClientProvider>
           <Analytics />
