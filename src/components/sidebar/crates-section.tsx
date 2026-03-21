@@ -66,9 +66,7 @@ export function CratesSection() {
               />
             </form>
           )}
-          {crates.length === 0 && !creating && (
-            <p className="px-2 text-xs text-zinc-600">No crates yet</p>
-          )}
+          {/* Hide "No crates yet" — empty sections clutter the sidebar */}
           {crates.map((crate) => (
             <CrateFolder key={crate._id} crateId={crate._id} name={crate.name} userId={user!._id} toggleStar={toggleStar} />
           ))}
