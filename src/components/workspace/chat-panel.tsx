@@ -740,7 +740,7 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup }: { resendMes
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           rows={1}
-          placeholder={isLoading ? "Crate is researching..." : "Ask about any artist, track, or genre... (/ for commands)"}
+          placeholder={isLoading ? "Crate is researching..." : "Who influenced Flying Lotus? Try / for commands"}
           className="w-full resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none disabled:opacity-50"
           disabled={isLoading}
         />
