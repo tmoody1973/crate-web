@@ -51,7 +51,7 @@ export function createPrepResearchTools(
           Authorization: `Bearer ${perplexityKey}`,
         },
         body: JSON.stringify({
-          model: "sonar",
+          model: "sonar-pro",
           messages: [
             {
               role: "system",
@@ -60,6 +60,10 @@ export function createPrepResearchTools(
             { role: "user", content: prompt },
           ],
           max_tokens: 800,
+          temperature: 0.2,
+          web_search_options: {
+            search_context_size: "high",
+          },
         }),
       });
 
@@ -72,20 +76,128 @@ export function createPrepResearchTools(
       }
 
       const data = await res.json();
-      const content = data.choices?.[0]?.message?.content ?? "";
-      const citations = data.citations ?? [];
+      const rawContent = data.choices?.[0]?.message?.content ?? "";
+      const content = rawContent.replace(/\[\d+\]/g, "").replace(/\s{2,}/g, " ").trim();
+
+      const searchResults = data.search_results ?? [];
+      const sources = searchResults.length > 0
+        ? searchResults.map((sr: { title?: string; url?: string; snippet?: string; date?: string }) => ({
+            name: sr.title ?? "Source",
+            url: sr.url ?? "",
+            snippet: sr.snippet ?? "",
+            date: sr.date,
+          }))
+        : (data.citations ?? []).map((url: string, i: number) => ({
+            name: `Source ${i + 1}`,
+            url,
+            snippet: "",
+          }));
 
       return toolResult({
         artist,
         track,
         research: content,
-        sources: citations,
+        sources,
       });
     } catch (err) {
       return toolResult({
         error: err instanceof Error ? err.message : "Research failed",
         artist,
         track,
+      });
+    }
+  };
+
+  const researchInfluenceHandler = async (args: {
+    fromArtist: string;
+    toArtist: string;
+  }) => {
+    const { fromArtist, toArtist } = args;
+
+    const prompt = [
+      `Explain the musical influence relationship between ${fromArtist} and ${toArtist}.`,
+      ``,
+      `Include:`,
+      `- DIRECTION: Who influenced whom? How do we know? (interviews, timeline, acknowledged influences)`,
+      `- SONIC ELEMENTS: What specific musical qualities were transmitted? (rhythm, harmony, production techniques, instrumentation)`,
+      `- KEY WORKS: Which specific albums or tracks demonstrate this connection? Format as "Album A (year) → Album B (year)"`,
+      `- QUOTES: Any interviews where either artist acknowledged the connection? Include the exact quote and publication.`,
+      ``,
+      `Be specific. Name albums, tracks, producers, studios. If the direction is unclear, note it as mutual influence.`,
+      `If you find a direct quote from either artist about the other, lead with it.`,
+    ].join("\n");
+
+    try {
+      const res = await fetch("https://api.perplexity.ai/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${perplexityKey}`,
+        },
+        body: JSON.stringify({
+          model: "sonar-pro",
+          messages: [
+            {
+              role: "system",
+              content: "You are a music historian and critic. Explain influence relationships between artists with specific evidence — quotes, albums, sonic elements. Be concise but detailed.",
+            },
+            { role: "user", content: prompt },
+          ],
+          max_tokens: 1000,
+          temperature: 0.2,
+          web_search_options: {
+            search_context_size: "high",
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        return toolResult({
+          error: `Perplexity API error: ${res.status}`,
+          detail,
+        });
+      }
+
+      const data = await res.json();
+      const rawContent = data.choices?.[0]?.message?.content ?? "";
+      // Strip inline citation markers [1], [2] — actual URLs come from search_results
+      const content = rawContent.replace(/\[\d+\]/g, "").replace(/\s{2,}/g, " ").trim();
+
+      // CRITICAL: Use search_results for verified URLs, NOT URLs from generated text
+      const searchResults: Array<{
+        title: string;
+        url: string;
+        snippet: string;
+        date?: string;
+      }> = (data.search_results ?? []).map((sr: { title?: string; url?: string; snippet?: string; date?: string }) => ({
+        name: sr.title ?? "Source",
+        url: sr.url ?? "",
+        snippet: sr.snippet ?? "",
+        date: sr.date,
+      }));
+
+      const citationUrls: string[] = data.citations ?? [];
+
+      const sources = searchResults.length > 0
+        ? searchResults
+        : citationUrls.map((url, i) => ({
+            name: `Source ${i + 1}`,
+            url,
+            snippet: "",
+          }));
+
+      return toolResult({
+        fromArtist,
+        toArtist,
+        context: content,
+        sources,
+      });
+    } catch (err) {
+      return toolResult({
+        error: err instanceof Error ? err.message : "Influence research failed",
+        fromArtist,
+        toArtist,
       });
     }
   };
@@ -104,6 +216,16 @@ export function createPrepResearchTools(
           .describe("Radio station name (e.g. HYFIN, 88Nine, Rhythm Lab) for local context"),
       },
       handler: researchTrackHandler,
+    },
+    {
+      name: "research_influence",
+      description:
+        "Research the musical influence relationship between two artists using Perplexity Sonar Pro. Returns a deep context paragraph with verified source URLs, interview quotes, sonic elements, and key works. Use this to enrich influence chain connections with storytelling. Citations come from Perplexity's search infrastructure and are guaranteed real URLs.",
+      inputSchema: {
+        fromArtist: z.string().describe("The influencing artist (e.g. 'Parliament-Funkadelic')"),
+        toArtist: z.string().describe("The influenced artist (e.g. 'Flying Lotus')"),
+      },
+      handler: researchInfluenceHandler,
     },
   ];
 }
