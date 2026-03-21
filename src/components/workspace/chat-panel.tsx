@@ -278,9 +278,37 @@ function ChatMessages() {
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4">
       {messages.length === 0 && (
-        <p className="text-zinc-500">
-          Ask about any artist, track, sample, or genre...
-        </p>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <h2 className="mb-2 text-lg font-medium text-zinc-300">What do you want to explore?</h2>
+          <p className="mb-6 text-sm text-zinc-500">Ask about any artist, track, sample, or genre</p>
+          <div className="flex flex-wrap justify-center gap-2 max-w-md">
+            {[
+              "Who influenced Flying Lotus?",
+              "What\u2019s the story behind Donuts?",
+              "Map the LA beat scene",
+              "/influence Erykah Badu",
+              "Show me an artist card for MF DOOM",
+              "/news hyfin",
+            ].map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => {
+                  const input = document.querySelector<HTMLTextAreaElement>("textarea");
+                  if (input) {
+                    const nativeSet = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+                    nativeSet?.call(input, suggestion);
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                    input.focus();
+                  }
+                }}
+                className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {messages.map((m) => (
