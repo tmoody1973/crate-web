@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Check, X } from "lucide-react";
 import { SectionDivider } from "./section-divider";
