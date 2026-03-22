@@ -24,6 +24,7 @@ import {
   SpotifyPlaylists,
   SpotifyPlaylist,
   SlackMessage,
+  SlackChannelPicker,
 } from "./components";
 
 export const crateLibrary = createLibrary({
@@ -52,14 +53,16 @@ export const crateLibrary = createLibrary({
     SpotifyPlaylists,
     SpotifyPlaylist,
     SlackMessage,
+    SlackChannelPicker,
   ],
   componentGroups: [
     {
       name: "Connected Services",
-      components: ["SpotifyPlaylists", "SpotifyPlaylist", "SlackMessage"],
+      components: ["SpotifyPlaylists", "SpotifyPlaylist", "SlackMessage", "SlackChannelPicker"],
       notes: [
         "ALWAYS use SpotifyPlaylists when read_spotify_library returns type=playlists. Pass the playlists array as JSON.",
         "ALWAYS use SpotifyPlaylist when read_playlist_tracks returns tracks for a single playlist. Pass the tracks array as JSON.",
+        "ALWAYS use SlackChannelPicker when the user says 'send to Slack' — call list_slack_channels first, then render the picker. Never ask the user to type a channel name.",
         "Use SlackMessage to preview what will be sent to Slack before calling send_to_slack.",
         "SlackMessage sections: [{type:'header',content:'...'}, {type:'text',content:'...'}, {type:'bullets',items:['a','b']}, {type:'divider'}, {type:'quote',content:'...'}]",
       ],

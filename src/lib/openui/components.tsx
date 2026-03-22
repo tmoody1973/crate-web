@@ -2241,3 +2241,84 @@ export const SlackMessage = defineComponent({
     );
   },
 });
+
+export const SlackChannelPicker = defineComponent({
+  name: "SlackChannelPicker",
+  description:
+    "Show available Slack channels as clickable buttons so the user can pick where to send. Use after list_slack_channels returns results. When user clicks a channel, it injects a send command into the chat.",
+  props: z.object({
+    channels: z.preprocess(jsonPreprocess, z.array(z.object({
+      name: z.string(),
+      id: z.string(),
+      members: z.number().optional(),
+      purpose: z.string().optional(),
+    }))).describe("Array of channel objects from list_slack_channels"),
+    messageTitle: z.string().optional().describe("Title of the message being sent (for context)"),
+  }),
+  component: ({ props }) => {
+    const channels = ensureArray<{
+      name: string;
+      id: string;
+      members?: number;
+      purpose?: string;
+    }>(props.channels);
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-3 bg-zinc-800/50">
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-[#E01E5A]">
+            <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.52-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.52V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.124a2.528 2.528 0 0 1 2.523 2.52A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.52h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
+          </svg>
+          <div>
+            <p className="text-sm font-medium text-white">Send to Slack</p>
+            {props.messageTitle && (
+              <p className="text-xs text-zinc-500 truncate max-w-xs">{props.messageTitle}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Channel grid */}
+        <div className="p-3">
+          <p className="text-xs text-zinc-500 mb-2">Pick a channel or person:</p>
+          <div className="flex flex-wrap gap-2">
+            {channels.map((ch, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  const msg = props.messageTitle
+                    ? `Send the "${props.messageTitle}" to ${ch.name} on Slack`
+                    : `Send the last research results to ${ch.name} on Slack`;
+                  injectChatMessage(msg);
+                }}
+                className="group flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 hover:border-[#E01E5A]/50 hover:bg-zinc-800/80 transition-colors"
+              >
+                <span className="text-sm text-zinc-400 group-hover:text-white">{ch.name}</span>
+                {ch.members != null && (
+                  <span className="text-[10px] text-zinc-600">{ch.members}</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* DM option */}
+          <div className="mt-3 pt-3 border-t border-zinc-800">
+            <p className="text-xs text-zinc-500 mb-2">Or send a DM:</p>
+            <button
+              onClick={() => {
+                const msg = props.messageTitle
+                  ? `Send the "${props.messageTitle}" as a DM to @`
+                  : `Send the last results as a DM to @`;
+                injectChatMessage(msg);
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 hover:border-purple-500/50 transition-colors"
+            >
+              <span className="text-sm text-zinc-400">@username</span>
+              <span className="text-[10px] text-zinc-600">Direct message</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  },
+});
