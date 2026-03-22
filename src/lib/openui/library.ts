@@ -21,6 +21,7 @@ import {
   InfluenceChain,
   InfluenceCard,
   InfluencePathTrace,
+  SpotifyPlaylists,
   SpotifyPlaylist,
   SlackMessage,
 } from "./components";
@@ -48,15 +49,17 @@ export const crateLibrary = createLibrary({
     InfluenceChain,
     InfluenceCard,
     InfluencePathTrace,
+    SpotifyPlaylists,
     SpotifyPlaylist,
     SlackMessage,
   ],
   componentGroups: [
     {
       name: "Connected Services",
-      components: ["SpotifyPlaylist", "SlackMessage"],
+      components: ["SpotifyPlaylists", "SpotifyPlaylist", "SlackMessage"],
       notes: [
-        "Use SpotifyPlaylist when displaying the user's Spotify playlist data from read_playlist_tracks.",
+        "ALWAYS use SpotifyPlaylists when read_spotify_library returns type=playlists. Pass the playlists array as JSON.",
+        "ALWAYS use SpotifyPlaylist when read_playlist_tracks returns tracks for a single playlist. Pass the tracks array as JSON.",
         "Use SlackMessage to preview what will be sent to Slack before calling send_to_slack.",
         "SlackMessage sections: [{type:'header',content:'...'}, {type:'text',content:'...'}, {type:'bullets',items:['a','b']}, {type:'divider'}, {type:'quote',content:'...'}]",
       ],
@@ -140,6 +143,7 @@ s2 = SampleConnection("Amen, Brother", "The Winstons", "Girl/Boy Song", "Aphex T
 t1 = TrackItem("So What", "Miles Davis", "Kind of Blue", "1959")
 t2 = TrackItem("A Love Supreme Pt. 1", "John Coltrane", "A Love Supreme", "1965")
 t3 = TrackItem("Maiden Voyage", "Herbie Hancock", "Maiden Voyage", "1965")`,
+    `root = SpotifyPlaylists(32, "[{\\"name\\":\\"HYFIN tracks\\",\\"trackCount\\":272,\\"playlistId\\":\\"3cEYpjA9oz9GiPac4AsH4n\\"},{\\"name\\":\\"Soulection Radio\\",\\"trackCount\\":688,\\"playlistId\\":\\"5Rrf7mqN8uus2AaQQQNdc1\\"}]")`,
     `root = SlackMessage("#hyfin-evening", "Show Prep: Khruangbin → Little Simz", "[{\\"type\\":\\"header\\",\\"content\\":\\"Tonight's Set Flow\\"},{\\"type\\":\\"text\\",\\"content\\":\\"From Texas barn funk to London grime — here's the thread connecting tonight's set.\\"},{\\"type\\":\\"bullets\\",\\"items\\":[\\"Khruangbin — Time (You and I)\\",\\"Little Simz — Gorilla\\",\\"Noname — Song 31\\"]},{\\"type\\":\\"divider\\"},{\\"type\\":\\"quote\\",\\"content\\":\\"Thai funk cassettes > Texas barn > London independence > Chicago poetry\\"}]", "sent", "https://slack.com/archives/C123/p456")`,
     `root = SpotifyPlaylist("HYFIN Evening Set", 45, "3cEYpjA9oz9GiPac4AsH4n", "https://open.spotify.com/playlist/3cEYpjA9oz9GiPac4AsH4n", "[{\\"position\\":1,\\"name\\":\\"Time (You and I)\\",\\"artist\\":\\"Khruangbin\\",\\"album\\":\\"Con Todo El Mundo\\",\\"year\\":\\"2018\\",\\"durationSec\\":234},{\\"position\\":2,\\"name\\":\\"Gorilla\\",\\"artist\\":\\"Little Simz\\",\\"album\\":\\"Sometimes I Might Be Introvert\\",\\"year\\":\\"2021\\",\\"durationSec\\":198}]")`,
     `root = ShowPrepPackage("HYFIN", "Thursday", "Tarik", "evening", [tc1], [tb1], [sp1], [], [ev1])

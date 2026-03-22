@@ -1906,6 +1906,84 @@ export const InfluencePathTrace = defineComponent({
 
 // ── Spotify Connected Components ────────────────────────────────
 
+function injectChatMessage(msg: string) {
+  const input = document.querySelector<HTMLTextAreaElement>("textarea");
+  if (input) {
+    const nativeSet = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    nativeSet?.call(input, msg);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.focus();
+  }
+}
+
+export const SpotifyPlaylists = defineComponent({
+  name: "SpotifyPlaylists",
+  description:
+    "Display the user's Spotify playlists with explore buttons. Use when read_spotify_library returns type=playlists. Each playlist has buttons to view tracks, deep dive, or export.",
+  props: z.object({
+    totalCount: z.number().describe("Total number of playlists"),
+    playlists: z.preprocess(jsonPreprocess, z.array(z.object({
+      name: z.string(),
+      trackCount: z.number(),
+      playlistId: z.string(),
+    }))).describe("Array of playlist objects from read_spotify_library"),
+  }),
+  component: ({ props }) => {
+    const playlists = ensureArray<{
+      name: string;
+      trackCount: number;
+      playlistId: string;
+    }>(props.playlists);
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-green-900/40 to-zinc-900 p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/20">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-green-400">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">Your Spotify Library</h3>
+              <p className="text-sm text-zinc-400">{props.totalCount} playlists</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Playlist list */}
+        <div className="divide-y divide-zinc-800">
+          {playlists.map((pl, i) => (
+            <div key={i} className="flex items-center justify-between px-4 py-3 hover:bg-zinc-800/30 transition-colors">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-white truncate">{pl.name}</p>
+                <p className="text-xs text-zinc-500">{pl.trackCount} tracks</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-3">
+                <button
+                  onClick={() => injectChatMessage(`Show me the tracks in "${pl.name}"`)}
+                  className="rounded-md border border-cyan-800 bg-cyan-900/30 px-2.5 py-1 text-[11px] text-cyan-400 hover:bg-cyan-900/50 transition-colors"
+                >
+                  Explore
+                </button>
+                <a
+                  href={`https://open.spotify.com/playlist/${pl.playlistId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-md border border-zinc-700 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 transition-colors"
+                >
+                  Open
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  },
+});
+
 export const SpotifyPlaylist = defineComponent({
   name: "SpotifyPlaylist",
   description:
@@ -2018,13 +2096,7 @@ export const SpotifyPlaylist = defineComponent({
           <button
             onClick={() => {
               const msg = `Deep dive into the artists on "${props.name}" — research the top artists, find connections, samples, and influence chains between them`;
-              const input = document.querySelector<HTMLTextAreaElement>("textarea");
-              if (input) {
-                const nativeSet = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-                nativeSet?.call(input, msg);
-                input.dispatchEvent(new Event("input", { bubbles: true }));
-                input.focus();
-              }
+              injectChatMessage(msg);
             }}
             className="rounded-md border border-cyan-800 bg-cyan-900/30 px-3 py-1.5 text-xs text-cyan-400 hover:bg-cyan-900/50 hover:border-cyan-600 transition-colors"
           >
@@ -2034,13 +2106,7 @@ export const SpotifyPlaylist = defineComponent({
             onClick={() => {
               const artistList = uniqueArtists.slice(0, 10).join(", ");
               const msg = `/influence ${uniqueArtists[0] ?? props.name} — map the influence chain for this playlist featuring ${artistList}`;
-              const input = document.querySelector<HTMLTextAreaElement>("textarea");
-              if (input) {
-                const nativeSet = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-                nativeSet?.call(input, msg);
-                input.dispatchEvent(new Event("input", { bubbles: true }));
-                input.focus();
-              }
+              injectChatMessage(msg);
             }}
             className="rounded-md border border-amber-800 bg-amber-900/30 px-3 py-1.5 text-xs text-amber-400 hover:bg-amber-900/50 hover:border-amber-600 transition-colors"
           >
@@ -2049,13 +2115,7 @@ export const SpotifyPlaylist = defineComponent({
           <button
             onClick={() => {
               const msg = `Send the "${props.name}" playlist summary to Slack with the track list and top artists`;
-              const input = document.querySelector<HTMLTextAreaElement>("textarea");
-              if (input) {
-                const nativeSet = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-                nativeSet?.call(input, msg);
-                input.dispatchEvent(new Event("input", { bubbles: true }));
-                input.focus();
-              }
+              injectChatMessage(msg);
             }}
             className="rounded-md border border-purple-800 bg-purple-900/30 px-3 py-1.5 text-xs text-purple-400 hover:bg-purple-900/50 hover:border-purple-600 transition-colors"
           >
