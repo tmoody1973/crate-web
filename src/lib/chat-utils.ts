@@ -45,9 +45,12 @@ export function preprocessSlashCommand(message: string): string {
           ].join("\n")
         : "";
 
+      const today = new Date().toISOString().slice(0, 10); // e.g. 2026-03-22
+
       return [
-        `Generate a Radio Milwaukee daily music news segment for ${day}.`,
-        `Find ${count} current music stories from TODAY or the past 24-48 hours.`,
+        `Generate a Radio Milwaukee daily music news segment for ${day}, ${today}.`,
+        `Today's date is ${today}. Find ${count} current music stories from TODAY or the past 24-48 hours.`,
+        `IMPORTANT: Reject any results older than 3 days. If a search returns articles from months or years ago, discard them and search again with more specific date filters.`,
         ``,
         `RESEARCH STEPS:`,
         `1. Use search_music_news to scan RSS feeds for breaking stories`,
