@@ -85,7 +85,8 @@ export function createSpotifyConnectedTools(auth0UserId?: string): CrateToolDef[
         playlists: data.items.map((p: { name: string; tracks: { total: number }; id: string }) => ({
           name: p.name,
           trackCount: p.tracks.total,
-          id: p.id,
+          playlistId: p.id,
+          spotifyUrl: `https://open.spotify.com/playlist/${p.id}`,
         })),
       });
     } catch (err) {
@@ -186,7 +187,7 @@ export function createSpotifyConnectedTools(auth0UserId?: string): CrateToolDef[
     {
       name: "read_spotify_library",
       description:
-        "Read the user's Spotify library — saved tracks, top artists, or playlists. Requires the user to have connected their Spotify account via Settings. Use this to personalize research based on what the user already listens to.",
+        "Read the user's Spotify library — saved tracks, top artists, or playlists. When type=playlists, returns playlistId for each playlist — pass that to read_playlist_tracks to get the actual songs.",
       inputSchema: {
         type: z.enum(["saved_tracks", "top_artists", "playlists"]).describe("What to read from the library"),
         limit: z.number().optional().describe("Number of items to return (default 20, max 50)"),
@@ -196,7 +197,7 @@ export function createSpotifyConnectedTools(auth0UserId?: string): CrateToolDef[
     {
       name: "read_playlist_tracks",
       description:
-        "Read the tracks from a specific Spotify playlist by playlist ID. Returns track names, artists, albums, and duration. Use after read_spotify_library to get the playlist ID.",
+        "Read tracks from a Spotify playlist. Pass the playlistId returned by read_spotify_library (type=playlists). Automatically chains: read_spotify_library → get playlistId → read_playlist_tracks. Never ask the user for a playlist ID.",
       inputSchema: {
         playlistId: z.string().describe("Spotify playlist ID (from read_spotify_library results)"),
         limit: z.number().optional().describe("Number of tracks to return (default 50, max 100)"),
