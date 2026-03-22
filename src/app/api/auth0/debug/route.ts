@@ -12,9 +12,10 @@ export async function GET(req: Request) {
     .split(";")
     .find((c) => c.trim().startsWith("auth0_connected="));
 
-  const auth0UserId = auth0UserIdCookie
+  const auth0UserIdRaw = auth0UserIdCookie
     ? auth0UserIdCookie.split("=").slice(1).join("=").trim()
     : null;
+  const auth0UserId = auth0UserIdRaw ? decodeURIComponent(auth0UserIdRaw) : null;
   const auth0Connected = auth0ConnectedCookie
     ? auth0ConnectedCookie.split("=").slice(1).join("=").trim()
     : null;
