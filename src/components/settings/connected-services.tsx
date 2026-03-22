@@ -110,6 +110,10 @@ export function ConnectedServices() {
 
   const handleConnect = (serviceId: string) => {
     setConnecting(serviceId);
+    // Store current URL so we can return here after OAuth (instead of creating a new session)
+    try {
+      localStorage.setItem("auth0_return_url", window.location.pathname);
+    } catch { /* ignore */ }
     window.location.href = `/api/auth0/connect?service=${serviceId}`;
   };
 

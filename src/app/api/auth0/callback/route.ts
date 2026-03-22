@@ -51,7 +51,7 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/w?auth0_error=invalid_signature", url.origin));
   }
 
-  let state: { service: string; clerkId: string; nonce: string };
+  let state: { service: string; clerkId: string; nonce: string; returnTo?: string };
   try {
     state = JSON.parse(statePayload);
   } catch {
@@ -85,7 +85,7 @@ export async function GET(req: Request) {
     if (!tokenRes.ok) {
       const detail = await tokenRes.text().catch(() => "");
       console.error("[auth0/callback] Token exchange failed:", detail);
-      return NextResponse.redirect(new URL(`/w?auth0_error=token_exchange&service=${state.service}`, url.origin));
+      return NextResponse.redirect(new URL(`${state.returnTo || "/w"}?auth0_error=token_exchange&service=${state.service}`, url.origin));
     }
 
     // Extract Auth0 user ID from token response
@@ -128,7 +128,8 @@ export async function GET(req: Request) {
     if (!existing.includes(state.service)) existing.push(state.service);
     const connectedValue = existing.filter(Boolean).join(",");
 
-    const response = NextResponse.redirect(new URL(`/w?auth0_connected=${state.service}`, url.origin));
+    const returnPath = state.returnTo || "/w";
+    const response = NextResponse.redirect(new URL(`${returnPath}?auth0_connected=${state.service}`, url.origin));
     response.cookies.set("auth0_connected", connectedValue, {
       path: "/",
       maxAge: 365 * 24 * 60 * 60, // 1 year

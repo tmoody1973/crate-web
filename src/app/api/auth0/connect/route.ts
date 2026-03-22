@@ -21,8 +21,12 @@ export async function GET(req: Request) {
   const crypto = await import("crypto");
   const nonce = crypto.randomBytes(16).toString("hex");
 
-  // Store service + clerkId keyed by nonce in a short-lived signed cookie
-  const statePayload = JSON.stringify({ service, clerkId, nonce });
+  // Capture return URL so we don't create a new session on callback
+  const referer = req.headers.get("referer");
+  const returnTo = referer ? new URL(referer).pathname : "/w";
+
+  // Store service + clerkId + returnTo keyed by nonce in a short-lived signed cookie
+  const statePayload = JSON.stringify({ service, clerkId, nonce, returnTo });
   const encoder = new TextEncoder();
   const key = await globalThis.crypto.subtle.importKey(
     "raw",
