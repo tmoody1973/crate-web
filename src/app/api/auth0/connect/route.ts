@@ -45,11 +45,12 @@ export async function GET(req: Request) {
   authUrl.searchParams.set("connection", config.connection);
   authUrl.searchParams.set("state", nonce); // Only nonce in URL, not user data
 
-  const response = Response.redirect(authUrl.toString());
-  // Store signed state in httpOnly cookie (expires in 10 minutes)
-  response.headers.set(
-    "Set-Cookie",
-    `auth0_state=${signedState}; HttpOnly; Secure; SameSite=Lax; Path=/api/auth0; Max-Age=600`,
-  );
-  return response;
+  // Response.redirect() creates an immutable response, so build manually
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: authUrl.toString(),
+      "Set-Cookie": `auth0_state=${signedState}; HttpOnly; Secure; SameSite=Lax; Path=/api/auth0; Max-Age=600`,
+    },
+  });
 }
