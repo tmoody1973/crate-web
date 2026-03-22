@@ -13,12 +13,12 @@ function toolResult(data: unknown) {
   };
 }
 
-export function createGoogleDocsTools(): CrateToolDef[] {
+export function createGoogleDocsTools(auth0UserId?: string): CrateToolDef[] {
   const saveToGoogleDocHandler = async (args: {
     title: string;
     content: string;
   }) => {
-    const token = await getTokenVaultToken("google");
+    const token = await getTokenVaultToken("google", auth0UserId);
     if (!token) {
       return toolResult({
         error: "Google not connected. Ask the user to connect Google in Settings.",

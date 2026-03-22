@@ -13,13 +13,13 @@ function toolResult(data: unknown) {
   };
 }
 
-export function createSlackTools(): CrateToolDef[] {
+export function createSlackTools(auth0UserId?: string): CrateToolDef[] {
   const sendToSlackHandler = async (args: {
     channel: string;
     content: string;
     title?: string;
   }) => {
-    const token = await getTokenVaultToken("slack");
+    const token = await getTokenVaultToken("slack", auth0UserId);
     if (!token) {
       return toolResult({
         error: "Slack not connected. Ask the user to connect Slack in Settings.",

@@ -13,12 +13,12 @@ function toolResult(data: unknown) {
   };
 }
 
-export function createSpotifyConnectedTools(): CrateToolDef[] {
+export function createSpotifyConnectedTools(auth0UserId?: string): CrateToolDef[] {
   const readLibraryHandler = async (args: {
     type: string;
     limit?: number;
   }) => {
-    const token = await getTokenVaultToken("spotify");
+    const token = await getTokenVaultToken("spotify", auth0UserId);
     if (!token) {
       return toolResult({
         error: "Spotify not connected. Ask the user to connect Spotify in Settings.",
@@ -98,7 +98,7 @@ export function createSpotifyConnectedTools(): CrateToolDef[] {
     description: string;
     trackQueries: string[];
   }) => {
-    const token = await getTokenVaultToken("spotify");
+    const token = await getTokenVaultToken("spotify", auth0UserId);
     if (!token) {
       return toolResult({
         error: "Spotify not connected. Ask the user to connect Spotify in Settings.",

@@ -1,7 +1,7 @@
 /**
  * Auth0 Token Vault client for Crate.
  * Provides OAuth tokens for connected services (Spotify, Slack, Google).
- * Tokens are managed by Auth0 — Crate never stores raw OAuth credentials.
+ * Uses Auth0 Management API to retrieve IdP access tokens from user identities.
  */
 
 type TokenVaultService = "spotify" | "slack" | "google";
@@ -30,12 +30,57 @@ const SERVICE_CONFIG: Record<TokenVaultService, { connection: string; scopes: st
   },
 };
 
+// Cache Management API token (expires every 24h, we refresh every 23h)
+let mgmtTokenCache: { token: string; expiresAt: number } | null = null;
+
 /**
- * Exchange a user's Auth0 access token for a third-party service token via Token Vault.
- * Returns the OAuth token for the requested service, or null if not connected.
+ * Get a Management API access token using client_credentials grant.
+ */
+async function getManagementToken(): Promise<string | null> {
+  if (mgmtTokenCache && Date.now() < mgmtTokenCache.expiresAt) {
+    return mgmtTokenCache.token;
+  }
+
+  const domain = process.env.AUTH0_DOMAIN;
+  const clientId = process.env.AUTH0_CLIENT_ID;
+  const clientSecret = process.env.AUTH0_CLIENT_SECRET;
+
+  try {
+    const res = await fetch(`https://${domain}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "client_credentials",
+        client_id: clientId,
+        client_secret: clientSecret,
+        audience: `https://${domain}/api/v2/`,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("[token-vault] Failed to get management token:", await res.text().catch(() => ""));
+      return null;
+    }
+
+    const data = await res.json();
+    mgmtTokenCache = {
+      token: data.access_token,
+      expiresAt: Date.now() + (data.expires_in - 3600) * 1000, // refresh 1h early
+    };
+    return data.access_token;
+  } catch (err) {
+    console.error("[token-vault] Management token error:", err);
+    return null;
+  }
+}
+
+/**
+ * Get a user's IdP access token via the Auth0 Management API.
+ * Looks up the user's identities array for the matching connection.
  */
 export async function getTokenVaultToken(
   service: TokenVaultService,
+  auth0UserId?: string,
 ): Promise<string | null> {
   const config = SERVICE_CONFIG[service];
   if (!config) return null;
@@ -49,9 +94,39 @@ export async function getTokenVaultToken(
     return null;
   }
 
-  try {
-    console.warn(`[token-vault] Token Vault exchange not yet implemented for ${service}. Returning null.`);
+  if (!auth0UserId) {
+    console.warn("[token-vault] No Auth0 user ID provided");
     return null;
+  }
+
+  try {
+    const mgmtToken = await getManagementToken();
+    if (!mgmtToken) return null;
+
+    const res = await fetch(
+      `https://${domain}/api/v2/users/${encodeURIComponent(auth0UserId)}?fields=identities&include_fields=true`,
+      {
+        headers: { Authorization: `Bearer ${mgmtToken}` },
+      },
+    );
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.error(`[token-vault] Failed to get user identities: ${res.status}`, detail);
+      return null;
+    }
+
+    const user = await res.json();
+    const identity = (user.identities ?? []).find(
+      (id: { connection: string }) => id.connection === config.connection,
+    );
+
+    if (!identity?.access_token) {
+      console.warn(`[token-vault] No ${service} token found in user identities`);
+      return null;
+    }
+
+    return identity.access_token;
   } catch (err) {
     console.error(`[token-vault] Failed to get ${service} token:`, err);
     return null;

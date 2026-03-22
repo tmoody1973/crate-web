@@ -88,8 +88,35 @@ export async function GET(req: Request) {
       return NextResponse.redirect(new URL(`/w?auth0_error=token_exchange&service=${state.service}`, url.origin));
     }
 
-    // Token is now stored in Auth0's Token Vault — we don't store it ourselves
-    // The connection is now active for this user
+    // Extract Auth0 user ID from token response
+    const tokenData = await tokenRes.json();
+    let auth0UserId = "";
+
+    // Decode the id_token to get the Auth0 user ID (sub claim)
+    if (tokenData.id_token) {
+      try {
+        const payload = tokenData.id_token.split(".")[1];
+        const decoded = JSON.parse(Buffer.from(payload, "base64").toString());
+        auth0UserId = decoded.sub || "";
+      } catch {
+        console.warn("[auth0/callback] Failed to decode id_token");
+      }
+    }
+
+    // Fallback: use access_token to call /userinfo
+    if (!auth0UserId && tokenData.access_token) {
+      try {
+        const userinfoRes = await fetch(`https://${domain}/userinfo`, {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        if (userinfoRes.ok) {
+          const userinfo = await userinfoRes.json();
+          auth0UserId = userinfo.sub || "";
+        }
+      } catch {
+        console.warn("[auth0/callback] Failed to get userinfo");
+      }
+    }
 
     // Track connected services in a persistent cookie
     const existingCookie = (req.headers.get("cookie") ?? "")
@@ -108,6 +135,15 @@ export async function GET(req: Request) {
       sameSite: "lax",
       secure: true,
     });
+    if (auth0UserId) {
+      response.cookies.set("auth0_user_id", auth0UserId, {
+        path: "/",
+        maxAge: 365 * 24 * 60 * 60,
+        sameSite: "lax",
+        secure: true,
+        httpOnly: true,
+      });
+    }
     return response;
   } catch (err) {
     console.error("[auth0/callback] Error:", err);

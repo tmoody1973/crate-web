@@ -187,6 +187,7 @@ async function streamAgenticResponse(
   hasMemory?: boolean,
   hasInfluenceWrite?: boolean,
   maxSkills?: number,
+  auth0UserId?: string,
 ): Promise<Response> {
   const encoder = new TextEncoder();
 
@@ -281,13 +282,13 @@ async function streamAgenticResponse(
 
         // Auth0 Token Vault-powered tools (Spotify, Slack, Google Docs)
         const webSpotifyConnectedTools = isTokenVaultConfigured()
-          ? createSpotifyConnectedTools()
+          ? createSpotifyConnectedTools(auth0UserId)
           : [];
         const webSlackTools = isTokenVaultConfigured()
-          ? createSlackTools()
+          ? createSlackTools(auth0UserId)
           : [];
         const webGoogleDocsTools = isTokenVaultConfigured()
-          ? createGoogleDocsTools()
+          ? createGoogleDocsTools(auth0UserId)
           : [];
 
         // Filter out crate-cli groups that use SQLite or mpv, inject web versions
@@ -680,11 +681,17 @@ export async function POST(req: Request) {
   // Agent-tier: full agentic loop with tools
   // Merge user keys + embedded keys for tool access
   const allEnvKeys = { ...embeddedKeys, ...userEnvKeys };
+  // Read Auth0 user ID from cookie (set during OAuth callback)
+  const cookieHeader = req.headers.get("cookie") ?? "";
+  const auth0Cookie = cookieHeader.split(";").find((c) => c.trim().startsWith("auth0_user_id="));
+  const auth0UserId = auth0Cookie ? auth0Cookie.split("=").slice(1).join("=").trim() : undefined;
+
   return streamAgenticResponse(
     message, apiKey, modelId, allEnvKeys, resolved.user._id, clerkId,
     useOpenRouter, isResearchCommand, history,
     adminBypass || limits.hasMemory,
     adminBypass || limits.hasInfluenceCache,
     adminBypass ? 999 : limits.maxCustomSkills,
+    auth0UserId,
   );
 }
