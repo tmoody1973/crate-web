@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { UserButton } from "@clerk/nextjs";
 import { SettingsDrawer } from "@/components/settings/settings-drawer";
+import { FeedbackButton } from "@/components/feedback/canny-widget";
 import { useSidebar } from "./sidebar";
 
 export function SidebarFooter() {
@@ -28,6 +29,7 @@ export function SidebarFooter() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17h.01" />
               </svg>
             </a>
+            <FeedbackButton className="rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white" />
             <button
               onClick={() => setIsSettingsOpen(true)}
               className="rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
