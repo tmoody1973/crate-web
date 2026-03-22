@@ -32,37 +32,84 @@ const SERVICES = [
   },
 ];
 
+const STORAGE_KEY = "auth0_connected_services";
+
+function getStoredConnections(): Record<string, boolean> {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function storeConnection(service: string) {
+  try {
+    const current = getStoredConnections();
+    current[service] = true;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+  } catch {
+    // localStorage unavailable
+  }
+}
+
 export function ConnectedServices() {
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/auth0/status")
-      .then((r) => r.json())
-      .then(setStatus)
-      .catch(() => {});
-  }, []);
+    // Load connection status from localStorage
+    const stored = getStoredConnections();
+    setStatus({
+      configured: true,
+      connections: {
+        spotify: stored.spotify ?? false,
+        slack: stored.slack ?? false,
+        google: stored.google ?? false,
+      },
+    });
 
-  // Check for callback params (connected or error)
-  useEffect(() => {
+    // Check for callback params (connected or error)
     const params = new URLSearchParams(window.location.search);
     const connected = params.get("auth0_connected");
-    if (connected) {
-      // Refresh status after connection
-      fetch("/api/auth0/status")
-        .then((r) => r.json())
-        .then(setStatus)
-        .catch(() => {});
+    if (connected && (connected === "spotify" || connected === "slack" || connected === "google")) {
+      storeConnection(connected);
+      setStatus((prev) => prev ? {
+        ...prev,
+        connections: { ...prev.connections, [connected]: true },
+      } : prev);
       // Clean URL
       window.history.replaceState({}, "", window.location.pathname);
     }
+  }, []);
+
+  // Also check server-side status
+  useEffect(() => {
+    fetch("/api/auth0/status")
+      .then((r) => r.json())
+      .then((data: ConnectionStatus) => {
+        if (!data.configured) {
+          setStatus(data);
+          return;
+        }
+        // Merge server status with localStorage (either source = connected)
+        const stored = getStoredConnections();
+        setStatus({
+          configured: true,
+          connections: {
+            spotify: data.connections.spotify || stored.spotify || false,
+            slack: data.connections.slack || stored.slack || false,
+            google: data.connections.google || stored.google || false,
+          },
+        });
+      })
+      .catch(() => {});
   }, []);
 
   if (!status?.configured) return null;
 
   const handleConnect = (serviceId: string) => {
     setConnecting(serviceId);
-    // Open Auth0 OAuth flow in current window
     window.location.href = `/api/auth0/connect?service=${serviceId}`;
   };
 
