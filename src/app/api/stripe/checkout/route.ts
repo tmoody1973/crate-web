@@ -20,7 +20,15 @@ export async function POST(req: Request) {
     return Response.json({ error: "Too many requests" }, { status: 429 });
   }
 
-  const { priceId, teamDomain } = await req.json();
+  let priceId: string;
+  let teamDomain: string | undefined;
+  try {
+    const body = await req.json();
+    priceId = body.priceId;
+    teamDomain = body.teamDomain;
+  } catch {
+    return Response.json({ error: "Invalid request body" }, { status: 400 });
+  }
   if (!priceId || typeof priceId !== "string") {
     return Response.json({ error: "priceId is required" }, { status: 400 });
   }
@@ -43,33 +51,38 @@ export async function POST(req: Request) {
     return Response.json({ error: "User not found" }, { status: 404 });
   }
 
-  // Look up or create Stripe customer
-  let stripeCustomerId = user.stripeCustomerId;
-  if (!stripeCustomerId) {
-    const customer = await getStripe().customers.create({
-      email: user.email,
-      metadata: { clerkId, convexUserId: user._id },
+  try {
+    // Look up or create Stripe customer
+    let stripeCustomerId = user.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const customer = await getStripe().customers.create({
+        email: user.email,
+        metadata: { clerkId, convexUserId: user._id },
+      });
+      stripeCustomerId = customer.id;
+      // Save stripeCustomerId to Convex user
+      await convex.mutation(api.users.updateStripeCustomerId, {
+        userId: user._id,
+        stripeCustomerId,
+      });
+    }
+
+    const origin = req.headers.get("origin") || "https://crate.fm";
+    const session = await getStripe().checkout.sessions.create({
+      customer: stripeCustomerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      mode: "subscription",
+      success_url: `${origin}/settings?upgraded=true`,
+      cancel_url: `${origin}/settings`,
+      metadata: {
+        convexUserId: user._id,
+        teamDomain: teamDomain || "",
+      },
     });
-    stripeCustomerId = customer.id;
-    // Save stripeCustomerId to Convex user
-    await convex.mutation(api.users.updateStripeCustomerId, {
-      userId: user._id,
-      stripeCustomerId,
-    });
+
+    return Response.json({ url: session.url });
+  } catch (err) {
+    console.error("[stripe/checkout] Error:", err);
+    return Response.json({ error: "Failed to create checkout session" }, { status: 500 });
   }
-
-  const origin = req.headers.get("origin") || "https://crate.fm";
-  const session = await getStripe().checkout.sessions.create({
-    customer: stripeCustomerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    mode: "subscription",
-    success_url: `${origin}/settings?upgraded=true`,
-    cancel_url: `${origin}/settings`,
-    metadata: {
-      convexUserId: user._id,
-      teamDomain: teamDomain || "",
-    },
-  });
-
-  return Response.json({ url: session.url });
 }

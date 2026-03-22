@@ -31,10 +31,14 @@ export async function POST(req: Request) {
   }
 
   const origin = req.headers.get("origin") || "https://crate.fm";
-  const session = await getStripe().billingPortal.sessions.create({
-    customer: sub.stripeCustomerId,
-    return_url: `${origin}/settings`,
-  });
-
-  return Response.json({ url: session.url });
+  try {
+    const session = await getStripe().billingPortal.sessions.create({
+      customer: sub.stripeCustomerId,
+      return_url: `${origin}/settings`,
+    });
+    return Response.json({ url: session.url });
+  } catch (err) {
+    console.error("[stripe/portal] Error:", err);
+    return Response.json({ error: "Failed to create portal session" }, { status: 500 });
+  }
 }

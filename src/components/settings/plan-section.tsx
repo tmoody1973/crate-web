@@ -12,12 +12,13 @@ interface PlanData {
 
 export function PlanSection() {
   const [data, setData] = useState<PlanData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/subscription/status")
       .then((r) => r.json())
       .then(setData)
-      .catch(() => {});
+      .catch(() => setError("Failed to load plan info"));
   }, []);
 
   if (!data) return null;
@@ -31,7 +32,7 @@ export function PlanSection() {
         <h3 className="text-sm font-semibold uppercase text-zinc-400">Your Plan</h3>
         <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-white">
           {data.plan.charAt(0).toUpperCase() + data.plan.slice(1)}
-          {isPaid && ` (${priceLabel})`}
+          {priceLabel && ` (${priceLabel})`}
         </span>
       </div>
 
@@ -49,9 +50,14 @@ export function PlanSection() {
         {isPaid ? (
           <button
             onClick={async () => {
-              const res = await fetch("/api/stripe/portal", { method: "POST" });
-              const d = await res.json();
-              if (d.url) window.location.href = d.url;
+              try {
+                const res = await fetch("/api/stripe/portal", { method: "POST" });
+                const d = await res.json();
+                if (d.url) window.location.href = d.url;
+                else setError("Failed to open billing portal");
+              } catch {
+                setError("Failed to open billing portal");
+              }
             }}
             className="rounded-md border border-zinc-600 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-400"
           >
@@ -60,15 +66,20 @@ export function PlanSection() {
         ) : (
           <button
             onClick={async () => {
-              const res = await fetch("/api/stripe/checkout", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID,
-                }),
-              });
-              const d = await res.json();
-              if (d.url) window.location.href = d.url;
+              try {
+                const res = await fetch("/api/stripe/checkout", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID,
+                  }),
+                });
+                const d = await res.json();
+                if (d.url) window.location.href = d.url;
+                else setError(d.error || "Failed to start checkout");
+              } catch {
+                setError("Failed to start checkout");
+              }
             }}
             className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-black hover:bg-amber-400"
           >
@@ -76,6 +87,9 @@ export function PlanSection() {
           </button>
         )}
       </div>
+      {error && (
+        <p className="mt-2 text-xs text-red-400">{error}</p>
+      )}
     </div>
   );
 }

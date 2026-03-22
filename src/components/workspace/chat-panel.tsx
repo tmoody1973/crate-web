@@ -1116,13 +1116,18 @@ export function ChatPanel() {
               type={upgradePrompt.type}
               message={upgradePrompt.message}
               onUpgrade={async () => {
-                const res = await fetch("/api/stripe/checkout", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID || "price_pro_monthly" }),
-                });
-                const data = await res.json();
-                if (data.url) window.location.href = data.url;
+                try {
+                  const res = await fetch("/api/stripe/checkout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID || "price_pro_monthly" }),
+                  });
+                  const data = await res.json();
+                  if (data.url) window.location.href = data.url;
+                  else console.error("Stripe checkout failed:", data.error || "No URL returned");
+                } catch (err) {
+                  console.error("Failed to start checkout:", err);
+                }
               }}
               onAddKey={() => {
                 setUpgradePrompt(null);

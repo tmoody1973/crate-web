@@ -32,6 +32,15 @@ export const create = mutation({
     teamDomain: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Prevent duplicate subscriptions
+    const existing = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+    if (existing) {
+      throw new Error("User already has a subscription. Use update instead.");
+    }
+
     const now = Date.now();
     return await ctx.db.insert("subscriptions", {
       ...args,

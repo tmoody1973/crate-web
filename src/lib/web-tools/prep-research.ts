@@ -204,6 +204,10 @@ export function createPrepResearchTools(
         fromArtist,
         toArtist,
         context: content,
+        pullQuote: null,
+        pullQuoteAttribution: null,
+        sonicElements: [],
+        keyWorks: null,
         sources,
       });
     } catch (err) {

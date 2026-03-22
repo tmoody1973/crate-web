@@ -31,12 +31,17 @@ async function getSubPeriod(
       currentPeriodEnd: invoice.period_end * 1000,
     };
   }
-  // Fallback: use billing_cycle_anchor as start, start_date as reference
+  // Fallback: estimate period from billing_cycle_anchor
   const now = Date.now();
   const anchor = stripeSub.billing_cycle_anchor * 1000;
+  const monthMs = 30 * 24 * 60 * 60 * 1000;
+  // Find the most recent period start relative to now
+  const elapsed = now - anchor;
+  const periodsPassed = Math.floor(elapsed / monthMs);
+  const periodStart = anchor + periodsPassed * monthMs;
   return {
-    currentPeriodStart: anchor,
-    currentPeriodEnd: now + 30 * 24 * 60 * 60 * 1000,
+    currentPeriodStart: periodStart,
+    currentPeriodEnd: periodStart + monthMs,
   };
 }
 

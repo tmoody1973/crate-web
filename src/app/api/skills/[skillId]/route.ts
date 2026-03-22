@@ -23,7 +23,12 @@ export async function PATCH(
   const { skillId } = await params;
   const denied = await verifyOwnership(clerkId, skillId);
   if (denied) return denied;
-  const body = await req.json();
+  let body: { promptTemplate?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "Invalid request body" }, { status: 400 });
+  }
   await convex.mutation(api.userSkills.update, {
     skillId: skillId as Id<"userSkills">,
     promptTemplate: body.promptTemplate,

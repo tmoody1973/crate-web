@@ -143,8 +143,13 @@ export const recordRun = mutation({
 });
 
 export const remove = mutation({
-  args: { skillId: v.id("userSkills") },
-  handler: async (ctx, { skillId }) => {
+  args: { skillId: v.id("userSkills"), userId: v.optional(v.id("users")) },
+  handler: async (ctx, { skillId, userId }) => {
+    const skill = await ctx.db.get(skillId);
+    if (!skill) throw new Error("Skill not found");
+    if (userId && skill.userId !== userId) {
+      throw new Error("Not authorized to delete this skill");
+    }
     await ctx.db.delete(skillId);
   },
 });
