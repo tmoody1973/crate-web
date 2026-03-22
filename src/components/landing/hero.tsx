@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import posthog from "posthog-js";
 
 export function Hero() {
   return (
@@ -127,6 +130,7 @@ export function Hero() {
       >
         <Link
           href="/sign-in"
+          onClick={() => posthog.capture("cta_clicked", { location: "hero", label: "START DIGGING" })}
           className="font-[family-name:var(--font-bebas)] px-8 py-3.5 text-[16px] tracking-[2px] border-none transition-all hover:opacity-90 hover:-translate-y-px text-center"
           style={{ backgroundColor: "#E8520E", color: "#F5F0E8" }}
         >

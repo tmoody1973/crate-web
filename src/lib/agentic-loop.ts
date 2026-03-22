@@ -5,8 +5,10 @@
  * Emits CrateEvents (same format as crate-cli) for SSE streaming to the frontend.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-import OpenAI from "openai";
+import { Anthropic, OpenAI } from "@posthog/ai";
+import type { MessageParam, ToolResultBlockParam, Message } from "@anthropic-ai/sdk/resources/messages";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import { getPostHogClient } from "./posthog-server";
 import type { CrateToolDef, HandlerEntry } from "./tool-adapter";
 import {
   buildAnthropicToolkit,
@@ -40,6 +42,10 @@ export interface AgenticLoopOptions {
   toolGroups: Array<{ serverName: string; tools: CrateToolDef[] }>;
   maxTurns?: number;
   signal?: AbortSignal;
+  /** PostHog distinct ID for LLM analytics (Clerk user ID) */
+  posthogDistinctId?: string;
+  /** PostHog trace ID to group all turns in this session */
+  posthogTraceId?: string;
 }
 
 // ── Shared helpers ────────────────────────────────────────────────
@@ -99,12 +105,12 @@ function emitText(text: string): CrateEvent[] {
 async function* anthropicLoop(
   options: AgenticLoopOptions,
 ): AsyncGenerator<CrateEvent> {
-  const { message, history, systemPrompt, model, apiKey, maxTurns = 25, signal } = options;
+  const { message, history, systemPrompt, model, apiKey, maxTurns = 25, signal, posthogDistinctId, posthogTraceId } = options;
 
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({ apiKey, posthog: getPostHogClient() });
   const { tools, handlers } = buildAnthropicToolkit(options.toolGroups);
 
-  const messages: Anthropic.MessageParam[] = [
+  const messages: MessageParam[] = [
     ...(history ?? []).map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
@@ -135,9 +141,11 @@ async function* anthropicLoop(
         system: systemPrompt,
         messages: nudgeMessages,
         tools: tools.length > 0 ? tools : undefined,
+        posthogDistinctId,
+        posthogTraceId,
       },
       { signal },
-    );
+    ) as Message;
 
     // Emit text, collect tool_use blocks
     const toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
@@ -165,7 +173,7 @@ async function* anthropicLoop(
     messages.push({ role: "assistant", content: response.content });
 
     // Execute tools
-    const toolResults: Anthropic.ToolResultBlockParam[] = [];
+    const toolResults: ToolResultBlockParam[] = [];
     for await (const ev of executeTools(handlers, toolCalls)) {
       if ("_toolResult" in ev) {
         toolResults.push({ type: "tool_result", tool_use_id: ev._toolResult.id, content: ev._toolResult.content });
@@ -190,16 +198,17 @@ async function* anthropicLoop(
 async function* openRouterLoop(
   options: AgenticLoopOptions,
 ): AsyncGenerator<CrateEvent> {
-  const { message, history, systemPrompt, model, apiKey, maxTurns = 25, signal } = options;
+  const { message, history, systemPrompt, model, apiKey, maxTurns = 25, signal, posthogDistinctId, posthogTraceId } = options;
 
   const client = new OpenAI({
     apiKey,
     baseURL: "https://openrouter.ai/api/v1",
+    posthog: getPostHogClient(),
   });
 
   const { tools, handlers } = buildOpenAIToolkit(options.toolGroups);
 
-  const messages: OpenAI.ChatCompletionMessageParam[] = [
+  const messages: ChatCompletionMessageParam[] = [
     { role: "system" as const, content: systemPrompt },
     ...(history ?? []).map((m) => ({
       role: m.role as "user" | "assistant",
@@ -230,6 +239,8 @@ async function* openRouterLoop(
         max_tokens: 16384,
         messages: currentMessages,
         tools: tools.length > 0 ? tools : undefined,
+        posthogDistinctId,
+        posthogTraceId,
       },
       { signal },
     );

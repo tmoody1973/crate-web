@@ -2,6 +2,7 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -47,6 +48,19 @@ export async function POST(req: Request) {
       email,
       name,
     });
+
+    if (evt.type === "user.created") {
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: id,
+        event: "user_signed_up",
+        properties: { email, name },
+      });
+      posthog.identify({
+        distinctId: id,
+        properties: { email, name },
+      });
+    }
   }
 
   return new Response("OK", { status: 200 });

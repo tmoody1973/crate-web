@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import posthog from "posthog-js";
 import { ScrollReveal } from "./scroll-reveal";
 
 export function FinalCta() {
@@ -63,6 +66,7 @@ export function FinalCta() {
 
         <Link
           href="/sign-in"
+          onClick={() => posthog.capture("cta_clicked", { location: "final_cta", label: "GET STARTED" })}
           className="inline-block font-[family-name:var(--font-bebas)] text-[20px] max-md:text-[18px] tracking-[2px] px-12 max-md:px-8 py-4 transition-all duration-200 hover:opacity-90 hover:-translate-y-px"
           style={{
             backgroundColor: "#E8520E",

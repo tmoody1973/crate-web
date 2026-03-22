@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 
 interface Service {
   id: string;
@@ -40,6 +41,7 @@ export function KeyEntry({ service, maskedValue, tier, onSaved }: KeyEntryProps)
       }
       setEditing(false);
       setValue("");
+      posthog.capture("api_key_saved", { service: service.id });
       onSaved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");

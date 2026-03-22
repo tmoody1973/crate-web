@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import posthog from "posthog-js";
 
 // --- Types ---
 type Provider = "anthropic" | "openrouter";
@@ -213,6 +214,7 @@ export function QuickStartWizard({
         const result = await verifyRes.json();
         if (result.valid) {
           setVerifyState("verified");
+          posthog.capture("onboarding_api_key_verified", { provider });
           onKeyVerified?.();
         } else {
           setVerifyState("error");
@@ -434,7 +436,7 @@ export function QuickStartWizard({
                     <button
                       key={id}
                       type="button"
-                      onClick={() => setSelectedProvider(id)}
+                      onClick={() => { setSelectedProvider(id); posthog.capture("onboarding_provider_selected", { provider: id }); }}
                       className={`mb-3 w-full rounded-xl border-2 p-5 text-left transition ${
                         isSelected
                           ? "border-[#E8520E] bg-[#E8520E]/5"

@@ -1,6 +1,7 @@
 "use client";
 
 import { usePlayer } from "./player-provider";
+import posthog from "posthog-js";
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -60,7 +61,18 @@ export function PlayerBar() {
             {"\u25C4\u25C4"}
           </button>
           <button
-            onClick={isPlaying ? pause : resume}
+            onClick={() => {
+              if (isPlaying) {
+                pause();
+              } else {
+                resume();
+                posthog.capture("track_played", {
+                  title: currentTrack.title,
+                  artist: currentTrack.artist,
+                  source: currentTrack.source,
+                });
+              }
+            }}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black hover:bg-zinc-200"
           >
             {isPlaying ? "\u275A\u275A" : "\u25B6"}

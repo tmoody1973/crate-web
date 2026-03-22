@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { ArtifactProvider, useArtifact } from "@/components/workspace/artifact-provider";
 import { ChatPanel } from "@/components/workspace/chat-panel";
 import { ArtifactSlideIn } from "@/components/workspace/artifact-slide-in";
+import posthog from "posthog-js";
 
 function ArtifactToggle() {
   const { history, showPanel, openPanel } = useArtifact();
@@ -12,7 +13,7 @@ function ArtifactToggle() {
 
   return (
     <button
-      onClick={openPanel}
+      onClick={() => { openPanel(); posthog.capture("artifact_opened", { artifact_count: history.length }); }}
       className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-3 py-1.5 text-xs text-zinc-400 shadow-lg backdrop-blur transition hover:border-zinc-600 hover:text-white"
     >
       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
