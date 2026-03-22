@@ -194,6 +194,58 @@ export function createSpotifyConnectedTools(auth0UserId?: string): CrateToolDef[
       handler: readLibraryHandler,
     },
     {
+      name: "read_playlist_tracks",
+      description:
+        "Read the tracks from a specific Spotify playlist by playlist ID. Returns track names, artists, albums, and duration. Use after read_spotify_library to get the playlist ID.",
+      inputSchema: {
+        playlistId: z.string().describe("Spotify playlist ID (from read_spotify_library results)"),
+        limit: z.number().optional().describe("Number of tracks to return (default 50, max 100)"),
+        offset: z.number().optional().describe("Offset for pagination (default 0)"),
+      },
+      handler: async (args: { playlistId: string; limit?: number; offset?: number }) => {
+        const token = await getTokenVaultToken("spotify", auth0UserId);
+        if (!token) {
+          return toolResult({
+            error: "Spotify not connected. Ask the user to connect Spotify in Settings.",
+            action: "connect_spotify",
+          });
+        }
+
+        const limit = Math.min(args.limit ?? 50, 100);
+        const offset = args.offset ?? 0;
+
+        try {
+          const res = await fetch(
+            `https://api.spotify.com/v1/playlists/${args.playlistId}/tracks?limit=${limit}&offset=${offset}&fields=total,items(track(name,artists(name),album(name,release_date),duration_ms,uri))`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+
+          if (!res.ok) {
+            const detail = await res.text().catch(() => "");
+            return toolResult({ error: `Spotify API error: ${res.status}`, detail });
+          }
+
+          const data = await res.json();
+          return toolResult({
+            playlistId: args.playlistId,
+            total: data.total,
+            offset,
+            returned: data.items?.length ?? 0,
+            tracks: (data.items ?? []).map((item: { track: { name: string; artists: Array<{ name: string }>; album: { name: string; release_date: string }; duration_ms: number; uri: string } }, i: number) => ({
+              position: offset + i + 1,
+              name: item.track.name,
+              artist: item.track.artists.map((a: { name: string }) => a.name).join(", "),
+              album: item.track.album.name,
+              year: item.track.album.release_date?.slice(0, 4),
+              durationSec: Math.round(item.track.duration_ms / 1000),
+            })),
+          });
+        } catch (err) {
+          return toolResult({ error: err instanceof Error ? err.message : "Failed to read playlist tracks" });
+        }
+      },
+    },
+    {
       name: "export_to_spotify",
       description:
         "Create a playlist in the user's Spotify account. Pass track queries as 'Artist Name Track Title' strings — the tool searches Spotify to find the right track. Requires Spotify connection.",
