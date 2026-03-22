@@ -91,7 +91,24 @@ export async function GET(req: Request) {
     // Token is now stored in Auth0's Token Vault — we don't store it ourselves
     // The connection is now active for this user
 
-    return NextResponse.redirect(new URL(`/w?auth0_connected=${state.service}`, url.origin));
+    // Track connected services in a persistent cookie
+    const existingCookie = (req.headers.get("cookie") ?? "")
+      .split(";")
+      .find((c) => c.trim().startsWith("auth0_connected="));
+    const existing = existingCookie
+      ? existingCookie.split("=").slice(1).join("=").trim().split(",")
+      : [];
+    if (!existing.includes(state.service)) existing.push(state.service);
+    const connectedValue = existing.filter(Boolean).join(",");
+
+    const response = NextResponse.redirect(new URL(`/w?auth0_connected=${state.service}`, url.origin));
+    response.cookies.set("auth0_connected", connectedValue, {
+      path: "/",
+      maxAge: 365 * 24 * 60 * 60, // 1 year
+      sameSite: "lax",
+      secure: true,
+    });
+    return response;
   } catch (err) {
     console.error("[auth0/callback] Error:", err);
     return NextResponse.redirect(new URL("/w?auth0_error=unknown", url.origin));

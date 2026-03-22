@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { isTokenVaultConfigured } from "@/lib/auth0-token-vault";
 
-export async function GET() {
+export async function GET(req: Request) {
   const { userId: clerkId } = await auth();
   if (!clerkId) return new Response("Unauthorized", { status: 401 });
 
@@ -12,16 +12,21 @@ export async function GET() {
     });
   }
 
-  // TODO: Query Auth0 to check which connections exist for this user
-  // For the hackathon MVP, this can check if tokens are retrievable
-  // by attempting a token exchange for each service
+  // Read connected services from cookie (set during OAuth callback)
+  const cookies = req.headers.get("cookie") ?? "";
+  const connCookie = cookies
+    .split(";")
+    .find((c) => c.trim().startsWith("auth0_connected="));
+  const connectedServices = connCookie
+    ? connCookie.split("=").slice(1).join("=").trim().split(",")
+    : [];
 
   return Response.json({
     configured: true,
     connections: {
-      spotify: false, // Will be populated once Auth0 is configured
-      slack: false,
-      google: false,
+      spotify: connectedServices.includes("spotify"),
+      slack: connectedServices.includes("slack"),
+      google: connectedServices.includes("google"),
     },
   });
 }
