@@ -5,6 +5,7 @@ import { KeyEntry } from "./key-entry";
 import { TeamSharing } from "./team-sharing";
 import { PlanSection } from "./plan-section";
 import { SkillsSection } from "./skills-section";
+import { ConnectedServices } from "./connected-services";
 
 const TIER_1_SERVICES = [
   {
@@ -74,6 +75,8 @@ export function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps) {
             ✕
           </button>
         </div>
+
+        <ConnectedServices />
 
         <PlanSection />
 
