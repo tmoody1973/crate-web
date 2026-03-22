@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 const NAV_LINKS = [
   { label: "FEATURES", href: "#features" },
   { label: "SOURCES", href: "#sources" },
+  { label: "PRICING", href: "#pricing" },
   { label: "FOR DJS", href: "#showcase" },
   { label: "HELP", href: "/help" },
   { label: "CLI", href: "https://crate-cli.dev" },

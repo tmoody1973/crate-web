@@ -50,6 +50,18 @@ const features: Feature[] = [
     team: true,
   },
   {
+    label: "Spotify connect (library, playlists)",
+    free: true,
+    pro: true,
+    team: true,
+  },
+  {
+    label: "Google Docs export",
+    free: true,
+    pro: true,
+    team: true,
+  },
+  {
     label: "Admin dashboard",
     free: false,
     pro: false,

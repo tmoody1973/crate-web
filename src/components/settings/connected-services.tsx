@@ -86,19 +86,28 @@ export function ConnectedServices() {
                   <p className="text-xs text-zinc-500">{service.description}</p>
                 </div>
               </div>
-              {isConnected ? (
-                <span className="rounded-full bg-green-500/20 px-3 py-1 text-xs text-green-400">
-                  Connected
-                </span>
-              ) : (
+              <div className="flex items-center gap-2">
+                {isConnected && (
+                  <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-green-400">
+                    Connected
+                  </span>
+                )}
                 <button
                   onClick={() => handleConnect(service.id)}
                   disabled={connecting === service.id}
-                  className="rounded-md bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+                  className={
+                    isConnected
+                      ? "rounded-md border border-zinc-600 px-3 py-1.5 text-xs text-zinc-400 hover:border-zinc-400 hover:text-zinc-300 disabled:opacity-50"
+                      : "rounded-md bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+                  }
                 >
-                  {connecting === service.id ? "Connecting..." : "Connect"}
+                  {connecting === service.id
+                    ? "Connecting..."
+                    : isConnected
+                      ? "Reconnect"
+                      : "Connect"}
                 </button>
-              )}
+              </div>
             </div>
           );
         })}
