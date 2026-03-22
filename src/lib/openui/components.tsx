@@ -2013,10 +2013,56 @@ export const SpotifyPlaylist = defineComponent({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-zinc-800 px-4 py-3">
-          <span className="text-xs text-zinc-600">
-            Top artists: {uniqueArtists.slice(0, 5).join(", ")}{uniqueArtists.length > 5 ? ` +${uniqueArtists.length - 5} more` : ""}
+        {/* Action buttons */}
+        <div className="border-t border-zinc-800 px-4 py-3 flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => {
+              const msg = `Deep dive into the artists on "${props.name}" — research the top artists, find connections, samples, and influence chains between them`;
+              const input = document.querySelector<HTMLTextAreaElement>("textarea");
+              if (input) {
+                const nativeSet = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+                nativeSet?.call(input, msg);
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.focus();
+              }
+            }}
+            className="rounded-md border border-cyan-800 bg-cyan-900/30 px-3 py-1.5 text-xs text-cyan-400 hover:bg-cyan-900/50 hover:border-cyan-600 transition-colors"
+          >
+            Deep Dive Artists
+          </button>
+          <button
+            onClick={() => {
+              const artistList = uniqueArtists.slice(0, 10).join(", ");
+              const msg = `/influence ${uniqueArtists[0] ?? props.name} — map the influence chain for this playlist featuring ${artistList}`;
+              const input = document.querySelector<HTMLTextAreaElement>("textarea");
+              if (input) {
+                const nativeSet = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+                nativeSet?.call(input, msg);
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.focus();
+              }
+            }}
+            className="rounded-md border border-amber-800 bg-amber-900/30 px-3 py-1.5 text-xs text-amber-400 hover:bg-amber-900/50 hover:border-amber-600 transition-colors"
+          >
+            Influence Map
+          </button>
+          <button
+            onClick={() => {
+              const msg = `Send the "${props.name}" playlist summary to Slack with the track list and top artists`;
+              const input = document.querySelector<HTMLTextAreaElement>("textarea");
+              if (input) {
+                const nativeSet = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+                nativeSet?.call(input, msg);
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.focus();
+              }
+            }}
+            className="rounded-md border border-purple-800 bg-purple-900/30 px-3 py-1.5 text-xs text-purple-400 hover:bg-purple-900/50 hover:border-purple-600 transition-colors"
+          >
+            Send to Slack
+          </button>
+          <span className="text-[10px] text-zinc-600 ml-auto">
+            {uniqueArtists.slice(0, 3).join(", ")}{uniqueArtists.length > 3 ? ` +${uniqueArtists.length - 3} more` : ""}
           </span>
         </div>
       </div>
