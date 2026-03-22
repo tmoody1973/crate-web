@@ -95,13 +95,17 @@ export async function getTokenVaultToken(
   }
 
   if (!auth0UserId) {
-    console.warn("[token-vault] No Auth0 user ID provided");
+    console.warn("[token-vault] No Auth0 user ID provided — cookie may not be set. User needs to reconnect.");
     return null;
   }
 
   try {
+    console.log(`[token-vault] Fetching ${service} token for Auth0 user: ${auth0UserId}`);
     const mgmtToken = await getManagementToken();
-    if (!mgmtToken) return null;
+    if (!mgmtToken) {
+      console.error("[token-vault] Failed to get Management API token — check API authorization in Auth0 Dashboard");
+      return null;
+    }
 
     const res = await fetch(
       `https://${domain}/api/v2/users/${encodeURIComponent(auth0UserId)}?fields=identities&include_fields=true`,

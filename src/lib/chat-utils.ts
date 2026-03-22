@@ -466,6 +466,6 @@ export function isChatTier(message: string): boolean {
   ];
   if (chatPatterns.some((p) => p.test(lower))) return true;
   // Very short messages without music-specific keywords
-  if (lower.split(/\s+/).length <= 4 && !/artist|album|track|song|sample|genre|vinyl|record|concert|tour/i.test(lower)) return true;
+  if (lower.split(/\s+/).length <= 4 && !/artist|album|track|song|sample|genre|vinyl|record|concert|tour|spotify|playlist|slack|google doc|library|influence/i.test(lower)) return true;
   return false;
 }
