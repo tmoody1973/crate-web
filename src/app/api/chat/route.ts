@@ -14,6 +14,10 @@ import { createBrowserTools } from "@/lib/web-tools/browser";
 import { createBandcampWebTools } from "@/lib/web-tools/bandcamp";
 import { createPrepResearchTools } from "@/lib/web-tools/prep-research";
 import { createUserSkillTools } from "@/lib/web-tools/user-skills";
+import { createSpotifyConnectedTools } from "@/lib/web-tools/spotify-connected";
+import { createSlackTools } from "@/lib/web-tools/slack";
+import { createGoogleDocsTools } from "@/lib/web-tools/google-docs";
+import { isTokenVaultConfigured } from "@/lib/auth0-token-vault";
 import {
   searchMemories,
   addMemories,
@@ -275,6 +279,17 @@ async function streamAgenticResponse(
           convexUrl, userId, maxSkills ?? 3,
         );
 
+        // Auth0 Token Vault-powered tools (Spotify, Slack, Google Docs)
+        const webSpotifyConnectedTools = isTokenVaultConfigured()
+          ? createSpotifyConnectedTools()
+          : [];
+        const webSlackTools = isTokenVaultConfigured()
+          ? createSlackTools()
+          : [];
+        const webGoogleDocsTools = isTokenVaultConfigured()
+          ? createGoogleDocsTools()
+          : [];
+
         // Filter out crate-cli groups that use SQLite or mpv, inject web versions
         // For radio: keep crate-cli's search/browse/tags tools, replace play_radio
         const cliRadioGroup = cliToolGroups.find(
@@ -324,6 +339,15 @@ async function streamAgenticResponse(
             ? [{ serverName: "prep-research", tools: webPrepResearchTools }]
             : []),
           { serverName: "user-skills", tools: webUserSkillTools },
+          ...(webSpotifyConnectedTools.length > 0
+            ? [{ serverName: "spotify-connected", tools: webSpotifyConnectedTools }]
+            : []),
+          ...(webSlackTools.length > 0
+            ? [{ serverName: "slack", tools: webSlackTools }]
+            : []),
+          ...(webGoogleDocsTools.length > 0
+            ? [{ serverName: "google-docs", tools: webGoogleDocsTools }]
+            : []),
         ];
 
         // For research-heavy commands, only include relevant tool servers
