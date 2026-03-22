@@ -1903,3 +1903,123 @@ export const InfluencePathTrace = defineComponent({
     );
   },
 });
+
+// ── Spotify Connected Components ────────────────────────────────
+
+export const SpotifyPlaylist = defineComponent({
+  name: "SpotifyPlaylist",
+  description:
+    "Display a Spotify playlist with tracks, open-in-Spotify button, and artist stats. Use after read_playlist_tracks returns data.",
+  props: z.object({
+    name: z.string().describe("Playlist name"),
+    trackCount: z.number().describe("Total number of tracks"),
+    playlistId: z.string().describe("Spotify playlist ID"),
+    playlistUrl: z.string().optional().describe("Spotify playlist URL"),
+    tracks: z.preprocess(jsonPreprocess, z.array(z.object({
+      position: z.number().optional(),
+      name: z.string(),
+      artist: z.string(),
+      album: z.string().optional(),
+      year: z.string().optional(),
+      durationSec: z.number().optional(),
+    }))).describe("Array of track objects from read_playlist_tracks"),
+  }),
+  component: ({ props }) => {
+    const [expanded, setExpanded] = useState(false);
+    const tracks = ensureArray<{
+      position?: number;
+      name: string;
+      artist: string;
+      album?: string;
+      year?: string;
+      durationSec?: number;
+    }>(props.tracks);
+    const spotifyUrl = props.playlistUrl || `https://open.spotify.com/playlist/${props.playlistId}`;
+    const displayTracks = expanded ? tracks : tracks.slice(0, 10);
+
+    function formatDuration(sec?: number): string {
+      if (!sec) return "";
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${m}:${s.toString().padStart(2, "0")}`;
+    }
+
+    const uniqueArtists = [...new Set(tracks.map((t) => t.artist))];
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-green-900/40 to-zinc-900 p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-500/20">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7 text-green-400">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold text-white truncate">{props.name}</h3>
+              <p className="text-sm text-zinc-400">{props.trackCount} tracks · {uniqueArtists.length} artists</p>
+            </div>
+            <a
+              href={spotifyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-full bg-green-500 px-4 py-1.5 text-sm font-semibold text-black hover:bg-green-400 transition-colors shrink-0"
+            >
+              Open in Spotify
+            </a>
+          </div>
+        </div>
+
+        {/* Track list */}
+        <div className="p-4">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
+                <th className="w-8 pb-2 pr-2">#</th>
+                <th className="pb-2">Title</th>
+                <th className="pb-2 hidden sm:table-cell">Album</th>
+                <th className="pb-2 text-right w-16">Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayTracks.map((track, i) => (
+                <tr key={i} className="group border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
+                  <td className="py-2 pr-2 text-xs text-zinc-600">{track.position ?? i + 1}</td>
+                  <td className="py-2">
+                    <p className="text-sm text-white truncate">{track.name}</p>
+                    <p className="text-xs text-zinc-500 truncate">{track.artist}</p>
+                  </td>
+                  <td className="py-2 hidden sm:table-cell">
+                    <span className="text-xs text-zinc-600 truncate">
+                      {[track.album, track.year].filter(Boolean).join(" · ")}
+                    </span>
+                  </td>
+                  <td className="py-2 text-right text-xs text-zinc-500">
+                    {formatDuration(track.durationSec)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {tracks.length > 10 && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="mt-3 w-full rounded-md border border-zinc-700 py-2 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              {expanded ? "Show less" : `Show all ${tracks.length} tracks`}
+            </button>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-zinc-800 px-4 py-3">
+          <span className="text-xs text-zinc-600">
+            Top artists: {uniqueArtists.slice(0, 5).join(", ")}{uniqueArtists.length > 5 ? ` +${uniqueArtists.length - 5} more` : ""}
+          </span>
+        </div>
+      </div>
+    );
+  },
+});

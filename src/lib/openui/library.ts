@@ -21,6 +21,7 @@ import {
   InfluenceChain,
   InfluenceCard,
   InfluencePathTrace,
+  SpotifyPlaylist,
 } from "./components";
 
 export const crateLibrary = createLibrary({
@@ -46,6 +47,7 @@ export const crateLibrary = createLibrary({
     InfluenceChain,
     InfluenceCard,
     InfluencePathTrace,
+    SpotifyPlaylist,
   ],
   componentGroups: [
     {
@@ -68,10 +70,11 @@ export const crateLibrary = createLibrary({
     },
     {
       name: "Playlists & Tracks",
-      components: ["TrackList", "TrackItem", "AddToPlaylist"],
+      components: ["TrackList", "TrackItem", "AddToPlaylist", "SpotifyPlaylist"],
       notes: [
         "Use TrackList with TrackItem children for NEW playlists.",
         "Use AddToPlaylist with TrackItem children to add tracks to an EXISTING playlist.",
+        "Use SpotifyPlaylist when displaying the user's Spotify playlist data from read_playlist_tracks. Pass the tracks array as a JSON string.",
       ],
     },
     {
@@ -126,6 +129,7 @@ s2 = SampleConnection("Amen, Brother", "The Winstons", "Girl/Boy Song", "Aphex T
 t1 = TrackItem("So What", "Miles Davis", "Kind of Blue", "1959")
 t2 = TrackItem("A Love Supreme Pt. 1", "John Coltrane", "A Love Supreme", "1965")
 t3 = TrackItem("Maiden Voyage", "Herbie Hancock", "Maiden Voyage", "1965")`,
+    `root = SpotifyPlaylist("HYFIN Evening Set", 45, "3cEYpjA9oz9GiPac4AsH4n", "https://open.spotify.com/playlist/3cEYpjA9oz9GiPac4AsH4n", "[{\\"position\\":1,\\"name\\":\\"Time (You and I)\\",\\"artist\\":\\"Khruangbin\\",\\"album\\":\\"Con Todo El Mundo\\",\\"year\\":\\"2018\\",\\"durationSec\\":234},{\\"position\\":2,\\"name\\":\\"Gorilla\\",\\"artist\\":\\"Little Simz\\",\\"album\\":\\"Sometimes I Might Be Introvert\\",\\"year\\":\\"2021\\",\\"durationSec\\":198}]")`,
     `root = ShowPrepPackage("HYFIN", "Thursday", "Tarik", "evening", [tc1], [tb1], [sp1], [], [ev1])
 tc1 = TrackContextCard("Khruangbin", "Time (You and I)", "Born from the trio's deep immersion in 1960s Thai funk cassettes.", "Recorded at their rural Texas barn studio with vintage Fender Rhodes.", "Thai funk, surf rock, psychedelic soul", "Thai funk cassettes > Khruangbin > modern psych-soul", "The band learned Thai from their Houston neighbor.", "Khruangbin proves deep connections cross every border.", "high", "Playing Riverside Theatre March 22", "crew-ANG-bin")
 tb1 = TalkBreakCard("transition", "Time (You and I)", "Gorilla", "From Texas barn funk to London grime.", "That was Khruangbin taking you to Thailand via Texas. Now Little Simz turned down every label twice.", "Khruangbin learned their sound from Thai funk cassettes. Little Simz learned hers watching Lauryn Hill. Two paths to uncompromising art.", "Texas barn funk, Thai cassettes, Mercury Prize", "Hit before the beat drops at 0:04", "crew-ANG-bin")
