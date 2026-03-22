@@ -254,8 +254,18 @@ export function createSlackTools(auth0UserId?: string): CrateToolDef[] {
       const data = await res.json();
 
       if (!data.ok) {
-        return toolResult({ error: `Slack API error: ${data.error}` });
+        console.error(`[slack] chat.postMessage failed:`, JSON.stringify(data));
+        return toolResult({
+          error: `Slack API error: ${data.error}`,
+          detail: data.error === "channel_not_found" ? "Channel not found. The app may not have access." :
+                  data.error === "not_in_channel" ? "The app is not in this channel. Invite it with /invite @YourApp" :
+                  data.error === "invalid_auth" ? "Slack token expired or invalid. Try reconnecting Slack in Settings." :
+                  data.error === "missing_scope" ? `Missing scope: ${data.needed}. Reconnect Slack to grant permissions.` :
+                  undefined,
+        });
       }
+
+      console.log(`[slack] Message sent to ${channelId}, ts: ${data.ts}`);
 
       const displayChannel = args.channel.startsWith("@")
         ? `DM to ${args.channel}`
@@ -264,7 +274,7 @@ export function createSlackTools(auth0UserId?: string): CrateToolDef[] {
       return toolResult({
         success: true,
         channel: displayChannel,
-        permalink: data.message?.permalink,
+        timestamp: data.ts,
         message: `Sent to ${displayChannel} on Slack!`,
       });
     } catch (err) {
@@ -276,14 +286,14 @@ export function createSlackTools(auth0UserId?: string): CrateToolDef[] {
     {
       name: "list_slack_channels",
       description:
-        "List Slack channels the user has access to. Use this when the user wants to send something to Slack but doesn't specify a channel, so you can show them available options.",
+        "ALWAYS call this FIRST when the user says 'send to Slack', 'share on Slack', or 'post to Slack' — even before send_to_slack. Returns channels the user can pick from. After getting results, render them using the SlackChannelPicker OpenUI component so the user can click to choose. NEVER ask the user to type a channel name.",
       inputSchema: {},
       handler: listChannelsHandler,
     },
     {
       name: "send_to_slack",
       description:
-        "Send research results to a Slack channel or DM. Use '#channel-name' for channels or '@username' for DMs. Content is auto-formatted with Block Kit rich text (headers, bullet lists, dividers). Call list_slack_channels first if the user hasn't specified a channel.",
+        "Send research results to a Slack channel or DM. Use '#channel-name' for channels or '@username' for DMs. Content is auto-formatted with Block Kit rich text. IMPORTANT: Always call list_slack_channels first and show SlackChannelPicker — never ask the user to type a channel name.",
       inputSchema: {
         channel: z.string().describe("Slack channel (#channel-name) or user (@username) to send to"),
         content: z.string().describe("Content to send — use markdown: ## for headers, - for bullets, --- for dividers, **bold** for emphasis"),
