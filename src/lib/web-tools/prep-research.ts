@@ -43,6 +43,9 @@ export function createPrepResearchTools(
       `Be specific and factual. Cite sources. If you're uncertain about a detail, say so.`,
     ].filter(Boolean).join("\n");
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
     try {
       const res = await fetch("https://api.perplexity.ai/chat/completions", {
         method: "POST",
@@ -65,6 +68,7 @@ export function createPrepResearchTools(
             search_context_size: "high",
           },
         }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -100,11 +104,16 @@ export function createPrepResearchTools(
         sources,
       });
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return toolResult({ error: "Perplexity API timed out after 30 seconds. Try again." });
+      }
       return toolResult({
         error: err instanceof Error ? err.message : "Research failed",
         artist,
         track,
       });
+    } finally {
+      clearTimeout(timeout);
     }
   };
 
@@ -126,6 +135,9 @@ export function createPrepResearchTools(
       `Be specific. Name albums, tracks, producers, studios. If the direction is unclear, note it as mutual influence.`,
       `If you find a direct quote from either artist about the other, lead with it.`,
     ].join("\n");
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
     try {
       const res = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -149,6 +161,7 @@ export function createPrepResearchTools(
             search_context_size: "high",
           },
         }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -194,11 +207,16 @@ export function createPrepResearchTools(
         sources,
       });
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return toolResult({ error: "Perplexity API timed out after 30 seconds. Try again." });
+      }
       return toolResult({
         error: err instanceof Error ? err.message : "Influence research failed",
         fromArtist,
         toArtist,
       });
+    } finally {
+      clearTimeout(timeout);
     }
   };
 

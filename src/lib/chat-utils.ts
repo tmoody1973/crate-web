@@ -150,9 +150,10 @@ export function preprocessSlashCommand(message: string): string {
       const callsPerTrack = trackCount > 0 ? Math.max(1, Math.floor(20 / trackCount)) : 3;
 
       // Research strategy: prefer research_track (Perplexity) — 1 call per track, pre-synthesized
+      const maxResearchCalls = Math.min(trackCount, 8); // Never more than 8 research_track calls
       const researchStrategy = [
-        `RESEARCH (1 call per track, ${trackCount} total):`,
-        `For EACH track in the setlist, call research_track(artist, track${prepStation ? `, station="${prepStation}"` : ""}).`,
+        `RESEARCH (1 call per track, up to ${maxResearchCalls} tracks):`,
+        `For the first ${maxResearchCalls} tracks in the setlist, call research_track(artist, track${prepStation ? `, station="${prepStation}"` : ""}). ${trackCount > maxResearchCalls ? `Skip research for the remaining ${trackCount - maxResearchCalls} tracks and use your general knowledge.` : ""}`,
         `This returns a complete research brief (origin, production, connections, hook) in one call.`,
         `Do NOT use MusicBrainz, Discogs, Genius, Bandcamp, or Last.fm — research_track covers all of these.`,
         trackCount <= 4
@@ -444,8 +445,8 @@ const PRO_COMMANDS = new Set(["publish", "published"]);
 export function getGatedCommand(message: string): string | null {
   const trimmed = message.trim();
   if (!trimmed.startsWith("/")) return null;
-  const spaceIdx = trimmed.indexOf(" ");
-  const cmd = (spaceIdx === -1 ? trimmed.slice(1) : trimmed.slice(1, spaceIdx)).toLowerCase();
+  const firstBreak = trimmed.search(/[\s]/);
+  const cmd = (firstBreak === -1 ? trimmed.slice(1) : trimmed.slice(1, firstBreak)).toLowerCase();
   return PRO_COMMANDS.has(cmd) ? cmd : null;
 }
 
