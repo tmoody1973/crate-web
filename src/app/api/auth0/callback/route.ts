@@ -6,14 +6,14 @@ export async function GET(req: Request) {
   const nonce = url.searchParams.get("state");
 
   if (!code || !nonce) {
-    return NextResponse.redirect(new URL("/settings?auth0_error=missing_params", url.origin));
+    return NextResponse.redirect(new URL("/w?auth0_error=missing_params", url.origin));
   }
 
   // Verify CSRF nonce against signed cookie
   const cookies = req.headers.get("cookie") ?? "";
   const stateCookie = cookies.split(";").find((c) => c.trim().startsWith("auth0_state="));
   if (!stateCookie) {
-    return NextResponse.redirect(new URL("/settings?auth0_error=no_state_cookie", url.origin));
+    return NextResponse.redirect(new URL("/w?auth0_error=no_state_cookie", url.origin));
   }
 
   const signedState = stateCookie.split("=").slice(1).join("=").trim();
@@ -36,19 +36,19 @@ export async function GET(req: Request) {
     encoder.encode(statePayload),
   );
   if (!valid) {
-    return NextResponse.redirect(new URL("/settings?auth0_error=invalid_signature", url.origin));
+    return NextResponse.redirect(new URL("/w?auth0_error=invalid_signature", url.origin));
   }
 
   let state: { service: string; clerkId: string; nonce: string };
   try {
     state = JSON.parse(statePayload);
   } catch {
-    return NextResponse.redirect(new URL("/settings?auth0_error=invalid_state", url.origin));
+    return NextResponse.redirect(new URL("/w?auth0_error=invalid_state", url.origin));
   }
 
   // Verify nonce matches
   if (state.nonce !== nonce) {
-    return NextResponse.redirect(new URL("/settings?auth0_error=nonce_mismatch", url.origin));
+    return NextResponse.redirect(new URL("/w?auth0_error=nonce_mismatch", url.origin));
   }
 
   // Exchange code for tokens via Auth0
@@ -73,15 +73,15 @@ export async function GET(req: Request) {
     if (!tokenRes.ok) {
       const detail = await tokenRes.text().catch(() => "");
       console.error("[auth0/callback] Token exchange failed:", detail);
-      return NextResponse.redirect(new URL(`/settings?auth0_error=token_exchange&service=${state.service}`, url.origin));
+      return NextResponse.redirect(new URL(`/w?auth0_error=token_exchange&service=${state.service}`, url.origin));
     }
 
     // Token is now stored in Auth0's Token Vault — we don't store it ourselves
     // The connection is now active for this user
 
-    return NextResponse.redirect(new URL(`/settings?auth0_connected=${state.service}`, url.origin));
+    return NextResponse.redirect(new URL(`/w?auth0_connected=${state.service}`, url.origin));
   } catch (err) {
     console.error("[auth0/callback] Error:", err);
-    return NextResponse.redirect(new URL("/settings?auth0_error=unknown", url.origin));
+    return NextResponse.redirect(new URL("/w?auth0_error=unknown", url.origin));
   }
 }
