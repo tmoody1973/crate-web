@@ -25,6 +25,8 @@ import { getToolLabel, type ToolStep } from "@/lib/tool-labels";
 import { ModelSelector, getStoredModel } from "./model-selector";
 import { ResponseActions } from "./response-actions";
 import { QuickStartWizard } from "@/components/onboarding/quick-start-wizard";
+import { UpgradePrompt } from "@/components/chat/upgrade-prompt";
+import { getSessionTitle } from "@/lib/chat-utils";
 
 // --- Tool activity context ---
 const ToolActivityContext = createContext<{ steps: ToolStep[] }>({ steps: [] });
@@ -373,26 +375,24 @@ const SLASH_COMMANDS = [
   { command: "/publish", description: "Publish research to Telegraph or Tumblr", usage: "/publish [telegraph|tumblr] [content]", example: "/publish telegraph" },
   { command: "/setup", description: "Open the quick start guide", usage: "/setup", example: "/setup" },
   { command: "/help", description: "Open the help guide", usage: "/help [section]", example: "/help api-keys" },
+  { command: "/skills", description: "List your custom skills", usage: "/skills", example: "/skills" },
+  { command: "/create-skill", description: "Create a new custom command", usage: "/create-skill [description]", example: "/create-skill pull events from The Rave" },
 ];
 
 function SlashCommandMenu({
-  filter,
+  commands,
   onSelect,
   selectedIndex,
 }: {
-  filter: string;
+  commands: Array<{ command: string; description: string; usage?: string; isCustom?: boolean }>;
   onSelect: (cmd: string) => void;
   selectedIndex: number;
 }) {
-  const filtered = SLASH_COMMANDS.filter(
-    (c) => c.command.startsWith(filter.toLowerCase()) || c.description.toLowerCase().includes(filter.slice(1).toLowerCase()),
-  );
-
-  if (filtered.length === 0) return null;
+  if (commands.length === 0) return null;
 
   return (
     <div className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
-      {filtered.map((cmd, i) => (
+      {commands.map((cmd, i) => (
         <button
           key={cmd.command}
           type="button"
@@ -403,7 +403,12 @@ function SlashCommandMenu({
         >
           <span className="shrink-0 font-mono text-sm font-medium text-cyan-400">{cmd.command}</span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-zinc-300">{cmd.description}</p>
+            <p className="text-sm text-zinc-300">
+              {cmd.description}
+              {"isCustom" in cmd && cmd.isCustom && (
+                <span className="ml-1 rounded bg-zinc-700 px-1 py-0.5 text-[10px] text-zinc-400">custom</span>
+              )}
+            </p>
             <p className="text-xs text-zinc-600">{cmd.usage}</p>
           </div>
         </button>
@@ -575,7 +580,7 @@ function ShowPrepForm({ onSubmit, onCancel }: { onSubmit: (msg: string) => void;
   );
 }
 
-function ChatInput({ resendMessage, onResendConsumed, onOpenSetup }: { resendMessage?: string | null; onResendConsumed?: () => void; onOpenSetup?: () => void }) {
+function ChatInput({ resendMessage, onResendConsumed, onOpenSetup, customSkills }: { resendMessage?: string | null; onResendConsumed?: () => void; onOpenSetup?: () => void; customSkills?: Array<{ command: string; description: string; name: string; isCustom: boolean }> }) {
   const [input, setInput] = useState("");
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [showPrepForm, setShowPrepForm] = useState(false);
@@ -611,7 +616,18 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup }: { resendMes
     }
   }, [resendMessage, processMessage, onResendConsumed]);
 
-  const filteredCommands = SLASH_COMMANDS.filter(
+  const allCommands = useMemo(() => [
+    ...SLASH_COMMANDS,
+    ...(customSkills ?? []).map((s) => ({
+      command: s.command,
+      description: s.description,
+      usage: `${s.command} [optional args]`,
+      example: s.command,
+      isCustom: true as const,
+    })),
+  ], [customSkills]);
+
+  const filteredCommands = allCommands.filter(
     (c) => c.command.startsWith(slashFilter.toLowerCase()) || c.description.toLowerCase().includes(slashFilter.slice(1).toLowerCase()),
   );
 
@@ -729,7 +745,7 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup }: { resendMes
       <div className="relative">
         {showSlashMenu && (
           <SlashCommandMenu
-            filter={slashFilter}
+            commands={filteredCommands}
             onSelect={handleSelect}
             selectedIndex={selectedIndex}
           />
@@ -844,7 +860,7 @@ function ChatPersistence({ user }: { user: { _id: Id<"users"> } | null | undefin
           // Set session title from first user message
           if (!titleSetRef.current) {
             titleSetRef.current = true;
-            const title = text.length > 60 ? text.slice(0, 60) + "..." : text;
+            const title = getSessionTitle(text);
             updateTitle({ id: sessionId, title });
           }
         }
@@ -899,6 +915,17 @@ export function ChatPanel() {
   const playRef = useRef(play);
   playRef.current = play;
 
+  const [customSkills, setCustomSkills] = useState<
+    Array<{ command: string; description: string; name: string; isCustom: boolean }>
+  >([]);
+
+  useEffect(() => {
+    fetch("/api/skills")
+      .then((r) => r.json())
+      .then((data) => setCustomSkills(data.skills ?? []))
+      .catch(() => {});
+  }, []);
+
   // --- User query (shared by onboarding wizard + ChatPersistence) ---
   const { userId: clerkId } = useAuth();
   const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
@@ -911,6 +938,10 @@ export function ChatPanel() {
   const keyVerifiedRef = useRef(false);
   const wizardDismissedRef = useRef(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [upgradePrompt, setUpgradePrompt] = useState<{
+    type: "quota_exceeded" | "feature_gated";
+    message: string;
+  } | null>(null);
 
   // Show wizard on first sign-in only — never again after onboarding is completed in DB
   useEffect(() => {
@@ -986,6 +1017,7 @@ export function ChatPanel() {
   const processMessage = useCallback(
     async ({ messages, abortController }: { threadId: string; messages: Array<{ role: string; content?: unknown }>; abortController: AbortController }) => {
       setSteps([]);
+      setUpgradePrompt(null);
 
       const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
       const parts = getContentParts(lastUserMsg?.content);
@@ -1049,6 +1081,24 @@ export function ChatPanel() {
         }
       }
 
+      // Handle 402 — quota exceeded or feature gated
+      if (res.status === 402) {
+        try {
+          const cloned = res.clone();
+          const body = await cloned.json();
+          setUpgradePrompt({
+            type: body.error === "quota_exceeded" ? "quota_exceeded" : "feature_gated",
+            message: body.message || "Upgrade required.",
+          });
+          return new Response(
+            `data: ${JSON.stringify({ type: "done", totalMs: 0, toolsUsed: [], toolCallCount: 0, costUsd: 0 })}\n\ndata: "[DONE]"\n\n`,
+            { headers: { "Content-Type": "text/event-stream" } },
+          );
+        } catch {
+          // Fall through to normal error handling
+        }
+      }
+
       return res;
     },
     [],
@@ -1089,7 +1139,32 @@ export function ChatPanel() {
           <ChatHeader onOpenSetup={handleOpenSetup} />
           <ChatHydration />
           <ChatMessages />
-          <ChatInput resendMessage={resendMessage} onResendConsumed={() => setResendMessage(null)} onOpenSetup={handleOpenSetup} />
+          {upgradePrompt && (
+            <UpgradePrompt
+              type={upgradePrompt.type}
+              message={upgradePrompt.message}
+              onUpgrade={async () => {
+                try {
+                  const res = await fetch("/api/stripe/checkout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID || "price_pro_monthly" }),
+                  });
+                  const data = await res.json();
+                  if (data.url) window.location.href = data.url;
+                  else console.error("Stripe checkout failed:", data.error || "No URL returned");
+                } catch (err) {
+                  console.error("Failed to start checkout:", err);
+                }
+              }}
+              onAddKey={() => {
+                setUpgradePrompt(null);
+                setWizardInitialStep(2);
+                setShowWizard(true);
+              }}
+            />
+          )}
+          <ChatInput resendMessage={resendMessage} onResendConsumed={() => setResendMessage(null)} onOpenSetup={handleOpenSetup} customSkills={customSkills} />
           <ChatPersistence user={user} />
         </div>
         {showWizard && user && (

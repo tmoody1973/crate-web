@@ -133,24 +133,6 @@ export function preprocessSlashCommand(message: string): string {
       const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
       const day = days[new Date().getDay()];
 
-      // Build research steps
-      const researchSteps: string[] = [];
-      if (wantsContext || wantsTalkBreaks) {
-        researchSteps.push(
-          `1. MusicBrainz: search_recording + get_recording_credits \u2014 metadata, producer, studio`,
-          `2. Discogs: search_discogs + get_release_full \u2014 release year, label, album context`,
-          `3. Genius: search_songs + get_song \u2014 annotations, artist commentary, production context`,
-          `4. Bandcamp: search_bandcamp \u2014 artist statements, liner notes`,
-          `5. Last.fm: get_track_info + get_similar_tracks \u2014 listener stats, tags`,
-        );
-      }
-      if (wantsEvents) {
-        researchSteps.push(`${researchSteps.length + 1}. Ticketmaster: search_events \u2014 upcoming Milwaukee shows`);
-      }
-      if (wantsContext) {
-        researchSteps.push(`${researchSteps.length + 1}. Web search: Milwaukee sources (milwaukeerecord.com, jsonline.com) \u2014 local tie-ins`);
-      }
-
       // Build the sections the agent should include
       const sections: string[] = [];
       if (wantsContext) sections.push("TrackContextCard (one per track)");
@@ -161,6 +143,25 @@ export function preprocessSlashCommand(message: string): string {
 
       const intentLabel = doFull ? "full radio show prep" : sections.join(" + ");
 
+      // Count tracks to scale research depth — budget is 25 tool calls total
+      const trackLines = trackList ? trackList.split("\n").filter(Boolean) : [];
+      const trackCount = trackLines.length;
+      // Budget: reserve 2 calls for events/overhead, divide rest among tracks
+      const callsPerTrack = trackCount > 0 ? Math.max(1, Math.floor(20 / trackCount)) : 3;
+
+      // Research strategy: prefer research_track (Perplexity) — 1 call per track, pre-synthesized
+      const maxResearchCalls = Math.min(trackCount, 8); // Never more than 8 research_track calls
+      const researchStrategy = [
+        `RESEARCH (1 call per track, up to ${maxResearchCalls} tracks):`,
+        `For the first ${maxResearchCalls} tracks in the setlist, call research_track(artist, track${prepStation ? `, station="${prepStation}"` : ""}). ${trackCount > maxResearchCalls ? `Skip research for the remaining ${trackCount - maxResearchCalls} tracks and use your general knowledge.` : ""}`,
+        `This returns a complete research brief (origin, production, connections, hook) in one call.`,
+        `Do NOT use MusicBrainz, Discogs, Genius, Bandcamp, or Last.fm — research_track covers all of these.`,
+        trackCount <= 4
+          ? `After research_track calls, optionally call search_itunes_songs for artwork URLs.`
+          : `Skip artwork lookups — prioritize getting all ${trackCount} tracks researched and outputting.`,
+        `If research_track is not available, fall back to search_web (Exa or Tavily) for each track.`,
+      ].join("\n");
+
       return [
         `Generate ${intentLabel} for a radio DJ.`,
         stationVoice || `Ask which station (88Nine, HYFIN, or Rhythm Lab) if not specified.`,
@@ -170,33 +171,34 @@ export function preprocessSlashCommand(message: string): string {
         ``,
         trackList ? `SETLIST:\n${trackList}` : wantsEvents && !wantsContext ? `` : `No tracks provided \u2014 ask for the setlist.`,
         ``,
-        researchSteps.length > 0 ? `RESEARCH STEPS:\n${researchSteps.join("\n")}` : ``,
+        `HARD RULE: You MUST output the OpenUI Lang block. If you run out of research budget, OUTPUT WITH WHAT YOU HAVE.`,
+        `Never narrate your research process. Go straight from tool calls to final output.`,
         ``,
-        `OUTPUT FORMAT \u2014 CRITICAL:`,
-        `You MUST output OpenUI Lang syntax. This is a line-oriented format where each line assigns a component to a variable.`,
-        `Do NOT output plain markdown, prose, or bullet points. Output ONLY OpenUI Lang component assignments.`,
-        `The output will be rendered as interactive cards in the UI.`,
+        researchStrategy,
+        wantsEvents ? `\nAlso: search_events (Ticketmaster) for Milwaukee shows — 1 call.` : ``,
+        ``,
+        `IMMEDIATELY AFTER RESEARCH — OUTPUT:`,
+        `Output ONLY an OpenUI Lang code block. No prose, no markdown, no introduction, no narration.`,
         ``,
         `Always use ShowPrepPackage as the root container, even for partial prep. Set unused child arrays to empty [].`,
         ``,
-        `EXACT SYNTAX (follow this pattern, filling in real researched content):`,
+        `EXACT SYNTAX (fill in REAL researched content, not placeholders):`,
         `\`\`\``,
-        `root = ShowPrepPackage("${prepStation || "HYFIN"}", "${day}", "${prepDjName || "DJ"}", "${prepShift}", [${wantsContext ? "tc1, tc2, tc3" : ""}], [${wantsTalkBreaks ? "tb1, tb2" : ""}], [${wantsSocial ? "sp1" : ""}], [${wantsInterview && prepGuest ? "ip1" : ""}], [${wantsEvents ? "ev1, ev2, ev3" : ""}])`,
-        wantsContext ? `tc1 = TrackContextCard("Artist Name", "Track Title", "2-3 sentence origin story of how this track came to be", "Key production details \u2014 studio, producer, instruments", "Genre connections, samples, influences", "influence chain: Artist A > Artist B > this track", "The detail listeners can't easily Google", "One sentence: why should THIS audience care right now?", "high", "Upcoming Milwaukee show or local connection", "pronunciation guide if needed", "image URL if found")` : ``,
-        wantsTalkBreaks ? `tb1 = TalkBreakCard("transition", "First Track Title", "Second Track Title", "Quick 10-15 sec context before vocal kicks in", "30-60 sec: That was [artist]... compelling detail... segue to next track", "60-120 sec: Fuller backstory connecting the two tracks with local tie-in", "bold these, key phrases, that land on air", "Hit before the beat drops at 0:04", "pronunciation guide")` : ``,
-        wantsSocial ? `sp1 = SocialPostCard("Track or Topic", "Instagram: visual-first, 1-2 sentences with station hashtags", "X/Twitter: punchy single line + hashtag", "Bluesky: conversational, community-oriented", "#HYFIN, #MKE, #hashtag")` : ``,
+        `root = ShowPrepPackage("${prepStation || "HYFIN"}", "${day}", "${prepDjName || "DJ"}", "${prepShift}", [${wantsContext ? trackLines.map((_, i) => `tc${i + 1}`).join(", ") || "tc1, tc2, tc3" : ""}], [${wantsTalkBreaks ? trackLines.slice(0, -1).map((_, i) => `tb${i + 1}`).join(", ") || "tb1, tb2" : ""}], [${wantsSocial ? "sp1" : ""}], [${wantsInterview && prepGuest ? "ip1" : ""}], [${wantsEvents ? "ev1, ev2, ev3" : ""}])`,
+        wantsContext ? `tc1 = TrackContextCard("Artist Name", "Track Title", "2-3 sentence origin story", "Production details — studio, producer, instruments", "Genre connections, samples, influences", "influence chain: Artist A > Artist B > this track", "The detail listeners can't Google", "Why should THIS audience care right now?", "high", "Milwaukee show or local connection", "pronunciation guide if needed", "image URL if found")` : ``,
+        wantsTalkBreaks ? `tb1 = TalkBreakCard("transition", "First Track Title", "Second Track Title", "Quick 10-15 sec context", "30-60 sec: compelling detail + segue", "60-120 sec: backstory connecting tracks + local tie-in", "**bold key phrases** that land on air", "Hit before the beat drops at 0:04", "pronunciation guide")` : ``,
+        wantsSocial ? `sp1 = SocialPostCard("Track or Topic", "Instagram: visual-first, 1-2 sentences", "X/Twitter: punchy single line + hashtag", "Bluesky: conversational, community-oriented", "#HYFIN, #MKE")` : ``,
         wantsInterview && prepGuest ? `ip1 = InterviewPrepCard("${prepGuest}", "Warm-up question 1\\nWarm-up question 2", "Deep-dive question 1\\nDeep-dive question 2", "Milwaukee connection question", "Overasked question to avoid")` : ``,
         wantsEvents ? `ev1 = ConcertEvent("Artist Name", "Friday, March 14", "8:00 PM", "Venue Name", "Milwaukee", "$25-$50", "On Sale", "https://ticketmaster.com/...")` : ``,
         `\`\`\``,
         ``,
         `RULES:`,
-        `- Research each track thoroughly BEFORE generating output`,
         `- Every piece must answer "why does the listener care?"`,
         `- Talk breaks: bold **key phrases**, include pronunciation guides`,
         `- Rank by audience relevance (high/medium/low)`,
-        `- Fill in REAL content from your research \u2014 not placeholder text`,
-        `- IMAGES: For each TrackContextCard, include an imageUrl. Get images from: iTunes (artworkUrl from search_itunes_songs \u2014 high-res 600x600, free, no key), Discogs (cover_image or images[0].uri from get_release_full), Genius (song_art_image_thumbnail_url from search_songs), or Bandcamp (image_url). Prioritize iTunes artwork > Discogs covers > Genius art > Bandcamp.`,
-        `- Output the OpenUI Lang block with NO surrounding markdown, NO prose before or after`,
+        `- Fill in REAL content from research — not placeholder text`,
+        `- IMAGES: search_itunes_songs returns artworkUrl (600x600). Include in imageUrl field when available.`,
+        `- Output ONLY the OpenUI Lang block. Nothing else. No narration before or after.`,
       ].filter(Boolean).join("\n");
     }
 
@@ -282,43 +284,99 @@ export function preprocessSlashCommand(message: string): string {
       return [
         `Map the musical influences of ${arg}.`,
         ``,
-        `TURN BUDGET: You have ~30 tool calls. Spend them wisely — OUTPUT the InfluenceChain BEFORE you run out.`,
-        ``,
-        `PHASE 1 — RESEARCH (max 10-12 tool calls):`,
+        `PHASE 1 — DISCOVER (max 4 tool calls):`,
         `1. lookup_influences("${arg}") — check cache first`,
-        `2. If cache < 5 connections, run discovery (pick 3-4 most useful):`,
+        `2. If cache < 5 connections, run discovery:`,
         `   - search_reviews for "${arg}" — co-mentions = influence signal`,
         `   - extract_influences from review text`,
         `   - search_web (Exa or Tavily) for "${arg} musical influences"`,
-        `   - get_artist_info (Last.fm) for similar artists`,
-        `3. IMAGES — batch-fetch after research, before output:`,
-        `   - search_spotify_artwork("${arg}", type="artist") — main artist image`,
-        `   - search_spotify_artwork for the top 3-4 strongest connections (type="artist")`,
-        `   - If you have MusicBrainz IDs from your research, call get_fanart_images for HD backgrounds/logos`,
-        `   - Pass image URLs into cache_batch_influences via from_image_url / to_image_url fields`,
-        `4. cache_batch_influences — save discoveries with sources AND image URLs`,
+        `3. cache_batch_influences — save discoveries`,
         ``,
-        `PHASE 2 — OUTPUT (do this IMMEDIATELY after research):`,
-        `Output the InfluenceChain component. Do NOT do more research after this point.`,
-        `Include imageUrl for every connection where you fetched artwork. Spotify returns images[0].url (640x640).`,
+        `PHASE 2 — ENRICH top 5-6 connections (Perplexity):`,
+        `For each of the top 5-6 connections by weight:`,
+        `  Call research_influence(fromArtist, toArtist)`,
+        `  This returns deep context with verified source URLs.`,
+        `DO NOT skip this phase — it's what makes the output compelling.`,
+        ``,
+        `PHASE 2.5 — RE-CACHE enriched data:`,
+        `After enriching, call cache_batch_influences again with the enriched context and sources.`,
+        `This saves the Perplexity-enriched data so the next query for this artist serves cached results.`,
+        ``,
+        `PHASE 3 — OUTPUT (do this IMMEDIATELY after enrichment):`,
+        `Output the InfluenceChain component with enriched data.`,
+        ``,
+        `For each connection, include ALL of these fields from the research_influence results:`,
+        `- context: the enriched paragraph (not the thin co-mention description)`,
+        `- pullQuote: if the research found a direct quote from either artist, include it`,
+        `- pullQuoteAttribution: "Artist Name, Publication, Year"`,
+        `- sonicElements: array of sonic/stylistic qualities transmitted (e.g. ["synthesizer textures", "cosmic imagery"])`,
+        `- keyWorks: album-to-album reference (e.g. "Mothership Connection (1975) → Cosmogramma (2010)")`,
+        `- sources: array with name, url, snippet, date FROM the research_influence results (these are verified URLs)`,
         ``,
         `DIRECTION CONVENTION (Badillo-Goicoechea 2025):`,
         `- from=INFLUENCER, to=INFLUENCED. If review of B mentions A → edge A→B`,
-        `- "influenced" for directional, "co_mention" for same-review co-occurrence`,
+        `- "influenced by" for directional, "co_mention" for same-review co-occurrence`,
         ``,
         `OUTPUT FORMAT — HARD REQUIREMENT:`,
         `Output ONLY an OpenUI Lang code block. No prose, no markdown, no introduction.`,
         ``,
         `\`\`\``,
-        `root = InfluenceChain("${arg}", "[{\\"name\\":\\"Artist Name\\",\\"weight\\":0.9,\\"relationship\\":\\"influenced by\\",\\"context\\":\\"2-3 sentences\\",\\"sources\\":[{\\"name\\":\\"Pitchfork\\",\\"url\\":\\"https://...\\"}],\\"imageUrl\\":\\"https://...or-omit\\"}]")`,
+        `root = InfluenceChain("${arg}", "[{\\"name\\":\\"Artist Name\\",\\"weight\\":0.9,\\"relationship\\":\\"influenced by\\",\\"context\\":\\"Rich enriched paragraph from research_influence\\",\\"pullQuote\\":\\"Direct quote if found\\",\\"pullQuoteAttribution\\":\\"Artist, Publication, Year\\",\\"sonicElements\\":[\\"element1\\",\\"element2\\"],\\"keyWorks\\":\\"Album A (year) → Album B (year)\\",\\"sources\\":[{\\"name\\":\\"Source Title\\",\\"url\\":\\"https://verified-url\\",\\"snippet\\":\\"Text excerpt\\",\\"date\\":\\"2024-01-15\\"}],\\"imageUrl\\":\\"https://...or-omit\\"}]")`,
         `\`\`\``,
         ``,
         `RULES:`,
         `- connections is a JSON array string (escaped quotes)`,
         `- Include 6-12 connections sorted by weight descending`,
-        `- Every connection MUST have at least one source with a real URL`,
-        `- context: 1-2 researched sentences, not generic`,
+        `- Every connection MUST have sources with real URLs from research_influence`,
+        `- pullQuote and sonicElements are optional — only include if found in research`,
+        `- context must be the enriched paragraph, not a generic description`,
         `- Output ONLY the code block. Nothing else.`,
+      ].join("\n");
+    }
+
+    case "create-skill": {
+      if (!arg) {
+        return [
+          `I'll help you create a custom command. Describe what you want it to do.`,
+          ``,
+          `Examples:`,
+          `- "Pull upcoming events from The Rave Milwaukee website"`,
+          `- "Check Discogs for new vinyl releases in jazz"`,
+          `- "Find this week's local Milwaukee music news"`,
+          ``,
+          `What should your command do?`,
+        ].join("\n");
+      }
+
+      return [
+        `The user wants to create a custom skill. Here's what they described:`,
+        `"${arg}"`,
+        ``,
+        `SKILL CREATION WORKFLOW:`,
+        `1. First, run the task they described using available tools (this is the dry run)`,
+        `2. Show the results to the user`,
+        `3. If the results look good, ask the user to confirm saving it as a custom command`,
+        `4. Ask what they want to call the command (suggest a name based on the task)`,
+        `5. When confirmed, call save_user_skill with:`,
+        `   - command: the chosen name (lowercase, hyphens, no spaces)`,
+        `   - name: a human-readable name`,
+        `   - description: one sentence describing what it does`,
+        `   - promptTemplate: the prompt that produced the successful dry run`,
+        `   - toolHints: array of tool names that worked during the dry run`,
+        `   - sourceUrl: the URL if a website was involved`,
+        ``,
+        `IMPORTANT: Actually run the research first using real tools. Do not skip the dry run.`,
+      ].join("\n");
+    }
+
+    case "skills": {
+      return [
+        `List all of the user's custom skills.`,
+        `Call list_user_skills to get them, then display each one with:`,
+        `- Command name (e.g. /rave-events)`,
+        `- Description`,
+        `- Whether it's enabled or disabled`,
+        `If the user has no custom skills, suggest they create one with /create-skill.`,
       ].join("\n");
     }
 
@@ -326,6 +384,70 @@ export function preprocessSlashCommand(message: string): string {
       // Unknown slash command — pass through as-is
       return message;
   }
+}
+
+/** Generate a human-readable session title from a message (especially slash commands). */
+export function getSessionTitle(message: string): string {
+  const trimmed = message.trim();
+
+  if (trimmed.startsWith("/")) {
+    const spaceIdx = trimmed.indexOf(" ");
+    const nlIdx = trimmed.indexOf("\n");
+    const firstBreak = spaceIdx === -1 ? nlIdx : nlIdx === -1 ? spaceIdx : Math.min(spaceIdx, nlIdx);
+    const cmd = (firstBreak === -1 ? trimmed.slice(1) : trimmed.slice(1, firstBreak)).toLowerCase();
+    const arg = firstBreak === -1 ? "" : trimmed.slice(firstBreak + 1).trim();
+
+    switch (cmd) {
+      case "prep":
+      case "show-prep":
+      case "showprep": {
+        // Extract station from structured or freeform input
+        const metaMatch = arg.match(/station=(\w[\w\s]*?)(?:\||])/i);
+        const station = metaMatch?.[1]?.trim();
+        if (station) return `${station} Show Prep`;
+        const firstLine = arg.split("\n")[0]?.replace(/:$/, "").trim() ?? "";
+        if (["88nine", "hyfin", "rhythm lab", "rhythmlab"].includes(firstLine.toLowerCase().replace(/\s+/g, ""))) {
+          return `${firstLine} Show Prep`;
+        }
+        return "Show Prep";
+      }
+      case "news":
+        return arg ? `${arg.trim()} Music News` : "Music News";
+      case "influence":
+        return arg ? `${arg.trim()} Influences` : "Influence Map";
+      case "publish":
+        return arg ? `Publish to ${arg.split(/\s+/)[0]}` : "Publish";
+      case "published":
+        return "Published Content";
+      case "radio":
+        return arg ? `Radio: ${arg.trim().slice(0, 30)}` : "Radio";
+      case "create-skill":
+        return arg ? `Create Skill: ${arg.slice(0, 30)}` : "Create Skill";
+      case "skills":
+        return "My Skills";
+      default:
+        break;
+    }
+  }
+
+  // Regular message — truncate sensibly
+  const title = trimmed.length > 50 ? trimmed.slice(0, 50) + "..." : trimmed;
+  return title;
+}
+
+/** Commands that require Pro or Team plan. */
+const PRO_COMMANDS = new Set(["publish", "published"]);
+
+/**
+ * Check if a slash command requires Pro plan.
+ * Returns the command name if gated, or null if not.
+ */
+export function getGatedCommand(message: string): string | null {
+  const trimmed = message.trim();
+  if (!trimmed.startsWith("/")) return null;
+  const firstBreak = trimmed.search(/[\s]/);
+  const cmd = (firstBreak === -1 ? trimmed.slice(1) : trimmed.slice(1, firstBreak)).toLowerCase();
+  return PRO_COMMANDS.has(cmd) ? cmd : null;
 }
 
 /** Simple chat-tier classifier — returns true for greetings and short conversational messages. */

@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { resolveUserKeys } from "@/lib/resolve-user-keys";
-import { preprocessSlashCommand, isChatTier } from "@/lib/chat-utils";
+import { preprocessSlashCommand, isChatTier, getGatedCommand } from "@/lib/chat-utils";
 import { agenticLoop } from "@/lib/agentic-loop";
 import type { CrateEvent } from "@/lib/agentic-loop";
 import { createTelegraphTools } from "@/lib/web-tools/telegraph";
@@ -12,6 +12,12 @@ import { createRadioTools } from "@/lib/web-tools/radio";
 import { createWhoSampledTools } from "@/lib/web-tools/whosampled";
 import { createBrowserTools } from "@/lib/web-tools/browser";
 import { createBandcampWebTools } from "@/lib/web-tools/bandcamp";
+import { createPrepResearchTools } from "@/lib/web-tools/prep-research";
+import { createUserSkillTools } from "@/lib/web-tools/user-skills";
+import { createSpotifyConnectedTools } from "@/lib/web-tools/spotify-connected";
+import { createSlackTools } from "@/lib/web-tools/slack";
+import { createGoogleDocsTools } from "@/lib/web-tools/google-docs";
+import { isTokenVaultConfigured } from "@/lib/auth0-token-vault";
 import {
   searchMemories,
   addMemories,
@@ -19,6 +25,20 @@ import {
   createMemoryTools,
 } from "@/lib/mem0-client";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../convex/_generated/api";
+import {
+  isAdmin,
+  isBetaDomain,
+  PLAN_LIMITS,
+  PAST_DUE_GRACE_MS,
+  checkRateLimit,
+  RATE_LIMIT_AGENT_PER_MINUTE,
+  RATE_LIMIT_CHAT_PER_MINUTE,
+} from "@/lib/plans";
+import type { PlanId } from "@/lib/plans";
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
@@ -164,6 +184,9 @@ async function streamAgenticResponse(
   useOpenRouter?: boolean,
   isResearchCommand?: boolean,
   history?: Array<{ role: "user" | "assistant"; content: string }>,
+  hasMemory?: boolean,
+  hasInfluenceWrite?: boolean,
+  maxSkills?: number,
 ): Promise<Response> {
   const encoder = new TextEncoder();
 
@@ -214,7 +237,9 @@ async function streamAgenticResponse(
             : [];
 
         // Influence cache tools (Convex-backed, replaces SQLite influencecache)
-        const webInfluenceCacheTools = createInfluenceCacheTools(convexUrl, userId);
+        const webInfluenceCacheTools = createInfluenceCacheTools(
+          convexUrl, userId, hasInfluenceWrite !== false,
+        );
 
         // Infographic generation (Gemini)
         const webInfographicTools =
@@ -229,10 +254,16 @@ async function streamAgenticResponse(
         // Web radio tool (replaces crate-cli's mpv-based play_radio)
         const webRadioTools = createRadioTools();
 
-        // Mem0 memory tools (if API key available)
+        // Mem0 memory tools (if API key available and plan allows)
         const mem0Key = envKeys.MEM0_API_KEY || process.env.MEM0_API_KEY;
-        const webMemoryTools = mem0Key
+        const webMemoryTools = mem0Key && hasMemory !== false
           ? createMemoryTools(mem0Key, clerkId)
+          : [];
+
+        // Perplexity-powered track research (show prep)
+        const perplexityKey = envKeys.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY;
+        const webPrepResearchTools = perplexityKey
+          ? createPrepResearchTools(perplexityKey)
           : [];
 
         // Kernel.sh browser tools (WhoSampled + browse/screenshot)
@@ -242,6 +273,22 @@ async function streamAgenticResponse(
 
         // Bandcamp related tags (no key needed)
         const webBandcampTools = createBandcampWebTools();
+
+        // User skill management tools (create-skill, list skills)
+        const webUserSkillTools = createUserSkillTools(
+          convexUrl, userId, maxSkills ?? 3,
+        );
+
+        // Auth0 Token Vault-powered tools (Spotify, Slack, Google Docs)
+        const webSpotifyConnectedTools = isTokenVaultConfigured()
+          ? createSpotifyConnectedTools()
+          : [];
+        const webSlackTools = isTokenVaultConfigured()
+          ? createSlackTools()
+          : [];
+        const webGoogleDocsTools = isTokenVaultConfigured()
+          ? createGoogleDocsTools()
+          : [];
 
         // Filter out crate-cli groups that use SQLite or mpv, inject web versions
         // For radio: keep crate-cli's search/browse/tags tools, replace play_radio
@@ -288,6 +335,19 @@ async function streamAgenticResponse(
             ? [{ serverName: "browser", tools: webBrowserTools }]
             : []),
           { serverName: "bandcamp-web", tools: webBandcampTools },
+          ...(webPrepResearchTools.length > 0
+            ? [{ serverName: "prep-research", tools: webPrepResearchTools }]
+            : []),
+          { serverName: "user-skills", tools: webUserSkillTools },
+          ...(webSpotifyConnectedTools.length > 0
+            ? [{ serverName: "spotify-connected", tools: webSpotifyConnectedTools }]
+            : []),
+          ...(webSlackTools.length > 0
+            ? [{ serverName: "slack", tools: webSlackTools }]
+            : []),
+          ...(webGoogleDocsTools.length > 0
+            ? [{ serverName: "google-docs", tools: webGoogleDocsTools }]
+            : []),
         ];
 
         // For research-heavy commands, only include relevant tool servers
@@ -295,7 +355,7 @@ async function streamAgenticResponse(
         const RESEARCH_SERVERS = new Set([
           "influence", "influencecache", "websearch", "musicbrainz",
           "genius", "lastfm", "discogs", "images", "infographic", "itunes",
-          "memory", "whosampled", "browser", "bandcamp-web",
+          "memory", "whosampled", "browser", "bandcamp-web", "prep-research",
         ]);
         const toolGroups = isResearchCommand
           ? allToolGroups.filter((g: { serverName: string }) => RESEARCH_SERVERS.has(g.serverName))
@@ -307,7 +367,7 @@ async function streamAgenticResponse(
 
         // Load user memories from mem0 to personalize the session
         let memoryContext = "";
-        if (mem0Key) {
+        if (mem0Key && hasMemory !== false) {
           try {
             const memories = await searchMemories(
               mem0Key,
@@ -355,7 +415,7 @@ async function streamAgenticResponse(
         controller.enqueue(encoder.encode(sseEncode("[DONE]")));
 
         // Save conversation to mem0 in the background (don't block response)
-        if (mem0Key && assistantText.length > 50) {
+        if (mem0Key && hasMemory !== false && assistantText.length > 50) {
           addMemories(mem0Key, clerkId, [
             { role: "user", content: message },
             { role: "assistant", content: assistantText },
@@ -411,13 +471,46 @@ export async function POST(req: Request) {
   const { rawKeys, userEnvKeys, embeddedKeys, hasAnthropic, hasOpenRouter } =
     resolved;
 
-  if (!hasAnthropic && !hasOpenRouter) {
-    return new Response(
-      JSON.stringify({
-        error:
-          "An Anthropic or OpenRouter API key is required. Add one in Settings.",
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+  const userEmail = resolved.user.email ?? "";
+  const adminBypass = isAdmin(userEmail);
+  const betaAccess = isBetaDomain(userEmail);
+
+  // Look up subscription (uses module-level convex client)
+  let plan: PlanId = betaAccess ? "pro" : "free";
+  // For free users without a subscription, use first-of-month as synthetic period start
+  const now = new Date();
+  let periodStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  let teamDomain: string | undefined;
+
+  if (!adminBypass && !betaAccess) {
+    const sub = await convex.query(api.subscriptions.getByUserId, {
+      userId: resolved.user._id as Id<"users">,
+    });
+    if (sub) {
+      // Check past_due grace period
+      if (sub.status === "past_due") {
+        const graceExpired = Date.now() > sub.currentPeriodEnd + PAST_DUE_GRACE_MS;
+        plan = graceExpired ? "free" : sub.plan;
+      } else if (sub.status === "active") {
+        plan = sub.plan;
+      }
+      // else "canceled" → stay on free
+      periodStart = sub.currentPeriodStart;
+      teamDomain = sub.teamDomain ?? undefined;
+    }
+  }
+
+  const limits = PLAN_LIMITS[plan];
+
+  // Determine if user has BYOK
+  const hasBYOK = hasAnthropic || hasOpenRouter;
+  const { platformKey } = resolved;
+
+  // If no BYOK and no platform key, user can't proceed at all
+  if (!hasBYOK && !platformKey && !adminBypass) {
+    return Response.json(
+      { error: "An API key is required. Add one in Settings or upgrade to Pro." },
+      { status: 400 },
     );
   }
 
@@ -439,6 +532,20 @@ export async function POST(req: Request) {
     );
   }
 
+  // Rate limiting (admin bypasses)
+  if (!adminBypass) {
+    const isAgent = !isChatTier(rawMessage);
+    const rlKey = isAgent ? `agent:${clerkId}` : `chat:${clerkId}`;
+    const rlMax = isAgent ? RATE_LIMIT_AGENT_PER_MINUTE : RATE_LIMIT_CHAT_PER_MINUTE;
+    const rl = checkRateLimit(rlKey, rlMax);
+    if (!rl.allowed) {
+      return Response.json(
+        { error: "Rate limit exceeded. Please wait a moment." },
+        { status: 429 },
+      );
+    }
+  }
+
   // Sanitize history — only allow user/assistant roles with string content
   const history = (body.history ?? []).filter(
     (m): m is { role: "user" | "assistant"; content: string } =>
@@ -447,8 +554,54 @@ export async function POST(req: Request) {
       m.content.length > 0,
   );
 
-  // Slash command preprocessing
-  const message = preprocessSlashCommand(rawMessage);
+  // Slash command preprocessing — built-in commands first
+  let message = preprocessSlashCommand(rawMessage);
+
+  // If message still starts with / and wasn't transformed, check for custom skill
+  let isCustomSkill = false;
+  if (message === rawMessage && rawMessage.trim().startsWith("/")) {
+    const trimmed = rawMessage.trim();
+    const spaceIdx = trimmed.indexOf(" ");
+    const cmd = (spaceIdx === -1 ? trimmed.slice(1) : trimmed.slice(1, spaceIdx)).toLowerCase();
+    const cmdArg = spaceIdx === -1 ? "" : trimmed.slice(spaceIdx + 1).trim();
+
+    // Skip built-in non-preprocessed commands (setup, help)
+    if (!["setup", "help", "skills", "create-skill"].includes(cmd)) {
+      const skill = await convex.query(api.userSkills.getByUserCommand, {
+        userId: resolved.user._id as Id<"users">,
+        command: cmd,
+      });
+
+      if (skill && skill.isEnabled) {
+        isCustomSkill = true;
+        // Inject prompt template with memory, gotchas, and optional user argument
+        message = [
+          `[Running custom skill: ${skill.name} (id: ${skill._id})]`,
+          ``,
+          skill.promptTemplate,
+          skill.gotchas ? `\nKNOWN ISSUES (from previous runs):\n${skill.gotchas}` : ``,
+          skill.lastResults ? `\nPREVIOUS RESULTS (from last run):\n${skill.lastResults}\nCompare with current results and highlight what's NEW, CHANGED, or REMOVED.` : ``,
+          cmdArg ? `\nUser specified: "${cmdArg}"` : ``,
+          `\nAfter completing the task, call save_skill_results with skillId="${skill._id}" to save a JSON summary of key data points. If something went wrong, include a gotcha note.`,
+        ].filter(Boolean).join("\n");
+      }
+    }
+  }
+
+  // Feature gate: Pro-only commands
+  if (!adminBypass) {
+    const gatedCmd = getGatedCommand(rawMessage);
+    if (gatedCmd && !limits.hasPublishing) {
+      return Response.json(
+        {
+          error: "feature_gated",
+          message: `/${gatedCmd} requires Pro ($15/mo). Pro includes publishing, cross-session memory, influence caching, and 50 research queries/month.`,
+          feature: gatedCmd,
+        },
+        { status: 402 },
+      );
+    }
+  }
 
   // Force Sonnet for research-heavy commands that need deep tool use + structured output
   const isResearchCommand = /^\/(?:influence|show-prep|prep|news)\b/i.test(rawMessage.trim());
@@ -482,6 +635,10 @@ export async function POST(req: Request) {
     };
     apiKey = rawKeys.openrouter;
     modelId = ANTHROPIC_TO_OPENROUTER[rawModelId] ?? `anthropic/${rawModelId}`;
+  } else if (platformKey) {
+    // No BYOK — use platform key (admin or quota-checked user)
+    apiKey = platformKey;
+    modelId = rawModelId;
   } else {
     apiKey = "";
     modelId = rawModelId;
@@ -494,8 +651,40 @@ export async function POST(req: Request) {
     return streamChatDirect(message, apiKey, modelId, useOpenRouter, history);
   }
 
+  // Agent-tier: check quota (admin and BYOK users bypass)
+  // Note: quota is recorded before the agent runs. If the agent call fails, the query is still consumed.
+  // This is intentional — it prevents abuse via intentional failures and keeps the atomic check simple.
+  if (!adminBypass && !hasBYOK) {
+    const quota = await convex.mutation(api.usage.recordAndCheckQuota, {
+      userId: resolved.user._id as Id<"users">,
+      type: "agent_query",
+      periodStart,
+      limit: limits.agentQueriesPerMonth,
+      teamDomain,
+    });
+
+    if (!quota.allowed) {
+      return Response.json(
+        {
+          error: "quota_exceeded",
+          message: `You've used all ${quota.limit} research queries this month.`,
+          used: quota.used,
+          limit: quota.limit,
+          upgradeUrl: "/api/stripe/checkout",
+        },
+        { status: 402 },
+      );
+    }
+  }
+
   // Agent-tier: full agentic loop with tools
   // Merge user keys + embedded keys for tool access
   const allEnvKeys = { ...embeddedKeys, ...userEnvKeys };
-  return streamAgenticResponse(message, apiKey, modelId, allEnvKeys, resolved.user._id, clerkId, useOpenRouter, isResearchCommand, history);
+  return streamAgenticResponse(
+    message, apiKey, modelId, allEnvKeys, resolved.user._id, clerkId,
+    useOpenRouter, isResearchCommand, history,
+    adminBypass || limits.hasMemory,
+    adminBypass || limits.hasInfluenceCache,
+    adminBypass ? 999 : limits.maxCustomSkills,
+  );
 }

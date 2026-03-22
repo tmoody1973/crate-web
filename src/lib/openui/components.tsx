@@ -1326,6 +1326,8 @@ export const ArtistProfileCard = defineComponent({
 type ParsedConnection = {
   name: string; weight: number; relationship: string;
   context: string; sources: unknown; imageUrl?: string;
+  pullQuote?: string; pullQuoteAttribution?: string;
+  sonicElements?: string[]; keyWorks?: string;
 };
 
 const ROOTS_RELS = new Set(["influenced by", "family lineage", "inspired by"]);
@@ -1366,7 +1368,8 @@ function ConnectionNode({ conn, id, isExpanded, onToggle, dotColor }: {
 }) {
   const imageUrl = useAutoImage(conn.name, conn.imageUrl);
   const weight = ensureNumber(conn.weight);
-  const sources = ensureArray<{ name: string; url: string }>(conn.sources);
+  const sources = ensureArray<{ name: string; url: string; snippet?: string; date?: string }>(conn.sources);
+  const sonicElements = conn.sonicElements ? ensureArray<string>(conn.sonicElements) : [];
 
   return (
     <div className="relative pl-5">
@@ -1393,14 +1396,69 @@ function ConnectionNode({ conn, id, isExpanded, onToggle, dotColor }: {
             {isExpanded ? "Less" : "More"}
           </button>
         </div>
+
         {isExpanded && (
-          <div className="mt-2 space-y-2 border-t border-zinc-700 pt-2">
-            <p className="text-sm text-zinc-300">{conn.context}</p>
+          <div className="mt-3 space-y-3 border-t border-zinc-700 pt-3">
+            {/* Pull quote */}
+            {conn.pullQuote && (
+              <blockquote className="border-l-2 border-violet-500 pl-3">
+                <p className="text-sm italic text-zinc-200">&ldquo;{conn.pullQuote}&rdquo;</p>
+                {conn.pullQuoteAttribution && (
+                  <cite className="mt-1 block text-[11px] not-italic text-zinc-500">
+                    — {conn.pullQuoteAttribution}
+                  </cite>
+                )}
+              </blockquote>
+            )}
+
+            {/* Context paragraph */}
+            <p className="text-sm leading-relaxed text-zinc-300">{conn.context}</p>
+
+            {/* Sonic DNA chips */}
+            {sonicElements.length > 0 && (
+              <div>
+                <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-zinc-500">Sonic DNA</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {sonicElements.map((el) => (
+                    <span key={el} className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-300">
+                      {el}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Key works timeline */}
+            {conn.keyWorks && (
+              <div className="flex items-center gap-2 text-xs text-zinc-400">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Key Works</span>
+                <span className="text-zinc-300">{conn.keyWorks}</span>
+              </div>
+            )}
+
+            {/* Source cards with verified URLs */}
             {sources.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {sources.map((src) => (
-                  <a key={src.url} href={src.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-cyan-400 hover:underline">{src.name}</a>
-                ))}
+              <div>
+                <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-zinc-500">Sources</p>
+                <div className="space-y-1.5">
+                  {sources.map((src) => (
+                    <a
+                      key={src.url}
+                      href={src.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded border border-zinc-700/50 bg-zinc-800/30 px-3 py-2 transition hover:border-zinc-600"
+                    >
+                      <p className="text-xs font-medium text-cyan-400">{src.name}</p>
+                      {src.snippet && (
+                        <p className="mt-0.5 text-[11px] leading-tight text-zinc-500" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          {src.snippet}
+                        </p>
+                      )}
+                      {src.date && <p className="mt-0.5 text-[10px] text-zinc-600">{src.date}</p>}
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -1467,16 +1525,22 @@ export const InfluenceChain = defineComponent({
             z.object({
               name: z.string().describe("Source name"),
               url: z.string().describe("Source URL"),
+              snippet: z.string().optional().describe("Text excerpt from the source"),
+              date: z.string().optional().describe("Publication date"),
             }),
           ),
         ).describe("Citation sources for this connection"),
         imageUrl: z.string().optional().describe("Connected artist image URL"),
+        pullQuote: z.string().optional().describe("Direct quote from artist or journalist about this influence"),
+        pullQuoteAttribution: z.string().optional().describe("Quote attribution (e.g. 'Flying Lotus, Pitchfork, 2012')"),
+        sonicElements: z.preprocess(jsonPreprocess, z.array(z.string())).optional().describe("Sonic/stylistic elements transmitted"),
+        keyWorks: z.string().optional().describe("Album-to-album influence (e.g. 'Mothership Connection (1975) → Cosmogramma (2010)')"),
       }),
     )).describe("List of influence connections"),
     summary: z.string().optional().describe("Optional narrative summary, auto-generated if omitted"),
   }),
   component: ({ props }) => {
-    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [toggledIds, setToggledIds] = useState<Set<string>>(new Set());
     const [activeTab, setActiveTab] = useState<GroupKey>("roots");
     const [fetchedImages, setFetchedImages] = useState<Record<string, string>>({});
 
@@ -1607,8 +1671,15 @@ export const InfluenceChain = defineComponent({
                 key={`${currentTab}-${conn.name}-${i}`}
                 conn={conn}
                 id={`${currentTab}-${conn.name}-${i}`}
-                isExpanded={expandedId === `${currentTab}-${conn.name}-${i}`}
-                onToggle={(id) => setExpandedId(expandedId === id ? null : id)}
+                isExpanded={i < 3
+                  ? !toggledIds.has(`${currentTab}-${conn.name}-${i}`)
+                  : toggledIds.has(`${currentTab}-${conn.name}-${i}`)
+                }
+                onToggle={(id) => setToggledIds(prev => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id); else next.add(id);
+                  return next;
+                })}
                 dotColor={dotColor}
               />
             ))}

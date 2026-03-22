@@ -55,6 +55,8 @@ export function getEmbeddedKeys(): Record<string, string> {
     embedded.GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   if (process.env.EMBEDDED_MEM0_KEY)
     embedded.MEM0_API_KEY = process.env.EMBEDDED_MEM0_KEY;
+  if (process.env.EMBEDDED_PERPLEXITY_KEY)
+    embedded.PERPLEXITY_API_KEY = process.env.EMBEDDED_PERPLEXITY_KEY;
   return embedded;
 }
 
@@ -69,6 +71,8 @@ export interface ResolvedKeys {
   hasAnthropic: boolean;
   /** Whether user has an OpenRouter key */
   hasOpenRouter: boolean;
+  /** Platform-owned Anthropic key for users without BYOK */
+  platformKey: string | undefined;
   /** The Convex user record */
   user: {
     _id: string;
@@ -129,6 +133,7 @@ export async function resolveUserKeys(clerkId: string): Promise<ResolvedKeys> {
     embeddedKeys,
     hasAnthropic: !!rawKeys.anthropic,
     hasOpenRouter: !!rawKeys.openrouter,
+    platformKey: process.env.PLATFORM_ANTHROPIC_KEY,
     user: user as ResolvedKeys["user"],
   };
 }

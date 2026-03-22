@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const create = mutation({
@@ -162,5 +162,76 @@ export const touchLastMessage = mutation({
       lastMessageAt: now,
       updatedAt: now,
     });
+  },
+});
+
+/**
+ * For free-tier users: if they have more than maxSessions non-starred,
+ * non-archived sessions, delete the oldest ones.
+ */
+export const enforceSessionLimit = internalMutation({
+  args: {
+    userId: v.id("users"),
+    maxSessions: v.number(),
+  },
+  handler: async (ctx, { userId, maxSessions }) => {
+    // Get all sessions for this user
+    const allSessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    // Filter to deletable sessions (not starred, not archived)
+    const deletable = allSessions
+      .filter((s) => !s.isStarred && !s.isArchived)
+      .sort((a, b) => a.lastMessageAt - b.lastMessageAt);
+
+    // Only count non-starred, non-archived sessions against the limit
+    // (starred and archived sessions are exempt)
+    if (deletable.length <= maxSessions) return { deleted: 0 };
+
+    // Delete oldest to get under limit
+    const toDelete = deletable.slice(0, deletable.length - maxSessions);
+    for (const session of toDelete) {
+      // Delete messages first
+      const messages = await ctx.db
+        .query("messages")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const msg of messages) {
+        await ctx.db.delete(msg._id);
+      }
+
+      // Delete all artifacts for this session
+      const artifacts = await ctx.db
+        .query("artifacts")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const a of artifacts) {
+        await ctx.db.delete(a._id);
+      }
+
+      // Delete all tool calls for this session
+      const toolCalls = await ctx.db
+        .query("toolCalls")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const t of toolCalls) {
+        await ctx.db.delete(t._id);
+      }
+
+      // Delete player queue
+      const queues = await ctx.db
+        .query("playerQueue")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const queue of queues) {
+        await ctx.db.delete(queue._id);
+      }
+
+      await ctx.db.delete(session._id);
+    }
+
+    return { deleted: toDelete.length };
   },
 });

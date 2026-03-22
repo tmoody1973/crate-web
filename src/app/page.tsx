@@ -10,6 +10,7 @@ import { Comparison } from "@/components/landing/comparison";
 import { SourcesGrid } from "@/components/landing/sources-grid";
 import { DjShowcase } from "@/components/landing/dj-showcase";
 import { AppShowcase } from "@/components/landing/app-showcase";
+import { Pricing } from "@/components/landing/pricing";
 import { FinalCta } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
 
@@ -32,6 +33,7 @@ export default async function Home() {
       <Comparison />
       <SourcesGrid />
       <DjShowcase />
+      <Pricing />
       <FinalCta />
       <Footer />
     </main>

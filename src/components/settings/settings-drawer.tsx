@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { KeyEntry } from "./key-entry";
 import { TeamSharing } from "./team-sharing";
+import { PlanSection } from "./plan-section";
+import { SkillsSection } from "./skills-section";
+import { ConnectedServices } from "./connected-services";
 
 const TIER_1_SERVICES = [
   {
@@ -72,6 +75,12 @@ export function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps) {
             ✕
           </button>
         </div>
+
+        <ConnectedServices />
+
+        <PlanSection />
+
+        <SkillsSection />
 
         <h3 className="mb-3 text-sm font-semibold uppercase text-zinc-400">
           Required
