@@ -45,7 +45,7 @@ export async function GET(req: Request) {
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("client_id", clientId!);
   authUrl.searchParams.set("redirect_uri", callbackUrl);
-  authUrl.searchParams.set("scope", config.scopes.join(" "));
+  authUrl.searchParams.set("scope", ["openid", "profile", "email", ...config.scopes].join(" "));
   authUrl.searchParams.set("connection", config.connection);
   authUrl.searchParams.set("state", nonce); // Only nonce in URL, not user data
 
