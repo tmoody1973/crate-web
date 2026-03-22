@@ -2,10 +2,22 @@ import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
+
+  // Auth0 sends error params instead of code when authorization fails
+  const auth0Error = url.searchParams.get("error");
+  const auth0ErrorDesc = url.searchParams.get("error_description");
+  if (auth0Error) {
+    console.error(`[auth0/callback] Auth0 error: ${auth0Error} — ${auth0ErrorDesc}`);
+    return NextResponse.redirect(
+      new URL(`/w?auth0_error=${encodeURIComponent(auth0Error)}&auth0_error_desc=${encodeURIComponent(auth0ErrorDesc || "")}`, url.origin),
+    );
+  }
+
   const code = url.searchParams.get("code");
   const nonce = url.searchParams.get("state");
 
   if (!code || !nonce) {
+    console.error("[auth0/callback] Missing code or state. Params:", Object.fromEntries(url.searchParams));
     return NextResponse.redirect(new URL("/w?auth0_error=missing_params", url.origin));
   }
 
