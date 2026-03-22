@@ -2023,3 +2023,115 @@ export const SpotifyPlaylist = defineComponent({
     );
   },
 });
+
+// ── Slack Message Preview Component ─────────────────────────────
+
+export const SlackMessage = defineComponent({
+  name: "SlackMessage",
+  description:
+    "Preview of a Slack message before sending. Shows formatted content as it will appear in Slack, with a send button. Use when showing the user what will be sent to Slack.",
+  props: z.object({
+    channel: z.string().describe("Channel name (e.g. #general) or user (e.g. @tarik)"),
+    title: z.string().optional().describe("Message header"),
+    sections: z.preprocess(jsonPreprocess, z.array(z.object({
+      type: z.enum(["header", "text", "bullets", "divider", "quote"]),
+      content: z.string().optional(),
+      items: z.array(z.string()).optional(),
+    }))).describe("Array of content sections: {type, content?, items?}"),
+    status: z.enum(["preview", "sending", "sent", "error"]).optional().describe("Current send status"),
+    permalink: z.string().optional().describe("Slack message permalink after sending"),
+  }),
+  component: ({ props }) => {
+    const sections = ensureArray<{
+      type: string;
+      content?: string;
+      items?: string[];
+    }>(props.sections);
+    const isDM = props.channel.startsWith("@");
+    const statusColor = {
+      preview: "border-purple-500/30",
+      sending: "border-yellow-500/30",
+      sent: "border-green-500/30",
+      error: "border-red-500/30",
+    }[props.status ?? "preview"];
+
+    return (
+      <div className={`rounded-lg border ${statusColor} bg-zinc-900 overflow-hidden`}>
+        {/* Slack-style header bar */}
+        <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-2.5 bg-zinc-800/50">
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-[#E01E5A]">
+            <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.52-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.52V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.124a2.528 2.528 0 0 1 2.523 2.52A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.52h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
+          </svg>
+          <span className="text-sm font-medium text-zinc-300">
+            {isDM ? `DM to ${props.channel}` : props.channel}
+          </span>
+          {props.status === "sent" && props.permalink && (
+            <a
+              href={props.permalink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-auto text-xs text-cyan-400 hover:text-cyan-300"
+            >
+              View in Slack
+            </a>
+          )}
+          {props.status === "sent" && !props.permalink && (
+            <span className="ml-auto text-xs text-green-400">Sent</span>
+          )}
+          {props.status === "sending" && (
+            <span className="ml-auto text-xs text-yellow-400 animate-pulse">Sending...</span>
+          )}
+        </div>
+
+        {/* Message content preview */}
+        <div className="p-4 space-y-3">
+          {props.title && (
+            <h3 className="text-base font-bold text-white">{props.title}</h3>
+          )}
+
+          {sections.map((section, i) => {
+            switch (section.type) {
+              case "header":
+                return (
+                  <p key={i} className="text-sm font-semibold text-white">
+                    {section.content}
+                  </p>
+                );
+              case "text":
+                return (
+                  <p key={i} className="text-sm text-zinc-300 leading-relaxed">
+                    {section.content}
+                  </p>
+                );
+              case "bullets":
+                return (
+                  <ul key={i} className="space-y-1 pl-4">
+                    {(section.items ?? []).map((item, j) => (
+                      <li key={j} className="text-sm text-zinc-300 list-disc">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                );
+              case "divider":
+                return <hr key={i} className="border-zinc-700" />;
+              case "quote":
+                return (
+                  <div key={i} className="border-l-2 border-zinc-600 pl-3">
+                    <p className="text-sm text-zinc-400 italic">{section.content}</p>
+                  </div>
+                );
+              default:
+                return null;
+            }
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-zinc-800 px-4 py-2 flex items-center">
+          <span className="text-[10px] text-zinc-600">via Crate — AI Music Research</span>
+        </div>
+      </div>
+    );
+  },
+});

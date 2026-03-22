@@ -1,6 +1,6 @@
 /**
- * Slack tool powered by Auth0 Token Vault.
- * Send research, show prep, or news segments to a Slack channel.
+ * Slack tools powered by Auth0 Token Vault.
+ * List channels, send rich Block Kit messages to channels or DMs.
  */
 
 import { getTokenVaultToken } from "@/lib/auth0-token-vault";
@@ -13,11 +13,168 @@ function toolResult(data: unknown) {
   };
 }
 
+/**
+ * Convert markdown-ish content into Slack Block Kit rich_text blocks.
+ * Handles headers (##), bullet lists (-), bold (**), links, and plain paragraphs.
+ */
+function contentToBlocks(content: string, title?: string): unknown[] {
+  const blocks: unknown[] = [];
+
+  // Header block
+  if (title) {
+    blocks.push({
+      type: "header",
+      text: { type: "plain_text", text: title },
+    });
+  }
+
+  // Split content into logical sections
+  const lines = content.split("\n");
+  let currentSection: string[] = [];
+  let currentList: string[] = [];
+
+  function flushSection() {
+    if (currentSection.length > 0) {
+      const text = currentSection.join("\n").trim();
+      if (text) {
+        blocks.push({
+          type: "section",
+          text: { type: "mrkdwn", text: text.slice(0, 3000) },
+        });
+      }
+      currentSection = [];
+    }
+  }
+
+  function flushList() {
+    if (currentList.length > 0) {
+      blocks.push({
+        type: "rich_text",
+        elements: [
+          {
+            type: "rich_text_list",
+            style: "bullet",
+            elements: currentList.map((item) => ({
+              type: "rich_text_section",
+              elements: [{ type: "text", text: item }],
+            })),
+          },
+        ],
+      });
+      currentList = [];
+    }
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Headers (## or ###)
+    if (/^#{1,3}\s/.test(trimmed)) {
+      flushSection();
+      flushList();
+      const headerText = trimmed.replace(/^#{1,3}\s+/, "");
+      blocks.push({
+        type: "rich_text",
+        elements: [
+          {
+            type: "rich_text_section",
+            elements: [
+              { type: "text", text: headerText, style: { bold: true } },
+            ],
+          },
+        ],
+      });
+      continue;
+    }
+
+    // Bullet list items (- or *)
+    if (/^[-*]\s/.test(trimmed)) {
+      flushSection();
+      currentList.push(trimmed.replace(/^[-*]\s+/, ""));
+      continue;
+    }
+
+    // Dividers (--- or ***)
+    if (/^[-*]{3,}$/.test(trimmed)) {
+      flushSection();
+      flushList();
+      blocks.push({ type: "divider" });
+      continue;
+    }
+
+    // Empty line = paragraph break
+    if (!trimmed) {
+      flushList();
+      flushSection();
+      continue;
+    }
+
+    // Regular text
+    flushList();
+    currentSection.push(line);
+  }
+
+  flushSection();
+  flushList();
+
+  // Crate footer
+  blocks.push({ type: "divider" });
+  blocks.push({
+    type: "context",
+    elements: [
+      { type: "mrkdwn", text: "Sent from <https://digcrate.app|Crate> — AI music research" },
+    ],
+  });
+
+  return blocks;
+}
+
 export function createSlackTools(auth0UserId?: string): CrateToolDef[] {
+  // List channels the user has access to
+  const listChannelsHandler = async () => {
+    const token = await getTokenVaultToken("slack", auth0UserId);
+    if (!token) {
+      return toolResult({
+        error: "Slack not connected. Ask the user to connect Slack in Settings.",
+        action: "connect_slack",
+      });
+    }
+
+    try {
+      const res = await fetch(
+        "https://slack.com/api/conversations.list?types=public_channel,private_channel&exclude_archived=true&limit=100",
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const data = await res.json();
+
+      if (!data.ok) {
+        return toolResult({ error: `Slack API error: ${data.error}` });
+      }
+
+      const channels = (data.channels ?? []).map((ch: { name: string; id: string; is_member: boolean; num_members: number; purpose: { value: string } }) => ({
+        name: `#${ch.name}`,
+        id: ch.id,
+        isMember: ch.is_member,
+        members: ch.num_members,
+        purpose: ch.purpose?.value?.slice(0, 100) || "",
+      }));
+
+      return toolResult({
+        channels,
+        total: channels.length,
+        hint: "Use the channel name (e.g. #general) with send_to_slack. You can also send a DM by passing a username.",
+      });
+    } catch (err) {
+      return toolResult({ error: err instanceof Error ? err.message : "Failed to list channels" });
+    }
+  };
+
+  // Send a message to a channel or DM
   const sendToSlackHandler = async (args: {
     channel: string;
     content: string;
     title?: string;
+    format?: string;
   }) => {
     const token = await getTokenVaultToken("slack", auth0UserId);
     if (!token) {
@@ -27,31 +184,58 @@ export function createSlackTools(auth0UserId?: string): CrateToolDef[] {
       });
     }
 
-    // Normalize channel name (add # if missing)
-    const channel = args.channel.startsWith("#") ? args.channel.slice(1) : args.channel;
+    let channelId = args.channel;
 
-    const blocks = [];
-    if (args.title) {
-      blocks.push({
-        type: "header",
-        text: { type: "plain_text", text: args.title },
-      });
+    // If it starts with # or looks like a name (not an ID), resolve it
+    if (args.channel.startsWith("#") || args.channel.startsWith("@") || !args.channel.startsWith("C")) {
+      const name = args.channel.replace(/^[#@]/, "");
+
+      // Try to find as a channel first
+      if (args.channel.startsWith("@")) {
+        // DM: look up user by name, then open a conversation
+        try {
+          const usersRes = await fetch(
+            "https://slack.com/api/users.list?limit=200",
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          const usersData = await usersRes.json();
+          if (usersData.ok) {
+            const user = (usersData.members ?? []).find(
+              (u: { name: string; real_name: string; deleted: boolean }) =>
+                !u.deleted && (u.name.toLowerCase() === name.toLowerCase() ||
+                  u.real_name?.toLowerCase() === name.toLowerCase()),
+            );
+            if (user) {
+              // Open DM conversation
+              const dmRes = await fetch("https://slack.com/api/conversations.open", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ users: user.id }),
+              });
+              const dmData = await dmRes.json();
+              if (dmData.ok) {
+                channelId = dmData.channel.id;
+              } else {
+                return toolResult({ error: `Could not open DM with ${name}: ${dmData.error}` });
+              }
+            } else {
+              return toolResult({ error: `User "${name}" not found in Slack workspace` });
+            }
+          }
+        } catch (err) {
+          return toolResult({ error: err instanceof Error ? err.message : "Failed to find user" });
+        }
+      } else {
+        // Channel: just use the name directly (Slack accepts channel names)
+        channelId = name;
+      }
     }
 
-    // Split content into chunks of 3000 chars (Slack block limit)
-    const chunks = [];
-    let remaining = args.content;
-    while (remaining.length > 0) {
-      chunks.push(remaining.slice(0, 3000));
-      remaining = remaining.slice(3000);
-    }
-
-    for (const chunk of chunks) {
-      blocks.push({
-        type: "section",
-        text: { type: "mrkdwn", text: chunk },
-      });
-    }
+    // Build Block Kit message
+    const blocks = contentToBlocks(args.content, args.title);
 
     try {
       const res = await fetch("https://slack.com/api/chat.postMessage", {
@@ -61,7 +245,7 @@ export function createSlackTools(auth0UserId?: string): CrateToolDef[] {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          channel,
+          channel: channelId,
           blocks,
           text: args.title || "Crate Research",
         }),
@@ -73,11 +257,15 @@ export function createSlackTools(auth0UserId?: string): CrateToolDef[] {
         return toolResult({ error: `Slack API error: ${data.error}` });
       }
 
+      const displayChannel = args.channel.startsWith("@")
+        ? `DM to ${args.channel}`
+        : `#${channelId}`;
+
       return toolResult({
         success: true,
-        channel: `#${channel}`,
+        channel: displayChannel,
         permalink: data.message?.permalink,
-        message: `Sent to #${channel} on Slack!`,
+        message: `Sent to ${displayChannel} on Slack!`,
       });
     } catch (err) {
       return toolResult({ error: err instanceof Error ? err.message : "Slack send failed" });
@@ -86,13 +274,20 @@ export function createSlackTools(auth0UserId?: string): CrateToolDef[] {
 
   return [
     {
+      name: "list_slack_channels",
+      description:
+        "List Slack channels the user has access to. Use this when the user wants to send something to Slack but doesn't specify a channel, so you can show them available options.",
+      inputSchema: {},
+      handler: listChannelsHandler,
+    },
+    {
       name: "send_to_slack",
       description:
-        "Send research results, show prep, or news segments to a Slack channel. Requires the user to have connected Slack in Settings. Use this when the user says 'send to Slack' or 'share with my team'.",
+        "Send research results to a Slack channel or DM. Use '#channel-name' for channels or '@username' for DMs. Content is auto-formatted with Block Kit rich text (headers, bullet lists, dividers). Call list_slack_channels first if the user hasn't specified a channel.",
       inputSchema: {
-        channel: z.string().describe("Slack channel name (e.g. '#hyfin-evening' or 'general')"),
-        content: z.string().describe("Content to send (supports Slack markdown)"),
-        title: z.string().optional().describe("Optional header for the message"),
+        channel: z.string().describe("Slack channel (#channel-name) or user (@username) to send to"),
+        content: z.string().describe("Content to send — use markdown: ## for headers, - for bullets, --- for dividers, **bold** for emphasis"),
+        title: z.string().optional().describe("Message header (displayed prominently at the top)"),
       },
       handler: sendToSlackHandler,
     },
