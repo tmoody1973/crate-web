@@ -22,8 +22,8 @@ export function PlanSection() {
 
   if (!data) return null;
 
-  const isPaid = data.plan === "pro" || data.plan === "team" || data.plan === "admin";
-  const priceLabel = data.plan === "team" ? "$25/mo" : data.plan === "pro" ? "$15/mo" : "";
+  const isPaid = data.plan === "pro" || data.plan === "team" || data.plan === "admin" || data.plan === "beta";
+  const priceLabel = data.plan === "team" ? "$25/mo" : data.plan === "pro" ? "$15/mo" : data.plan === "beta" ? "Beta Access" : "";
 
   return (
     <div className="mb-6 rounded-lg border border-zinc-700 bg-zinc-800 p-4">

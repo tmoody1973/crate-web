@@ -58,6 +58,17 @@ export function isAdmin(email: string): boolean {
   return ADMIN_EMAILS.includes(email.toLowerCase());
 }
 
+/** Beta domains — users from these domains get Pro-level access for free (no billing). */
+const BETA_DOMAINS = (process.env.BETA_DOMAINS ?? "")
+  .split(",")
+  .map((d) => d.trim().toLowerCase())
+  .filter(Boolean);
+
+export function isBetaDomain(email: string): boolean {
+  const domain = email.toLowerCase().split("@")[1] ?? "";
+  return BETA_DOMAINS.includes(domain);
+}
+
 /** Tool call cap per agent query. */
 export const TOOL_CALL_CAP = 25;
 

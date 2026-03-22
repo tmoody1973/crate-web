@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
-import { PLAN_LIMITS, isAdmin } from "@/lib/plans";
+import { PLAN_LIMITS, isAdmin, isBetaDomain } from "@/lib/plans";
 import type { PlanId } from "@/lib/plans";
 
 export async function GET() {
@@ -22,6 +22,18 @@ export async function GET() {
       plan: "admin",
       agentQueriesUsed: 0,
       agentQueriesLimit: -1,
+      periodEnd: "",
+      hasBYOK: true,
+    });
+  }
+
+  // Beta domain users get Pro-level access for free
+  if (isBetaDomain(user.email ?? "")) {
+    const proLimits = PLAN_LIMITS["pro"];
+    return Response.json({
+      plan: "beta",
+      agentQueriesUsed: 0,
+      agentQueriesLimit: proLimits.agentQueriesPerMonth,
       periodEnd: "",
       hasBYOK: true,
     });

@@ -25,6 +25,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../convex/_generated/api";
 import {
   isAdmin,
+  isBetaDomain,
   PLAN_LIMITS,
   PAST_DUE_GRACE_MS,
   checkRateLimit,
@@ -448,15 +449,16 @@ export async function POST(req: Request) {
 
   const userEmail = resolved.user.email ?? "";
   const adminBypass = isAdmin(userEmail);
+  const betaAccess = isBetaDomain(userEmail);
 
   // Look up subscription (uses module-level convex client)
-  let plan: PlanId = "free";
+  let plan: PlanId = betaAccess ? "pro" : "free";
   // For free users without a subscription, use first-of-month as synthetic period start
   const now = new Date();
   let periodStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   let teamDomain: string | undefined;
 
-  if (!adminBypass) {
+  if (!adminBypass && !betaAccess) {
     const sub = await convex.query(api.subscriptions.getByUserId, {
       userId: resolved.user._id as Id<"users">,
     });
