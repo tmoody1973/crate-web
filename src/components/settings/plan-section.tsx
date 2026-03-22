@@ -23,7 +23,8 @@ export function PlanSection() {
 
   if (!data) return null;
 
-  const isPaid = data.plan === "pro" || data.plan === "team" || data.plan === "admin" || data.plan === "beta";
+  const isPaid = data.plan === "pro" || data.plan === "team";
+  const isPrivileged = data.plan === "admin" || data.plan === "beta";
   const priceLabel = data.plan === "team" ? "$25/mo" : data.plan === "pro" ? "$15/mo" : data.plan === "beta" ? "Beta Access" : "";
 
   return (
@@ -47,7 +48,7 @@ export function PlanSection() {
       </div>
 
       <div className="mt-3 flex gap-2">
-        {isPaid ? (
+        {isPrivileged ? null : isPaid ? (
           <button
             onClick={async () => {
               try {

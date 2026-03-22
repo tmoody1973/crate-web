@@ -72,8 +72,8 @@ export async function POST(req: Request) {
       customer: stripeCustomerId,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${origin}/settings?upgraded=true`,
-      cancel_url: `${origin}/settings`,
+      success_url: `${origin}/w?upgraded=true`,
+      cancel_url: `${origin}/w`,
       metadata: {
         convexUserId: user._id,
         teamDomain: teamDomain || "",
