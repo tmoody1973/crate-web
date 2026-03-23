@@ -1,6 +1,6 @@
 # I built an AI music agent that connects to your Spotify, Slack, and Google Docs. Here's why that matters.
 
-I've been building Crate for the past year. It's an AI research assistant for people who work in music — DJs, radio producers, playlist curators, anyone who needs to dig deep into artist histories, influence chains, and sample lineages without drowning in browser tabs.
+I've been building Crate for the past two weeks. It's an AI research assistant for people who work in music — DJs, radio producers, playlist curators, anyone who needs to dig deep into artist histories, influence chains, and sample lineages without drowning in browser tabs.
 
 Crate pulls from 20+ live data sources (Discogs, Genius, MusicBrainz, Last.fm, Bandcamp, Spotify, and more) and synthesizes everything into one conversation. Ask it to map the influence chain from Fela Kuti to Beyonce, and it actually traces the path — through Afrobeat, through Wizkid, through Burna Boy's grandfather who managed Fela — with real citations from real sources.
 
