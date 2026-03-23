@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
+import { detectDeepCutType, type DeepCutType } from "@/lib/deep-cut-utils";
 
 interface Artifact {
   id: string;
@@ -33,6 +34,7 @@ async function hashContent(content: string): Promise<string> {
 
 interface ArtifactContextValue {
   current: Artifact | null;
+  currentType: DeepCutType;
   history: Artifact[];
   setArtifact: (content: string) => void;
   selectArtifact: (id: string) => void;
@@ -40,6 +42,7 @@ interface ArtifactContextValue {
   showPanel: boolean;
   dismissPanel: () => void;
   openPanel: () => void;
+  isSaving: boolean;
 }
 
 const ArtifactContext = createContext<ArtifactContextValue | null>(null);
@@ -53,6 +56,7 @@ export function useArtifact() {
 export function ArtifactProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<Artifact | null>(null);
   const [showPanel, setShowPanel] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const params = useParams();
   const searchParams = useSearchParams();
@@ -75,6 +79,8 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
     content: a.data,
     timestamp: a.createdAt,
   }));
+
+  const currentType = current ? detectDeepCutType(current.content) : "other";
 
   // Seed saved hashes from Convex artifacts so we never re-save them
   useEffect(() => {
@@ -105,15 +111,17 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
 
   const setArtifact = useCallback(
     (content: string) => {
-      // Show immediately in the panel
       const label = extractLabel(content);
       setCurrent({ id: "pending", label, content, timestamp: Date.now() });
       setShowPanel(true);
+      setIsSaving(true);
 
-      // Save to Convex only if we haven't already saved this content
       if (sessionId && user) {
         hashContent(content).then((contentHash) => {
-          if (savedHashesRef.current.has(contentHash)) return;
+          if (savedHashesRef.current.has(contentHash)) {
+            setIsSaving(false);
+            return;
+          }
           savedHashesRef.current.add(contentHash);
           createArtifact({
             sessionId,
@@ -122,8 +130,11 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
             label,
             data: content,
             contentHash,
-          });
+          }).then(() => setIsSaving(false))
+            .catch(() => setIsSaving(false));
         });
+      } else {
+        setIsSaving(false);
       }
     },
     [sessionId, user, createArtifact],
@@ -154,7 +165,7 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
 
   return (
     <ArtifactContext.Provider
-      value={{ current, history, setArtifact, selectArtifact, clear, showPanel, dismissPanel, openPanel }}
+      value={{ current, currentType, history, setArtifact, selectArtifact, clear, showPanel, dismissPanel, openPanel, isSaving }}
     >
       {children}
     </ArtifactContext.Provider>
