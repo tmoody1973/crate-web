@@ -4,6 +4,7 @@
  */
 
 import { getTokenVaultToken } from "@/lib/auth0-token-vault";
+import { contentToBlocks } from "./slack-formatter";
 import type { CrateToolDef } from "../tool-adapter";
 import { z } from "zod";
 
@@ -13,121 +14,7 @@ function toolResult(data: unknown) {
   };
 }
 
-/**
- * Convert markdown-ish content into Slack Block Kit rich_text blocks.
- * Handles headers (##), bullet lists (-), bold (**), links, and plain paragraphs.
- */
-function contentToBlocks(content: string, title?: string): unknown[] {
-  const blocks: unknown[] = [];
-
-  // Header block
-  if (title) {
-    blocks.push({
-      type: "header",
-      text: { type: "plain_text", text: title },
-    });
-  }
-
-  // Split content into logical sections
-  const lines = content.split("\n");
-  let currentSection: string[] = [];
-  let currentList: string[] = [];
-
-  function flushSection() {
-    if (currentSection.length > 0) {
-      const text = currentSection.join("\n").trim();
-      if (text) {
-        blocks.push({
-          type: "section",
-          text: { type: "mrkdwn", text: text.slice(0, 3000) },
-        });
-      }
-      currentSection = [];
-    }
-  }
-
-  function flushList() {
-    if (currentList.length > 0) {
-      blocks.push({
-        type: "rich_text",
-        elements: [
-          {
-            type: "rich_text_list",
-            style: "bullet",
-            elements: currentList.map((item) => ({
-              type: "rich_text_section",
-              elements: [{ type: "text", text: item }],
-            })),
-          },
-        ],
-      });
-      currentList = [];
-    }
-  }
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Headers (## or ###)
-    if (/^#{1,3}\s/.test(trimmed)) {
-      flushSection();
-      flushList();
-      const headerText = trimmed.replace(/^#{1,3}\s+/, "");
-      blocks.push({
-        type: "rich_text",
-        elements: [
-          {
-            type: "rich_text_section",
-            elements: [
-              { type: "text", text: headerText, style: { bold: true } },
-            ],
-          },
-        ],
-      });
-      continue;
-    }
-
-    // Bullet list items (- or *)
-    if (/^[-*]\s/.test(trimmed)) {
-      flushSection();
-      currentList.push(trimmed.replace(/^[-*]\s+/, ""));
-      continue;
-    }
-
-    // Dividers (--- or ***)
-    if (/^[-*]{3,}$/.test(trimmed)) {
-      flushSection();
-      flushList();
-      blocks.push({ type: "divider" });
-      continue;
-    }
-
-    // Empty line = paragraph break
-    if (!trimmed) {
-      flushList();
-      flushSection();
-      continue;
-    }
-
-    // Regular text
-    flushList();
-    currentSection.push(line);
-  }
-
-  flushSection();
-  flushList();
-
-  // Crate footer
-  blocks.push({ type: "divider" });
-  blocks.push({
-    type: "context",
-    elements: [
-      { type: "mrkdwn", text: "Sent from <https://digcrate.app|Crate> — AI music research" },
-    ],
-  });
-
-  return blocks;
-}
+// contentToBlocks imported from ./slack-formatter
 
 export function createSlackTools(auth0UserId?: string): CrateToolDef[] {
   // List channels the user has access to
