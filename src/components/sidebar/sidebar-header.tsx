@@ -8,7 +8,17 @@ export function SidebarHeader() {
   return (
     <div className="flex h-14 items-center justify-between border-b border-zinc-800 px-3">
       {!collapsed && (
-        <span className="text-lg font-bold text-white">Crate</span>
+        <div className="flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/branding/crate-logo_Light.svg"
+            alt="Crate"
+            className="h-7 w-auto"
+          />
+          <span className="rounded bg-[#E8520E]/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#E8520E]">
+            Beta
+          </span>
+        </div>
       )}
       <button
         onClick={toggle}
