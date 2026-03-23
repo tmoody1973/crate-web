@@ -65,6 +65,32 @@ function useAutoImage(name: string, existingUrl?: string): string | undefined {
   return url;
 }
 
+// ── Inject message into chat input (used by action buttons) ─────
+function injectChatMessage(msg: string) {
+  const input = document.querySelector<HTMLTextAreaElement>("textarea");
+  if (input) {
+    const nativeSet = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    nativeSet?.call(input, msg);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.focus();
+  }
+}
+
+// ── Shared "Send to Slack" button ───────────────────────────────
+function SlackSendButton({ label }: { label: string }) {
+  return (
+    <button
+      onClick={() => injectChatMessage(`Send the ${label} to Slack`)}
+      className="inline-flex items-center gap-1.5 rounded-md border border-purple-800 bg-purple-900/30 px-2.5 py-1 text-[11px] text-purple-400 hover:bg-purple-900/50 hover:border-purple-600 transition-colors"
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3">
+        <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.52-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.52V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.124a2.528 2.528 0 0 1 2.523 2.52A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.52h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
+      </svg>
+      Slack
+    </button>
+  );
+}
+
 // ── Crate Music Research Components ──────────────────────────────
 
 export const ArtistCard = defineComponent({
@@ -237,6 +263,7 @@ export const ArtistCard = defineComponent({
               </a>
             );
           })()}
+          <SlackSendButton label={`${props.name} artist profile`} />
         </div>
       </div>
     );
@@ -1180,6 +1207,11 @@ export const ShowPrepPackage = defineComponent({
             <div className="space-y-3">{renderNode(props.interviewPreps)}</div>
           </div>
         )}
+
+        {/* Action buttons */}
+        <div className="flex gap-2 border-t border-zinc-800 pt-3">
+          <SlackSendButton label={`${props.station} show prep for ${props.date}`} />
+        </div>
       </div>
     );
   },
@@ -1794,6 +1826,17 @@ export const InfluenceCard = defineComponent({
             ))}
           </div>
         )}
+
+        {/* Action buttons */}
+        <div className="flex gap-2 border-t border-zinc-800 pt-3 mt-3">
+          <SlackSendButton label={`${props.artist} influence chain`} />
+          <button
+            onClick={() => injectChatMessage(`Save the ${props.artist} influence chain as a Spotify playlist`)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-green-800 bg-green-900/30 px-2.5 py-1 text-[11px] text-green-400 hover:bg-green-900/50 hover:border-green-600 transition-colors"
+          >
+            <span>▶</span> Export Playlist
+          </button>
+        </div>
       </div>
     );
   },
@@ -1905,16 +1948,6 @@ export const InfluencePathTrace = defineComponent({
 });
 
 // ── Spotify Connected Components ────────────────────────────────
-
-function injectChatMessage(msg: string) {
-  const input = document.querySelector<HTMLTextAreaElement>("textarea");
-  if (input) {
-    const nativeSet = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-    nativeSet?.call(input, msg);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.focus();
-  }
-}
 
 export const SpotifyPlaylists = defineComponent({
   name: "SpotifyPlaylists",
