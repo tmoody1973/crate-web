@@ -491,7 +491,9 @@ export function isChatTier(message: string): boolean {
     /^help\b/,
   ];
   if (chatPatterns.some((p) => p.test(lower))) return true;
+  // Messages that mention connected services or actions — always agent tier
+  if (/send|share|post|slack|spotify|playlist|google doc|#\w+|@\w+/i.test(lower)) return false;
   // Very short messages without music-specific keywords
-  if (lower.split(/\s+/).length <= 4 && !/artist|album|track|song|sample|genre|vinyl|record|concert|tour|spotify|playlist|slack|google doc|library|influence/i.test(lower)) return true;
+  if (lower.split(/\s+/).length <= 4 && !/artist|album|track|song|sample|genre|vinyl|record|concert|tour|library|influence/i.test(lower)) return true;
   return false;
 }
