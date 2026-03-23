@@ -280,4 +280,19 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"])
     .index("by_user_command", ["userId", "command"]),
+
+  // Deep Cuts: published/shared research artifacts
+  shares: defineTable({
+    shareId: v.string(),
+    artifactId: v.id("artifacts"),
+    userId: v.id("users"),
+    label: v.string(),
+    type: v.string(),
+    data: v.string(),
+    isPublic: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_share_id", ["shareId"])
+    .index("by_user", ["userId"])
+    .index("by_artifact", ["artifactId"]),
 });
