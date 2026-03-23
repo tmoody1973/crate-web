@@ -53,3 +53,10 @@ export const listByUser = query({
       .take(50);
   },
 });
+
+export const getById = query({
+  args: { id: v.id("artifacts") },
+  handler: async (ctx, { id }) => {
+    return await ctx.db.get(id);
+  },
+});
