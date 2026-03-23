@@ -1629,15 +1629,44 @@ export const InfluenceChain = defineComponent({
     const dotColor = (w: number) =>
       w > 0.7 ? "bg-green-500" : w >= 0.5 ? "bg-yellow-500" : "bg-zinc-500";
 
-    return (
-      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-        {/* Header with arc */}
-        <div className="mb-4">
-          <h2 className="text-lg font-bold text-white">{props.artist} — Influence Chain</h2>
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const heroImage = useAutoImage(props.artist);
 
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
+        {/* Hero banner with artist image */}
+        <div className="relative h-32 bg-gradient-to-r from-violet-900/60 via-zinc-900 to-zinc-900">
+          {heroImage && (
+            <img
+              src={heroImage}
+              alt={props.artist}
+              className="absolute inset-0 h-full w-full object-cover opacity-30"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-transparent" />
+          <div className="relative flex h-full items-end gap-4 px-4 pb-3">
+            {heroImage ? (
+              <img
+                src={heroImage}
+                alt={props.artist}
+                className="h-16 w-16 rounded-full object-cover ring-2 ring-violet-500 shadow-lg"
+              />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-violet-600 ring-2 ring-violet-400">
+                <span className="text-xl font-bold text-white">{props.artist.charAt(0)}</span>
+              </div>
+            )}
+            <div>
+              <h2 className="text-lg font-bold text-white drop-shadow">{props.artist}</h2>
+              <p className="text-xs text-violet-300">Influence Chain · {connections.length} connections</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4">
           {/* Lineage arc */}
           {arc.length >= 3 && (
-            <div className="mt-3 flex items-center justify-center gap-2 overflow-x-auto py-2">
+            <div className="mb-4 flex items-center justify-center gap-2 overflow-x-auto py-2">
               {arc.map((node, i) => (
                 <div key={`arc-${node.name}-${i}`} className="flex items-center gap-2">
                   <div className="flex flex-col items-center gap-0.5">
@@ -1663,10 +1692,9 @@ export const InfluenceChain = defineComponent({
           )}
 
           {/* Summary */}
-          <p className="mt-2 border-l-2 border-violet-500 pl-3 text-sm italic text-zinc-400">
+          <p className="mb-4 border-l-2 border-violet-500 pl-3 text-sm italic text-zinc-400">
             {summary}
           </p>
-        </div>
 
         {/* Tabs */}
         {useTabs && (
@@ -1717,6 +1745,18 @@ export const InfluenceChain = defineComponent({
             ))}
           </div>
         </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-2 border-t border-zinc-800 pt-3 mt-3">
+          <SlackSendButton label={`${props.artist} influence chain`} />
+          <button
+            onClick={() => injectChatMessage(`Save the ${props.artist} influence chain as a Spotify playlist`)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-green-800 bg-green-900/30 px-2.5 py-1 text-[11px] text-green-400 hover:bg-green-900/50 hover:border-green-600 transition-colors"
+          >
+            <span>▶</span> Export Playlist
+          </button>
+        </div>
+      </div>
       </div>
     );
   },
@@ -1826,17 +1866,6 @@ export const InfluenceCard = defineComponent({
             ))}
           </div>
         )}
-
-        {/* Action buttons */}
-        <div className="flex gap-2 border-t border-zinc-800 pt-3 mt-3">
-          <SlackSendButton label={`${props.artist} influence chain`} />
-          <button
-            onClick={() => injectChatMessage(`Save the ${props.artist} influence chain as a Spotify playlist`)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-green-800 bg-green-900/30 px-2.5 py-1 text-[11px] text-green-400 hover:bg-green-900/50 hover:border-green-600 transition-colors"
-          >
-            <span>▶</span> Export Playlist
-          </button>
-        </div>
       </div>
     );
   },
