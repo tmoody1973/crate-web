@@ -62,6 +62,12 @@ export function preprocessSlashCommand(message: string): string {
         ``,
         `FORMAT — follow the Music News Segment Format rules in your instructions exactly.`,
         `Output "For ${day}:" then ${count} numbered stories with source citations.`,
+        ``,
+        `CRITICAL — LINKS:`,
+        `- ONLY use URLs that came directly from your search tool results (search_results, citations, source URLs).`,
+        `- NEVER fabricate, guess, or construct URLs. If you don't have a real URL from a tool result, don't include a link.`,
+        `- Every [Source](url) link MUST come verbatim from a tool result. Copy-paste the URL exactly.`,
+        `- If a story has no verified source URL, cite the publication name without a link.`,
       ].join("\n");
     }
 
