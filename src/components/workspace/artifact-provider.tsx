@@ -19,7 +19,7 @@ function extractLabel(content: string): string {
   const match = content.match(/^root\s*=\s*\w+\(\s*"([^"]+)"/m);
   if (match?.[1]) return match[1];
   const fallback = content.match(/^\w+\s*=\s*\w+\(\s*"([^"]+)"/m);
-  return fallback?.[1] ?? "Artifact";
+  return fallback?.[1] ?? "Deep Cut";
 }
 
 /** Simple hash for deduplication. */

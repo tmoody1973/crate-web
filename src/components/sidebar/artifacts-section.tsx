@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { api } from "../../../convex/_generated/api";
 
 export function ArtifactsSection() {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const { userId: clerkId } = useAuth();
   const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
   const artifacts = useQuery(api.artifacts.listByUser, user ? { userId: user._id } : "skip");
@@ -21,7 +21,7 @@ export function ArtifactsSection() {
         onClick={() => setExpanded((e) => !e)}
         className="flex w-full items-center justify-between text-xs font-semibold uppercase text-zinc-500"
       >
-        Artifacts
+        Deep Cuts
         <span className="text-[10px]">{expanded ? "▼" : "►"}</span>
       </button>
       {expanded && (

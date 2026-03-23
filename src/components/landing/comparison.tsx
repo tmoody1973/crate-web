@@ -18,7 +18,7 @@ const chatgptItems: { marker: "x" | "tilde"; text: string }[] = [
   { marker: "x", text: "Hallucinates credits, dates, and samples" },
   {
     marker: "x",
-    text: "No collections, artifacts, or persistent workspace",
+    text: "No collections, deep cuts, or persistent workspace",
   },
   { marker: "x", text: "No influence mapping or show prep tools" },
 ];
@@ -29,7 +29,7 @@ const crateItems = [
   "Real-time data from APIs, not training data",
   "Built-in audio player, playable playlists, influence maps",
   "Verifiable credits, dates, and sample chains",
-  "Collections, artifacts, and a sidebar that remembers everything",
+  "Collections, deep cuts, and a sidebar that remembers everything",
   "Show prep, publishing, and playlist export built in",
 ];
 
