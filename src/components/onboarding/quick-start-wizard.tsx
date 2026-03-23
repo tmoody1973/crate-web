@@ -330,7 +330,7 @@ export function QuickStartWizard({
         <div className="flex w-full max-w-[520px] max-h-[90vh] flex-col rounded-xl border border-zinc-700 bg-[#1a1a1a] shadow-2xl overflow-hidden">
           {/* Step tabs */}
           <div className="flex border-b border-zinc-700">
-            {["WELCOME", "GET YOUR KEY", "CONNECT"].map((label, i) => {
+            {["WELCOME", "YOUR FREE PLAN", "CONNECT"].map((label, i) => {
               const n = i + 1;
               const isActive = step === n;
               const isDone = step > n;
@@ -416,248 +416,99 @@ export function QuickStartWizard({
               </>
             )}
 
-            {/* Step 2: Get Your Key */}
+            {/* Step 2: Your Free Plan */}
             {step === 2 && (
               <>
                 <h2 className="mb-1.5 text-[22px] font-bold text-white">
-                  Get your AI key
+                  Your free plan
                 </h2>
                 <p className="mb-6 text-sm leading-relaxed text-zinc-400">
-                  Crate needs an AI key to power the research agent. All 20+
-                  music data sources are already built in &mdash; you just need
-                  one of these:
+                  No API key needed. Here&apos;s what you get for free:
                 </p>
 
-                {/* Provider cards */}
-                {(["anthropic", "openrouter"] as Provider[]).map((id) => {
-                  const p = PROVIDERS[id];
-                  const isSelected = selectedProvider === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => { setSelectedProvider(id); posthog.capture("onboarding_provider_selected", { provider: id }); }}
-                      className={`mb-3 w-full rounded-xl border-2 p-5 text-left transition ${
-                        isSelected
-                          ? "border-[#E8520E] bg-[#E8520E]/5"
-                          : "border-zinc-700 bg-zinc-800/80 hover:border-zinc-600"
-                      }`}
+                {/* Free plan features */}
+                <div className="space-y-2.5 mb-6">
+                  {[
+                    { label: "10 research queries / month", desc: "Influence maps, show prep, playlists, artist deep dives" },
+                    { label: "5 saved sessions", desc: "Your research persists across visits" },
+                    { label: "3 custom skills", desc: "Create reusable commands with /create-skill" },
+                    { label: "Spotify connection", desc: "Read your library, create playlists from research" },
+                    { label: "Slack + Google Docs", desc: "Send research to your team or save as a Doc" },
+                    { label: "20+ data sources", desc: "Discogs, Genius, MusicBrainz, Last.fm, Bandcamp, and more" },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-start gap-3 rounded-lg border border-zinc-700 bg-zinc-800/80 px-4 py-3"
                     >
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-white">
-                          {p.name}
-                        </h3>
-                        {p.recommended && (
-                          <span className="rounded bg-[#E8520E] px-2 py-0.5 text-[10px] font-semibold text-white">
-                            RECOMMENDED
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1 text-[13px] text-zinc-400">
-                        {p.description}
-                      </p>
-                      <p className="mt-3 text-xs font-medium text-[#E8520E]">
-                        {p.price}
-                      </p>
-                      <ol className="mt-3 list-decimal space-y-2 pl-4">
-                        {p.steps.map((s, i) => (
-                          <li
-                            key={i}
-                            className="text-[13px] leading-relaxed text-zinc-300"
-                          >
-                            {"link" in s && s.link ? (
-                              <>
-                                {s.text.split(s.linkText!)[0]}
-                                <a
-                                  href={s.link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[#E8520E] underline"
-                                >
-                                  {s.linkText}
-                                </a>
-                                {s.text.split(s.linkText!)[1]}
-                              </>
-                            ) : (
-                              s.text
-                            )}
-                          </li>
-                        ))}
-                      </ol>
-                    </button>
-                  );
-                })}
-
-                {/* Expandable extras */}
-                <button
-                  type="button"
-                  onClick={() => setExtrasOpen(!extrasOpen)}
-                  className="mt-5 flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-[#1a1a1a] px-4 py-3.5 text-left text-[13px] text-white transition hover:border-zinc-600"
-                >
-                  <span
-                    className={`text-[10px] text-zinc-500 transition-transform ${extrasOpen ? "rotate-90" : ""}`}
-                  >
-                    &#9654;
-                  </span>
-                  <span>Already included &amp; optional extras</span>
-                  <span className="ml-auto rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-green-400">
-                    20+ ACTIVE
-                  </span>
-                </button>
-
-                {extrasOpen && (
-                  <div className="mt-2 overflow-hidden rounded-lg border border-zinc-700">
-                    {/* Built-in */}
-                    <div className="p-4">
-                      <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-green-400">
-                        Built in &mdash; no key needed
-                      </h4>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {BUILT_IN_SOURCES.map((s) => (
-                          <div
-                            key={s.name}
-                            className="flex items-center gap-2 rounded bg-[#1a1a1a] px-2 py-1.5"
-                          >
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" />
-                            <div>
-                              <div className="text-[11px] font-semibold text-zinc-300">
-                                {s.name}
-                              </div>
-                              <div className="text-[10px] text-zinc-500">
-                                {s.what}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                      <span className="mt-0.5 text-green-400 text-sm">&#10003;</span>
+                      <div>
+                        <p className="text-[13px] font-medium text-white">{item.label}</p>
+                        <p className="text-[11px] text-zinc-500">{item.desc}</p>
                       </div>
                     </div>
-                    <hr className="border-zinc-700" />
-                    {/* Optional */}
-                    <div className="p-4">
-                      <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#E8520E]">
-                        Optional &mdash; add your own key in Settings
-                      </h4>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {OPTIONAL_SOURCES.map((s) => (
-                          <div
-                            key={s.name}
-                            className="flex items-center gap-2 rounded bg-[#1a1a1a] px-2 py-1.5"
-                          >
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#E8520E]" />
-                            <div>
-                              <div className="text-[11px] font-semibold text-zinc-300">
-                                {s.name}
-                              </div>
-                              <div className="text-[10px] text-zinc-500">
-                                {s.what}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="mt-3 text-[11px] leading-relaxed text-zinc-500">
-                        These services are free or have free tiers. Add keys
-                        anytime in Settings to unlock them.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                  ))}
+                </div>
+
+                <div className="rounded-lg border border-zinc-700 bg-zinc-800/80 p-4">
+                  <p className="text-xs text-zinc-400">
+                    <strong className="text-zinc-300">Want more?</strong>{" "}
+                    Pro ($15/mo) gives you 50 queries, unlimited sessions, cross-session memory, and 20 custom skills.
+                    Or bring your own API key in Settings for unlimited queries.
+                  </p>
+                </div>
               </>
             )}
 
-            {/* Step 3: Connect */}
+            {/* Step 3: Connect services */}
             {step === 3 && (
               <>
                 <h2 className="mb-1.5 text-[22px] font-bold text-white">
-                  Paste your key
+                  Connect your services
                 </h2>
                 <p className="mb-6 text-sm leading-relaxed text-zinc-400">
-                  Paste the API key you just created. Your key is encrypted and
-                  never shared.
+                  Optional but powerful. Connect your accounts in Settings to unlock these features:
                 </p>
 
-                {/* Key input */}
-                {!hasExistingKey && (
-                  <div className="mb-4">
-                    <label htmlFor="api-key-input" className="mb-1.5 block text-xs uppercase tracking-wide text-zinc-400">
-                      API Key
-                    </label>
-                    <input
-                      id="api-key-input"
-                      type="text"
-                      value={keyInput}
-                      onChange={(e) => {
-                        setKeyInput(e.target.value);
-                        if (verifyState === "error") setVerifyState("idle");
-                      }}
-                      placeholder="sk-ant-... or sk-or-..."
-                      className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3.5 py-3 font-mono text-sm text-white placeholder-zinc-600 outline-none focus:border-[#E8520E]"
-                      autoFocus
-                    />
-                  </div>
-                )}
+                <div className="space-y-2.5 mb-6">
+                  {[
+                    { icon: "\uD83C\uDFB5", name: "Spotify", desc: "Pull your library, deep dive your playlists, create new playlists from research" },
+                    { icon: "\uD83D\uDCAC", name: "Slack", desc: "Send show prep, influence maps, and news to any channel or DM" },
+                    { icon: "\uD83D\uDCC4", name: "Google", desc: "Save research as shareable Google Docs" },
+                  ].map((svc) => (
+                    <div key={svc.name} className="flex items-start gap-3 rounded-lg border border-zinc-700 bg-zinc-800/80 px-4 py-3">
+                      <span className="text-lg">{svc.icon}</span>
+                      <div>
+                        <p className="text-[13px] font-medium text-white">{svc.name}</p>
+                        <p className="text-[11px] text-zinc-500">{svc.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-                {/* Verification status */}
-                {verifyState === "saving" && (
-                  <div className="mb-4 flex items-center gap-2 rounded-lg border border-zinc-600 bg-zinc-800/80 p-3">
-                    <div className="h-2 w-2 animate-pulse rounded-full bg-yellow-400" />
-                    <span className="text-[13px] text-yellow-400">
-                      Saving key...
-                    </span>
-                  </div>
-                )}
-                {verifyState === "verifying" && (
-                  <div className="mb-4 flex items-center gap-2 rounded-lg border border-zinc-600 bg-zinc-800/80 p-3">
-                    <div className="h-2 w-2 animate-pulse rounded-full bg-yellow-400" />
-                    <span className="text-[13px] text-yellow-400">
-                      Verifying key...
-                    </span>
-                  </div>
-                )}
-                {verifyState === "verified" && (
-                  <div
-                    className="mb-4 flex items-center gap-2 rounded-lg border border-green-800 bg-green-900/30 p-3"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <div className="h-2 w-2 rounded-full bg-green-400" />
-                    <span className="text-[13px] text-green-400">
-                      Key verified &mdash; you&apos;re all set!
-                    </span>
-                  </div>
-                )}
-                {verifyState === "error" && (
-                  <div
-                    className="mb-4 flex items-center gap-2 rounded-lg border border-red-800 bg-red-900/30 p-3"
-                    role="alert"
-                    aria-live="polite"
-                  >
-                    <div className="h-2 w-2 rounded-full bg-red-400" />
-                    <span className="text-[13px] text-red-400">
-                      {errorMessage}
-                    </span>
-                  </div>
-                )}
+                <p className="text-[12px] text-zinc-500 mb-4">
+                  You can connect these anytime in Settings (gear icon). Powered by Auth0 &mdash; Crate never stores your passwords or tokens.
+                </p>
 
                 {/* Try your first query */}
-                {verifyState === "verified" && (
-                  <div className="rounded-lg border border-zinc-700 bg-zinc-800/80 p-4">
-                    <h4 className="mb-2 text-[13px] font-semibold text-white">
-                      Try your first query:
-                    </h4>
-                    <p className="text-[13px] leading-relaxed text-zinc-400">
-                      Type something like{" "}
-                      <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-[#E8520E]">
-                        &quot;Who influenced Flying Lotus?&quot;
-                      </code>{" "}
-                      or use{" "}
-                      <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-[#E8520E]">
-                        /influence Madlib
-                      </code>{" "}
-                      for a deep dive.
-                    </p>
-                  </div>
-                )}
+                <div className="rounded-lg border border-zinc-700 bg-zinc-800/80 p-4">
+                  <h4 className="mb-2 text-[13px] font-semibold text-white">
+                    Try your first query:
+                  </h4>
+                  <p className="text-[13px] leading-relaxed text-zinc-400">
+                    Type something like{" "}
+                    <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-[#E8520E]">
+                      &quot;Who influenced Flying Lotus?&quot;
+                    </code>{" "}
+                    or{" "}
+                    <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-[#E8520E]">
+                      /influence Madlib
+                    </code>{" "}
+                    or{" "}
+                    <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-[#E8520E]">
+                      Create a jazz fusion playlist
+                    </code>
+                  </p>
+                </div>
               </>
             )}
           </div>

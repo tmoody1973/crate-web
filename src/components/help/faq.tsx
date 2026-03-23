@@ -9,54 +9,64 @@ interface FaqItem {
 
 const FAQ_ITEMS: FaqItem[] = [
   {
-    question: "What models can I use?",
+    question: "What's included in the free plan?",
     answer:
-      "Crate supports Claude (requires your Anthropic API key) as the default model. You can also use GPT-4o, Gemini 2.5, Llama 4, DeepSeek R1, and Mistral Large by adding an OpenRouter API key in Settings. Switch between models using the model selector in the chat header.",
+      "10 agent research queries per month, 5 saved sessions, 3 custom skills, and access to all 20+ data sources. Free includes Spotify connection, playlist creation, influence mapping, show prep, and news. No credit card required.",
   },
   {
-    question: "Is my API key stored securely?",
+    question: "What do I get with Pro ($15/mo)?",
     answer:
-      "Yes. API keys are encrypted with AES-256-GCM before being stored. They are decrypted only during active research sessions and are never logged, sent to third parties, or included in telemetry of any kind.",
+      "50 agent queries/month, unlimited sessions, 20 custom skills, cross-session memory (Mem0), influence caching, and publishing to Telegraph/Tumblr. Pro also lets you bring your own API key for unlimited queries. If you work in music professionally, Pro pays for itself in the first research session.",
   },
   {
-    question: "Can I share keys with my team?",
+    question: "Do I need an API key?",
     answer:
-      "Organization admins can configure shared API keys in Settings under the Organization tab. Team members will use the org keys by default and won't need to add their own. Ask your admin to enable this — it's available on all paid plans.",
+      "No. Free and Pro users can use Crate's built-in AI without any API key. If you want unlimited queries or want to use a specific model (GPT-4o, Gemini, etc.), you can add your own Anthropic or OpenRouter key in Settings. BYOK users have no query limits.",
   },
   {
-    question: "What data sources are free?",
+    question: "How does Spotify connection work?",
     answer:
-      "Most sources work without any API keys. Discogs, MusicBrainz, Last.fm, Bandcamp, Wikipedia, iTunes, AllMusic, Pitchfork, Rate Your Music, Setlist.fm, and YouTube all work out of the box. A small number of features (cross-session memory via Mem0, Tumblr publishing) require additional keys. See the Data Sources section for a full breakdown.",
+      "In Settings, click Connect next to Spotify. This uses OAuth (powered by Auth0) to link your Spotify account. Once connected, Crate can read your playlists and saved tracks, research the artists you listen to, and create new playlists directly in your Spotify account. Crate never stores your Spotify password.",
+  },
+  {
+    question: "Can Crate send to Slack?",
+    answer:
+      "Yes. Connect Slack in Settings, then say 'send to Slack' after any research. Crate shows a channel picker and sends a formatted message with Block Kit (headers, bullet lists, tables, dividers). You can also send DMs by saying 'send to @username'.",
+  },
+  {
+    question: "What are Deep Cuts?",
+    answer:
+      "Deep Cuts are your saved research artifacts — influence chains, playlists, show prep packages, artist cards. They appear in the resizable panel on the right side of the workspace. You can switch between them with the dropdown, publish them as shareable links, export to Spotify, or send to Slack.",
+  },
+  {
+    question: "How do custom skills work?",
+    answer:
+      "Type /create-skill followed by a description of what you want (e.g. 'search Dusty Groove for vinyl records'). Crate does a dry run using real tools, shows you the results, then saves it as a reusable slash command. Free users get 3 skills, Pro gets 20.",
   },
   {
     question: "How does influence mapping work?",
     answer:
-      "The /influence command works by searching music publications, review databases, and Wikipedia for co-mentions and citation patterns between artists. It builds a weighted influence graph showing documented connections, with source links for every relationship it surfaces. Try \"/influence [artist name]\" to see it in action.",
+      "Type /influence [artist] and Crate searches music publications, review databases, Last.fm, and Wikipedia for documented connections. It then enriches each connection via Perplexity with pull quotes, sonic elements, and key works. The result is a visual timeline with cited sources you can verify.",
   },
   {
-    question: "Can I publish my research?",
+    question: "Can I publish and share research?",
     answer:
-      "Yes. Type /publish after any research response and Crate will format and publish your last response as an article. Telegraph is free and requires no account — it works immediately. Tumblr publishing requires a Tumblr API key configured in Settings. Published articles include formatted text, embedded images, and source citations, and you'll receive a public URL to share.",
+      "Yes, two ways. Click Publish on any Deep Cut to get a shareable link (digcrate.app/cuts/...) anyone can view. Pro users can also use /publish to push to Telegraph or Tumblr as a formatted article with citations.",
   },
   {
-    question: "How do playlists work?",
+    question: "Does Crate remember previous conversations?",
     answer:
-      "When the agent generates a track list, each track includes a play button linking to a YouTube or Bandcamp embed. You can save the full playlist to your workspace by clicking the save icon on the TrackList component — saved playlists appear in your sidebar under Playlists and persist across sessions.",
+      "Within a session, full context is maintained. Across sessions, memory requires Pro (powered by Mem0). With memory enabled, Crate remembers your preferences, past research, and workflow patterns.",
   },
   {
-    question: "What is a Crate (project)?",
+    question: "Is my data secure?",
     answer:
-      "Crates are folders for organizing your research sessions. You might create a crate for a specific show, a feature article, or a record hunt. Sessions inside a crate share context, meaning the agent can refer back to earlier research within the same crate. Create and manage crates from the sidebar.",
-  },
-  {
-    question: "Does the agent remember previous conversations?",
-    answer:
-      "Within a session, the agent has full context of the conversation. Across sessions, memory is off by default. Add a Mem0 API key in Settings to enable cross-session memory — the agent will then remember your preferences, artists you've researched, your workflow patterns, and any details you've asked it to keep in mind.",
+      "API keys are encrypted with AES-256-GCM. Spotify/Slack/Google tokens are managed by Auth0 Token Vault — Crate never stores raw OAuth credentials. Research data is stored in Convex with per-user isolation.",
   },
   {
     question: "How do I get help?",
     answer:
-      "You're here! You can also type /help in the chat at any time to open this guide, click the ? icon in the chat header, or click Help in the sidebar navigation. For bug reports or feature requests, use the feedback button at the bottom of the sidebar.",
+      "Type /help in chat, click Help in the top nav, or use the feedback button in the sidebar. For bug reports and feature requests, the feedback widget goes directly to our Canny board.",
   },
 ];
 

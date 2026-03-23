@@ -15,22 +15,34 @@ export function GettingStarted({ persona }: { persona: PersonaId }) {
   const steps = [
     {
       number: 1,
-      title: "Add your API key",
-      description:
-        "Open Settings (click the gear icon or press Shift+S) and paste your Anthropic API key. This is the only required key — everything else is optional.",
-      link: { label: "Get an Anthropic key", url: "https://console.anthropic.com" },
-    },
-    {
-      number: 2,
       title: "Ask your first question",
-      description: "Try something like:",
+      description: "No setup needed. Free accounts get 10 agent research queries per month. Try something like:",
       prompt: examplePrompt,
     },
     {
-      number: 3,
-      title: "Explore the results",
+      number: 2,
+      title: "Connect your services (optional)",
       description:
-        "Crate generates interactive components — track lists with play buttons, artist cards, influence chains, album grids. Click to play, save to playlists, or publish your research.",
+        "Open Settings (gear icon) and connect Spotify to pull your library and create playlists. Connect Slack to send research to your team. Connect Google to save as Docs. All free.",
+    },
+    {
+      number: 3,
+      title: "Explore Deep Cuts",
+      description:
+        "Research results appear as interactive Deep Cuts — playlists with play buttons, influence chains with artist photos, show prep with talk breaks. Click Publish to share a link, or Export to Spotify to create a playlist from your findings.",
+    },
+    {
+      number: 4,
+      title: "Create custom skills",
+      description:
+        "Type /create-skill and describe what you want (e.g. 'search Dusty Groove for vinyl records'). Crate tests it, saves it, and you can run it anytime as a slash command. Free users get 3 skills.",
+    },
+    {
+      number: 5,
+      title: "Upgrade when you outgrow it",
+      description:
+        "Pro ($15/mo) gives you 50 queries, unlimited sessions, cross-session memory, and 20 custom skills. Or bring your own API key for unlimited queries.",
+      link: { label: "See pricing", url: "/pricing" },
     },
   ];
 
