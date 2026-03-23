@@ -17,7 +17,7 @@ import {
   bareToolName,
   serverFromToolName,
 } from "./tool-adapter";
-import { TOOL_CALL_CAP } from "@/lib/plans";
+import { TOOL_CALL_CAP, TOOL_CALL_CAP_RESEARCH } from "@/lib/plans";
 
 /** CrateEvent types — matches crate-cli/dist/agent/events.d.ts exactly. */
 export type CrateEvent =
@@ -46,6 +46,8 @@ export interface AgenticLoopOptions {
   posthogDistinctId?: string;
   /** PostHog trace ID to group all turns in this session */
   posthogTraceId?: string;
+  /** Research-heavy command — gets higher tool call cap */
+  isResearchCommand?: boolean;
 }
 
 // ── Shared helpers ────────────────────────────────────────────────
@@ -160,8 +162,9 @@ async function* anthropicLoop(
 
     if (toolCalls.length === 0 || response.stop_reason === "end_turn") break;
 
-    // Enforce tool call cap
-    if (toolCallCount + toolCalls.length > TOOL_CALL_CAP) {
+    // Enforce tool call cap (research commands get a higher cap)
+    const cap = options.isResearchCommand ? TOOL_CALL_CAP_RESEARCH : TOOL_CALL_CAP;
+    if (toolCallCount + toolCalls.length > cap) {
       for (const ev of emitText("\n\nI've gathered a lot of information. Here's what I found so far.")) yield ev;
       break;
     }
@@ -274,8 +277,9 @@ async function* openRouterLoop(
         input: JSON.parse(tc.function.arguments || "{}") as Record<string, unknown>,
       }));
 
-    // Enforce tool call cap
-    if (toolCallCount + parsedCalls.length > TOOL_CALL_CAP) {
+    // Enforce tool call cap (research commands get a higher cap)
+    const cap = options.isResearchCommand ? TOOL_CALL_CAP_RESEARCH : TOOL_CALL_CAP;
+    if (toolCallCount + parsedCalls.length > cap) {
       for (const ev of emitText("\n\nI've gathered a lot of information. Here's what I found so far.")) yield ev;
       break;
     }

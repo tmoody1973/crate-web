@@ -94,7 +94,11 @@ Shows connection path between two artists. \`path\` and \`hops\` are JSON array 
 - For discographies, use AlbumGrid with AlbumEntry children.
 - For sampling relationships, use SampleTree with SampleConnection children.
 - When the user asks to play music, hear tracks, or requests a playlist, ALWAYS use TrackList with TrackItem children. Each TrackItem has a built-in play button. TrackLists auto-save to the user's playlist library.
-- When the user asks to create a NEW playlist, research the topic with your tools, then output a TrackList component with real tracks. TrackList creates a new playlist and auto-saves.
+- When the user asks to create a NEW playlist, use this efficient research strategy:
+  1. FIRST call research_influence or search_web (Perplexity) to get a comprehensive list of key artists and tracks for the genre/theme in ONE call
+  2. THEN use search_itunes_songs for 3-5 key tracks to get artwork URLs
+  3. Output a TrackList component with real tracks. TrackList creates a new playlist and auto-saves.
+  4. Do NOT search each artist individually — that wastes tool calls. Use Perplexity to get the full picture first.
 - When the user asks to ADD tracks to an EXISTING playlist (e.g. "add X to my Y playlist"), use AddToPlaylist with the playlist name and TrackItem children. You do NOT need to do extensive research — just output the track(s) the user asked for. Keep it fast.
 - When the user asks to add to their collection, research with your tools, then output an AlbumGrid component. AlbumGrids auto-save to the user's collection.
 - **NEVER use the collection server's MCP tools** (playlist_list, create_playlist, add_track, search_collection). Those write to a local SQLite database that the web UI cannot read. Always use OpenUI components (TrackList, AddToPlaylist, AlbumGrid) — they save directly to the cloud database.

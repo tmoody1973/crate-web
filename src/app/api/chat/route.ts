@@ -400,6 +400,7 @@ async function streamAgenticResponse(
           useOpenRouter,
           toolGroups,
           maxTurns: isResearchCommand ? 35 : 25,
+          isResearchCommand,
         });
 
         // Collect assistant text for mem0 conversation saving
@@ -605,7 +606,12 @@ export async function POST(req: Request) {
   }
 
   // Force Sonnet for research-heavy commands that need deep tool use + structured output
-  const isResearchCommand = /^\/(?:influence|show-prep|prep|news)\b/i.test(rawMessage.trim());
+  const isSlashResearch = /^\/(?:influence|show-prep|prep|news)\b/i.test(rawMessage.trim());
+  // Natural language research: playlist creation, influence traces, deep dives
+  const isNaturalResearch = /\b(create|make|build).*(playlist|mix|setlist)\b/i.test(rawMessage) ||
+    /\b(influence|trace|connection).*(between|from|chain)\b/i.test(rawMessage) ||
+    /\b(deep dive|research|analyze)\b/i.test(rawMessage);
+  const isResearchCommand = isSlashResearch || isNaturalResearch;
 
   const rawModelId = isResearchCommand
     ? "claude-sonnet-4-6"

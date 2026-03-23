@@ -69,8 +69,9 @@ export function isBetaDomain(email: string): boolean {
   return BETA_DOMAINS.includes(domain);
 }
 
-/** Tool call cap per agent query. */
-export const TOOL_CALL_CAP = 25;
+/** Tool call cap per agent query. Research commands get a higher cap. */
+export const TOOL_CALL_CAP = 35;
+export const TOOL_CALL_CAP_RESEARCH = 50;
 
 /** Grace period (ms) after currentPeriodEnd for past_due users. */
 export const PAST_DUE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
