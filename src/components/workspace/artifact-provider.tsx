@@ -119,6 +119,13 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
       if (sessionId && user) {
         hashContent(content).then((contentHash) => {
           if (savedHashesRef.current.has(contentHash)) {
+            // Content already saved — find the real ID from history
+            const existing = (convexArtifacts ?? []).find((a) => a.contentHash === contentHash);
+            if (existing) {
+              setCurrent((prev) =>
+                prev?.id === "pending" ? { ...prev, id: existing._id } : prev,
+              );
+            }
             setIsSaving(false);
             return;
           }
@@ -130,8 +137,13 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
             label,
             data: content,
             contentHash,
-          }).then(() => setIsSaving(false))
-            .catch(() => setIsSaving(false));
+          }).then((newId) => {
+            // Update current with the real Convex ID so Publish button works
+            setCurrent((prev) =>
+              prev?.id === "pending" ? { ...prev, id: newId } : prev,
+            );
+            setIsSaving(false);
+          }).catch(() => setIsSaving(false));
         });
       } else {
         setIsSaving(false);
