@@ -12,7 +12,7 @@ I entered the Auth0 "Authorized to Act" hackathon, and the timing was perfect. A
 
 So I wired it up. Here's what Crate can do now:
 
-**Spotify.** Connect your account, and Crate can read your library — your saved tracks, top artists, playlists. It uses what you actually listen to as context for research. Found an influence chain you love? One click and Crate creates a playlist in your Spotify account, searches for each track, and adds them. The playlist shows up in your Spotify app immediately.
+**Spotify.** Connect your account, and Crate pulls in your full library — saved tracks, top artists, every playlist you've built. It uses what you actually listen to as context for research. Ask "who are my top artists?" and it knows. Say "deep dive into the artists on my HYFIN playlist" and it pulls the tracks, researches every artist, maps their connections, and finds samples you didn't know existed. Found an influence chain you love? One click and Crate creates a new playlist in your Spotify account, searches for each track, and adds them. The playlist shows up in your Spotify app immediately.
 
 **Slack.** After running a show prep research session (Crate was originally built for Radio Milwaukee), you can send the results directly to a Slack channel. The message arrives formatted with Block Kit — proper headers, bullet lists, dividers. No more copy-pasting research into chat.
 
