@@ -45,6 +45,11 @@ export function usePlayer() {
   return ctx;
 }
 
+/** Safe version that returns null outside PlayerProvider (e.g. public share pages). */
+export function usePlayerSafe() {
+  return useContext(PlayerContext);
+}
+
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PlayerState>({
     currentTrack: null,

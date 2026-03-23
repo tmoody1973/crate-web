@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
-import { usePlayer } from "@/components/player/player-provider";
+import { usePlayerSafe } from "@/components/player/player-provider";
 
 // ── JSON string preprocessor for OpenUI Lang ────────────────────
 // OpenUI Lang passes complex props as JSON strings from positional args.
@@ -502,11 +502,13 @@ function SaveToCollectionButton({
 }
 
 function PlayButton({ name, artist }: { name: string; artist: string }) {
-  const { play } = usePlayer();
+  const player = usePlayerSafe();
+  const play = player?.play ?? null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
   const handlePlay = async () => {
+    if (!play) return; // No player available (share page)
     setLoading(true);
     setError(false);
     try {
