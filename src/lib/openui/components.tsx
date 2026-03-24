@@ -2452,13 +2452,11 @@ function YouTubeThumbnail({ videoId, videoTitle }: { videoId: string; videoTitle
 }
 
 function StoryPersonCard({ name, role, imageUrl }: { name: string; role?: string; imageUrl?: string }) {
-  const autoImage = useAutoImage(name, imageUrl);
-
   return (
     <div className="flex w-20 shrink-0 flex-col items-center gap-1">
       <div className="relative">
-        {autoImage ? (
-          <img src={autoImage} alt={name} className="h-12 w-12 rounded-full object-cover ring-2 ring-zinc-700" />
+        {imageUrl ? (
+          <img src={imageUrl} alt={name} className="h-12 w-12 rounded-full object-cover ring-2 ring-zinc-700" />
         ) : (
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-700 text-sm font-bold text-white">
             {name.charAt(0)}
@@ -2574,6 +2572,37 @@ export const StoryCard = defineComponent({
       return { name: String(obj.name ?? ""), artist: String(obj.artist ?? ""), album: obj.album ? String(obj.album) : undefined, year: obj.year ? String(obj.year) : undefined };
     });
 
+    // Batch-fetch key people images (same approach as InfluenceChain)
+    const [fetchedPeopleImages, setFetchedPeopleImages] = useState<Record<string, string>>({});
+    useEffect(() => {
+      const missing = keyPeople.filter(p => !p.imageUrl);
+      if (missing.length === 0) return;
+      let cancelled = false;
+      const fetchImages = async () => {
+        const results: Record<string, string> = {};
+        await Promise.allSettled(
+          missing.slice(0, 12).map(async (person) => {
+            try {
+              const res = await fetch(`/api/artwork?q=${encodeURIComponent(person.name)}&type=artist&source=spotify`);
+              if (!res.ok) return;
+              const data = await res.json();
+              const img = data.results?.[0]?.image;
+              if (img && !cancelled) results[person.name] = img;
+            } catch { /* skip */ }
+          }),
+        );
+        if (!cancelled) setFetchedPeopleImages(results);
+      };
+      fetchImages();
+      return () => { cancelled = true; };
+    }, [keyPeople.map(p => p.name).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Merge fetched images into key people
+    const peopleWithImages = keyPeople.map(p => ({
+      ...p,
+      imageUrl: p.imageUrl || fetchedPeopleImages[p.name],
+    }));
+
     const mainArtist = props.subtitle.split("·")[0]?.trim() || props.title;
     const spotifyUrl = `https://open.spotify.com/search/${encodeURIComponent(props.title + " " + mainArtist)}`;
 
@@ -2649,13 +2678,13 @@ export const StoryCard = defineComponent({
                 {mobileOpenSection === 100 && <div className="px-4 pb-4"><YouTubeThumbnail videoId={props.videoId} videoTitle={props.videoTitle} /></div>}
               </div>
             )}
-            {keyPeople.length > 0 && (
+            {peopleWithImages.length > 0 && (
               <div>
                 <button onClick={() => setMobileOpenSection(mobileOpenSection === 101 ? null : 101)} className="flex w-full items-center justify-between px-4 py-3 text-left">
                   <p className="text-sm font-medium text-white">Key People</p>
                   <span className={`text-zinc-500 text-xs transition-transform ${mobileOpenSection === 101 ? "rotate-180" : ""}`}>▾</span>
                 </button>
-                {mobileOpenSection === 101 && <div className="flex gap-4 overflow-x-auto px-4 pb-4">{keyPeople.map((p, i) => <StoryPersonCard key={i} name={p.name} role={p.role} imageUrl={p.imageUrl} />)}</div>}
+                {mobileOpenSection === 101 && <div className="flex gap-4 overflow-x-auto px-4 pb-4">{peopleWithImages.map((p, i) => <StoryPersonCard key={i} name={p.name} role={p.role} imageUrl={p.imageUrl} />)}</div>}
               </div>
             )}
           </div>
@@ -2752,10 +2781,10 @@ export const StoryCard = defineComponent({
             </div>
           )}
           {props.videoId && <div className="mb-5"><YouTubeThumbnail videoId={props.videoId} videoTitle={props.videoTitle} /></div>}
-          {keyPeople.length > 0 && (
+          {peopleWithImages.length > 0 && (
             <div className="mb-5">
               <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">Key People</p>
-              <div className="flex gap-4 overflow-x-auto pb-2">{keyPeople.map((p, i) => <StoryPersonCard key={i} name={p.name} role={p.role} imageUrl={p.imageUrl} />)}</div>
+              <div className="flex gap-4 overflow-x-auto pb-2">{peopleWithImages.map((p, i) => <StoryPersonCard key={i} name={p.name} role={p.role} imageUrl={p.imageUrl} />)}</div>
             </div>
           )}
           {sources.length > 0 && (
