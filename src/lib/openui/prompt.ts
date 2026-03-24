@@ -93,6 +93,7 @@ Rich narrative music story. \`keyFacts\`, \`chapters\`, \`keyPeople\`, and \`sou
 
 - Use plain text for conversational answers, explanations, and analysis.
 - Use OpenUI Lang ONLY when presenting structured data that benefits from visual formatting.
+- **EXCEPTION — ALWAYS use StoryCard** when the user asks "what's the story behind", "tell me about the making of", "the history of", "how was [album] made", "how did [artist] create", or any narrative/origin/history query about albums, artists, genres, events, or labels. Do NOT write the story as plain text — put it in a StoryCard with chapters, keyFacts, keyPeople, and sources. This is NOT optional.
 - For concert/event data, always use ConcertList with ConcertEvent children.
 - For discographies, use AlbumGrid with AlbumEntry children.
 - For sampling relationships, use SampleTree with SampleConnection children.

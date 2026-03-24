@@ -412,6 +412,37 @@ export function preprocessSlashCommand(message: string): string {
       ].join("\n");
     }
 
+    case "story": {
+      if (!arg) {
+        return "What album, artist, genre, or event do you want the story behind? For example: /story Donuts";
+      }
+
+      return [
+        `The user wants a deep narrative story about: "${arg}"`,
+        ``,
+        `MANDATORY: You MUST output a StoryCard OpenUI component. Do NOT write plain text.`,
+        ``,
+        `RESEARCH STEPS (be efficient):`,
+        `1. Search for the story/history/making of "${arg}" using search_web or Perplexity — get the full narrative in one call`,
+        `2. Search for album art or a relevant image using search_itunes_albums or the artwork API`,
+        `3. Search YouTube for a documentary, interview, or performance video about "${arg}"`,
+        ``,
+        `OUTPUT: Render a StoryCard with:`,
+        `- title: the subject name`,
+        `- subtitle: artist · year · label (or relevant context)`,
+        `- heroImageUrl: album cover or artist photo`,
+        `- category: "The Story Behind" or "The Making Of" or "The History Of"`,
+        `- keyFacts: 3-5 key stats (tracks, samples, sales, chart position, etc.)`,
+        `- chapters: 3-5 narrative chapters with title, subtitle, and 2-4 paragraphs of content each`,
+        `- videoId: YouTube video ID if found`,
+        `- videoTitle: video title`,
+        `- keyPeople: important people mentioned in the story`,
+        `- sources: cited source links from your research`,
+        ``,
+        `CRITICAL: The output MUST be OpenUI Lang with root = StoryCard(...). NOT plain text.`,
+      ].join("\n");
+    }
+
     default:
       // Unknown slash command — pass through as-is
       return message;
@@ -443,6 +474,8 @@ export function getSessionTitle(message: string): string {
         }
         return "Show Prep";
       }
+      case "story":
+        return arg ? `Story: ${arg}` : "Story";
       case "news":
         return arg ? `${arg.trim()} Music News` : "Music News";
       case "influence":
