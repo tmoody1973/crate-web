@@ -2,6 +2,8 @@
 
 import { usePlayer } from "./player-provider";
 import posthog from "posthog-js";
+import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useKeyboardVisible } from "@/hooks/use-keyboard-visible";
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -24,7 +26,36 @@ export function PlayerBar() {
     seek,
   } = usePlayer();
 
+  const isMobile = useIsMobile();
+  const keyboardVisible = useKeyboardVisible();
+
   if (!currentTrack) return null;
+
+  if (isMobile) {
+    if (keyboardVisible) return null; // Hide when keyboard is open
+
+    return (
+      <div className="flex h-11 items-center border-t border-zinc-800 bg-zinc-950 px-3 gap-3">
+        {currentTrack.imageUrl && (
+          <img src={currentTrack.imageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="truncate text-xs text-white">{currentTrack.title}</p>
+          <p className="truncate text-[10px] text-zinc-500">{currentTrack.artist}</p>
+        </div>
+        <button
+          onClick={() => { isPlaying ? pause() : resume(); }}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-black"
+        >
+          {isPlaying ? (
+            <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+          ) : (
+            <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          )}
+        </button>
+      </div>
+    );
+  }
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
