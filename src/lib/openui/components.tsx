@@ -2823,3 +2823,298 @@ export const StoryCard = defineComponent({
     );
   },
 });
+
+// ── Track Card Component ────────────────────────────────────────
+
+function TrackCreditRow({ name, role, imageUrl }: { name: string; role?: string; imageUrl?: string }) {
+  return (
+    <div className="flex items-center gap-3 py-2">
+      {imageUrl ? (
+        <img src={imageUrl} alt={name} className="h-9 w-9 rounded-full object-cover ring-1 ring-zinc-700" />
+      ) : (
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-700 text-xs font-bold text-white">
+          {name.charAt(0)}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-white truncate">{name}</p>
+        {role && <p className="text-xs text-zinc-500">{role}</p>}
+      </div>
+      <button
+        onClick={() => injectChatMessage(`Tell me about ${name}`)}
+        className="text-[10px] text-cyan-500 hover:text-cyan-400 shrink-0"
+      >
+        Deep Dive →
+      </button>
+    </div>
+  );
+}
+
+function SampleRow({ name, artist, year, direction }: { name: string; artist: string; year?: string; direction: string }) {
+  return (
+    <div className="flex items-center gap-2 py-2">
+      <PlayButton name={name} artist={artist} />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-white truncate">{name}</p>
+        <p className="text-xs text-zinc-500 truncate">{artist}{year ? ` · ${year}` : ""}</p>
+      </div>
+      <button
+        onClick={() => injectChatMessage(`/track ${name} ${artist}`)}
+        className="text-[10px] text-cyan-500 hover:text-cyan-400 shrink-0"
+      >
+        Details →
+      </button>
+    </div>
+  );
+}
+
+export const TrackCard = defineComponent({
+  name: "TrackCard",
+  description:
+    "Single-track deep dive with tabbed credits, samples, lyrics, and vinyl data. Crate's SongDNA competitor. Use when user asks about a specific track.",
+  props: z.object({
+    name: z.string().describe("Track name"),
+    artist: z.string().describe("Artist name"),
+    album: z.string().optional().describe("Album name"),
+    year: z.string().optional().describe("Release year"),
+    label: z.string().optional().describe("Record label"),
+    imageUrl: z.string().optional().describe("Album art URL"),
+    duration: z.string().optional().describe("Track duration e.g. '9:22'"),
+    musicalKey: z.string().optional().describe("Musical key e.g. 'D Dorian'"),
+    bpm: z.string().optional().describe("BPM"),
+    genre: z.string().optional().describe("Genre"),
+    credits: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Credits: [{name, role, imageUrl?}]"),
+    samples: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Samples: [{name, artist, year, direction}]"),
+    lyricsSnippet: z.string().optional().describe("Lyrics or annotation snippet"),
+    lyricsUrl: z.string().optional().describe("Genius URL"),
+    pressingsCount: z.string().optional().describe("Discogs pressing count"),
+    pressingsMedianPrice: z.string().optional().describe("Median price"),
+    pressingsOriginalInfo: z.string().optional().describe("Original pressing details"),
+    discogsUrl: z.string().optional().describe("Discogs URL"),
+    spotifyUrl: z.string().optional().describe("Direct Spotify track URL"),
+    sources: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Sources: [{name, url}]"),
+  }),
+  component: ({ props }) => {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const isMobile = useIsMobile();
+    const [activeTab, setActiveTab] = useState(0);
+
+    // Parse arrays with fallbacks (same pattern as StoryCard)
+    const rawCredits = ensureArray<unknown>(props.credits);
+    const credits = rawCredits.map((c) => {
+      if (typeof c === "string") {
+        const dashMatch = (c as string).match(/^(.+?)\s*[—–-]\s*(.+)$/);
+        if (dashMatch) return { name: dashMatch[1].trim(), role: dashMatch[2].trim(), imageUrl: undefined };
+        return { name: c as string, role: undefined, imageUrl: undefined };
+      }
+      const obj = c as Record<string, unknown>;
+      return { name: String(obj.name ?? ""), role: obj.role ? String(obj.role) : undefined, imageUrl: obj.imageUrl ? String(obj.imageUrl) : undefined };
+    });
+
+    const rawSamples = ensureArray<unknown>(props.samples);
+    const samples = rawSamples.map((s) => {
+      if (typeof s === "string") {
+        const dashMatch = (s as string).match(/^(.+?)\s*[—–-]\s*(.+)$/);
+        if (dashMatch) return { name: dashMatch[1].trim(), artist: dashMatch[2].trim(), year: undefined, direction: "from" };
+        return { name: s as string, artist: "", year: undefined, direction: "from" };
+      }
+      const obj = s as Record<string, unknown>;
+      return { name: String(obj.name ?? ""), artist: String(obj.artist ?? ""), year: obj.year ? String(obj.year) : undefined, direction: String(obj.direction ?? "from") };
+    });
+
+    const rawSources = ensureArray<unknown>(props.sources);
+    const sources = rawSources.map((s) => {
+      if (typeof s === "string") {
+        const linkMatch = (s as string).match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkMatch) return { name: linkMatch[1], url: linkMatch[2] };
+        return { name: s as string, url: "" };
+      }
+      const obj = s as Record<string, unknown>;
+      return { name: String(obj.name ?? ""), url: String(obj.url ?? "") };
+    });
+
+    // Batch fetch credit images
+    const [fetchedCreditImages, setFetchedCreditImages] = useState<Record<string, string>>({});
+    useEffect(() => {
+      const missing = credits.filter(c => !c.imageUrl);
+      if (missing.length === 0) return;
+      let cancelled = false;
+      const fetchImages = async () => {
+        const results: Record<string, string> = {};
+        await Promise.allSettled(
+          missing.slice(0, 12).map(async (person) => {
+            try {
+              const res = await fetch(`/api/artwork?q=${encodeURIComponent(person.name)}&type=artist&source=spotify`);
+              if (!res.ok) return;
+              const data = await res.json();
+              const img = data.results?.[0]?.image;
+              if (img && !cancelled) results[person.name] = img;
+            } catch { /* skip */ }
+          }),
+        );
+        if (!cancelled) setFetchedCreditImages(results);
+      };
+      fetchImages();
+      return () => { cancelled = true; };
+    }, [credits.map(c => c.name).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const creditsWithImages = credits.map(c => ({
+      ...c,
+      imageUrl: c.imageUrl || fetchedCreditImages[c.name],
+    }));
+
+    const samplesFrom = samples.filter(s => s.direction === "from");
+    const samplesBy = samples.filter(s => s.direction === "by");
+    const hasLyrics = !!props.lyricsSnippet;
+    const hasVinyl = !!props.pressingsCount;
+    const spotifyUrl = props.spotifyUrl || `https://open.spotify.com/search/${encodeURIComponent(props.name + " " + props.artist)}`;
+
+    // Build available tabs
+    const tabs: { label: string; id: string }[] = [
+      { label: `Credits (${credits.length})`, id: "credits" },
+    ];
+    if (samples.length > 0) tabs.push({ label: `Samples (${samples.length})`, id: "samples" });
+    if (hasLyrics) tabs.push({ label: "Lyrics", id: "lyrics" });
+    if (hasVinyl) tabs.push({ label: "Vinyl", id: "vinyl" });
+
+    const currentTab = tabs[activeTab]?.id ?? "credits";
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
+        {/* Hero */}
+        <div className={`relative ${isMobile ? "h-32" : "h-44"} overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-950`}>
+          <SafeImage src={props.imageUrl} alt={props.name} className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/70 to-transparent" />
+          <div className="relative flex h-full items-end justify-between p-4">
+            <div>
+              <h2 className={`${isMobile ? "text-xl" : "text-2xl"} font-bold text-white drop-shadow-lg`}>{props.name}</h2>
+              <p className="text-sm text-zinc-300">{props.artist}</p>
+              <p className="text-xs text-zinc-500">{[props.album, props.year, props.label].filter(Boolean).join(" · ")}</p>
+            </div>
+            <div className="shrink-0">
+              <PlayButton name={props.name} artist={props.artist} />
+            </div>
+          </div>
+        </div>
+
+        {/* Stats chips */}
+        <div className="flex gap-2 overflow-x-auto border-b border-zinc-800 bg-zinc-800/20 px-4 py-2 scrollbar-none">
+          {[props.duration, props.musicalKey, props.bpm && `${props.bpm} BPM`, props.genre, props.pressingsCount && `${props.pressingsCount} pressings`]
+            .filter(Boolean)
+            .map((stat, i) => (
+              <span key={i} className="shrink-0 rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-400">{stat}</span>
+            ))}
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1.5 overflow-x-auto border-b border-zinc-800 px-4 py-2 scrollbar-none">
+          {tabs.map((tab, i) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(i)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs transition-colors ${
+                activeTab === i ? "bg-[#E8520E] text-white" : "bg-zinc-800 text-zinc-400 hover:text-white"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="p-4">
+          {currentTab === "credits" && (
+            <div className="divide-y divide-zinc-800">
+              {creditsWithImages.length > 0 ? (
+                creditsWithImages.map((c, i) => (
+                  <TrackCreditRow key={i} name={c.name} role={c.role} imageUrl={c.imageUrl} />
+                ))
+              ) : (
+                <p className="text-sm text-zinc-600 italic">No credit information available</p>
+              )}
+            </div>
+          )}
+
+          {currentTab === "samples" && (
+            <div>
+              {samplesFrom.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Sampled from</p>
+                  <div className="divide-y divide-zinc-800">
+                    {samplesFrom.map((s, i) => <SampleRow key={i} {...s} />)}
+                  </div>
+                </div>
+              )}
+              {samplesBy.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Sampled by</p>
+                  <div className="divide-y divide-zinc-800">
+                    {samplesBy.map((s, i) => <SampleRow key={i} {...s} />)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {currentTab === "lyrics" && (
+            <div>
+              <div className="border-l-2 border-[#E8520E] pl-4">
+                <p className="text-sm leading-relaxed text-zinc-300 italic whitespace-pre-line">{props.lyricsSnippet}</p>
+              </div>
+              {props.lyricsUrl && (
+                <a href={props.lyricsUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-xs text-cyan-500 hover:underline">
+                  Read full lyrics on Genius →
+                </a>
+              )}
+            </div>
+          )}
+
+          {currentTab === "vinyl" && (
+            <div className="space-y-3">
+              {props.pressingsCount && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-zinc-400">Total pressings</span>
+                  <span className="text-sm text-white font-medium">{props.pressingsCount}</span>
+                </div>
+              )}
+              {props.pressingsMedianPrice && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-zinc-400">Median price</span>
+                  <span className="text-sm text-white font-medium">{props.pressingsMedianPrice}</span>
+                </div>
+              )}
+              {props.pressingsOriginalInfo && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-zinc-400">Original pressing</span>
+                  <span className="text-sm text-white font-medium">{props.pressingsOriginalInfo}</span>
+                </div>
+              )}
+              {props.discogsUrl && (
+                <a href={props.discogsUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-xs text-cyan-500 hover:underline">
+                  Browse on Discogs →
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Sources + actions */}
+        <div className="border-t border-zinc-800 px-4 py-3 space-y-2">
+          {sources.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {sources.map((s, i) => (
+                <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-cyan-500 hover:underline">{s.name}</a>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <a href={spotifyUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-green-800 bg-green-900/30 px-2.5 py-1 text-[11px] text-green-400 hover:bg-green-900/50 transition-colors">▶ Spotify</a>
+            <SlackSendButton label={`"${props.name}" by ${props.artist}`} />
+            <button onClick={() => injectChatMessage(`/influence ${props.artist}`)} className="inline-flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 transition-colors">Influence →</button>
+            {props.album && <button onClick={() => injectChatMessage(`/story ${props.album}`)} className="inline-flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 transition-colors">Story →</button>}
+          </div>
+        </div>
+      </div>
+    );
+  },
+});
