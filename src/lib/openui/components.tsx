@@ -2455,7 +2455,7 @@ function StoryPersonCard({ name, role, imageUrl }: { name: string; role?: string
   const autoImage = useAutoImage(name, imageUrl);
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex w-20 shrink-0 flex-col items-center gap-1">
       <div className="relative">
         {autoImage ? (
           <img src={autoImage} alt={name} className="h-12 w-12 rounded-full object-cover ring-2 ring-zinc-700" />
@@ -2465,8 +2465,8 @@ function StoryPersonCard({ name, role, imageUrl }: { name: string; role?: string
           </div>
         )}
       </div>
-      <p className="text-xs text-zinc-300 text-center max-w-[64px] truncate">{name}</p>
-      {role && <p className="text-[10px] text-zinc-600 text-center">{role}</p>}
+      <p className="w-full text-xs text-zinc-300 text-center truncate">{name}</p>
+      {role && <p className="w-full text-[10px] text-zinc-600 text-center line-clamp-2">{role}</p>}
       <button
         onClick={() => injectChatMessage(`Tell me about ${name}`)}
         className="text-[9px] text-cyan-500 hover:text-cyan-400"
@@ -2655,7 +2655,7 @@ export const StoryCard = defineComponent({
           {keyPeople.length > 0 && (
             <div className="mb-5">
               <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">Key People</p>
-              <div className="flex gap-6">{keyPeople.map((p, i) => <StoryPersonCard key={i} name={p.name} role={p.role} imageUrl={p.imageUrl} />)}</div>
+              <div className="flex gap-4 overflow-x-auto pb-2">{keyPeople.map((p, i) => <StoryPersonCard key={i} name={p.name} role={p.role} imageUrl={p.imageUrl} />)}</div>
             </div>
           )}
           {sources.length > 0 && (
