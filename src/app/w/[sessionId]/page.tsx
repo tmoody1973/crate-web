@@ -13,7 +13,7 @@ const MIN_WIDTH = 30;
 const MAX_WIDTH = 70;
 
 function ResizableWorkspace() {
-  const { history, showPanel, openPanel, current } = useArtifact();
+  const { history, showPanel, openPanel, dismissPanel, current } = useArtifact();
   const isMobile = useIsMobile();
   const [mobileShowDeepCuts, setMobileShowDeepCuts] = useState(false);
   const [panelWidth, setPanelWidth] = useState(() => {
@@ -72,7 +72,10 @@ function ResizableWorkspace() {
   }, [isMobile]);
 
   if (isMobile && mobileShowDeepCuts) {
-    return <MobileDeepCuts onBack={() => setMobileShowDeepCuts(false)} />;
+    return <MobileDeepCuts onBack={() => {
+      setMobileShowDeepCuts(false);
+      dismissPanel(); // also dismiss desktop panel so the effect doesn't re-open
+    }} />;
   }
 
   return (
