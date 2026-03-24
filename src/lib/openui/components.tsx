@@ -3118,3 +3118,321 @@ export const TrackCard = defineComponent({
     );
   },
 });
+
+// ── Artist Profile Component ────────────────────────────────────
+
+function AlbumRow({ title, year, imageUrl }: { title: string; year?: string; imageUrl?: string }) {
+  const autoImage = useAutoImage(title, imageUrl);
+
+  return (
+    <div className="flex items-center gap-3 py-2">
+      {autoImage ? (
+        <img src={autoImage} alt={title} className="h-12 w-12 rounded object-cover" />
+      ) : (
+        <div className="flex h-12 w-12 items-center justify-center rounded bg-zinc-700 text-xs font-bold text-white">
+          {title.charAt(0)}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <button
+          onClick={() => injectChatMessage(`/story ${title}`)}
+          className="text-sm text-white hover:text-[#E8520E] transition-colors truncate block text-left"
+        >
+          {title}
+        </button>
+        {year && <p className="text-xs text-zinc-500">{year}</p>}
+      </div>
+      <PlayButton name={title} artist={title} />
+    </div>
+  );
+}
+
+function ConnectionChip({ name, action }: { name: string; action: string }) {
+  return (
+    <button
+      onClick={() => injectChatMessage(action)}
+      className="shrink-0 rounded-full bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors"
+    >
+      {name}
+    </button>
+  );
+}
+
+export const ArtistProfile = defineComponent({
+  name: "ArtistProfile",
+  description:
+    "Full artist deep dive with four tabs: Overview, Discography, Connections, Media. Use when user asks 'tell me about [artist]' or wants a detailed profile. For compact inline mentions use ArtistCard instead.",
+  props: z.object({
+    name: z.string().describe("Artist name"),
+    realName: z.string().optional().describe("Real/birth name"),
+    origin: z.string().optional().describe("City/country"),
+    activeYears: z.string().optional().describe("e.g. 1971–2020"),
+    imageUrl: z.string().optional().describe("Artist photo URL"),
+    genres: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Genre list"),
+    knownFor: z.string().optional().describe("Signature sound description"),
+    labels: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Record labels"),
+    collaborators: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Collaborators: [{name, role?}]"),
+    influences: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Influenced by: [{name}]"),
+    influenced: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Artists influenced: [{name}]"),
+    albums: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Discography: [{title, year, imageUrl?}]"),
+    topTracks: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Top tracks: [{name, album?, year?}]"),
+    videoId: z.string().optional().describe("YouTube video ID"),
+    videoTitle: z.string().optional().describe("Video title"),
+    djTalkingPoint: z.string().optional().describe("On-air talking point"),
+    lastfmListeners: z.string().optional().describe("Last.fm listeners"),
+    lastfmScrobbles: z.string().optional().describe("Last.fm scrobbles"),
+    bandcampUrl: z.string().optional().describe("Bandcamp URL"),
+    discogsUrl: z.string().optional().describe("Discogs URL"),
+    geniusUrl: z.string().optional().describe("Genius URL"),
+    sources: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Sources: [{name, url}]"),
+  }),
+  component: ({ props }) => {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const isMobile = useIsMobile();
+    const [activeTab, setActiveTab] = useState(0);
+
+    // Parse arrays
+    const genres = ensureArray<unknown>(props.genres).map(g => typeof g === "string" ? g : String((g as Record<string, unknown>).name ?? g));
+    const labels = ensureArray<unknown>(props.labels).map(l => typeof l === "string" ? l : String((l as Record<string, unknown>).name ?? l));
+
+    const rawCollabs = ensureArray<unknown>(props.collaborators);
+    const collaborators = rawCollabs.map(c => {
+      if (typeof c === "string") {
+        const dashMatch = (c as string).match(/^(.+?)\s*[—–-]\s*(.+)$/);
+        if (dashMatch) return { name: dashMatch[1].trim(), role: dashMatch[2].trim() };
+        return { name: c as string, role: undefined };
+      }
+      const obj = c as Record<string, unknown>;
+      return { name: String(obj.name ?? ""), role: obj.role ? String(obj.role) : undefined };
+    });
+
+    const rawInfluences = ensureArray<unknown>(props.influences);
+    const influences = rawInfluences.map(i => typeof i === "string" ? i as string : String((i as Record<string, unknown>).name ?? i));
+
+    const rawInfluenced = ensureArray<unknown>(props.influenced);
+    const influenced = rawInfluenced.map(i => typeof i === "string" ? i as string : String((i as Record<string, unknown>).name ?? i));
+
+    const rawAlbums = ensureArray<unknown>(props.albums);
+    const albums = rawAlbums.map(a => {
+      if (typeof a === "string") return { title: a as string, year: undefined, imageUrl: undefined };
+      const obj = a as Record<string, unknown>;
+      return { title: String(obj.title ?? ""), year: obj.year ? String(obj.year) : undefined, imageUrl: obj.imageUrl ? String(obj.imageUrl) : undefined };
+    });
+
+    const rawTracks = ensureArray<unknown>(props.topTracks);
+    const topTracks = rawTracks.map(t => {
+      if (typeof t === "string") return { name: t as string, album: undefined, year: undefined };
+      const obj = t as Record<string, unknown>;
+      return { name: String(obj.name ?? ""), album: obj.album ? String(obj.album) : undefined, year: obj.year ? String(obj.year) : undefined };
+    });
+
+    const rawSources = ensureArray<unknown>(props.sources);
+    const sources = rawSources.map(s => {
+      if (typeof s === "string") {
+        const linkMatch = (s as string).match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkMatch) return { name: linkMatch[1], url: linkMatch[2] };
+        return { name: s as string, url: "" };
+      }
+      const obj = s as Record<string, unknown>;
+      return { name: String(obj.name ?? ""), url: String(obj.url ?? "") };
+    });
+
+    const spotifyUrl = `https://open.spotify.com/search/${encodeURIComponent(props.name)}`;
+
+    // Tabs
+    const tabs = [
+      { label: "Overview", id: "overview" },
+      { label: `Discography (${albums.length})`, id: "discography" },
+      { label: "Connections", id: "connections" },
+      { label: "Media", id: "media" },
+    ];
+    const currentTab = tabs[activeTab]?.id ?? "overview";
+
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
+        {/* Hero */}
+        <div className={`relative ${isMobile ? "h-32" : "h-44"} overflow-hidden bg-gradient-to-br from-violet-900/30 via-zinc-900 to-zinc-950`}>
+          <SafeImage src={props.imageUrl} alt={props.name} className="absolute inset-0 h-full w-full object-cover opacity-40" />
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-transparent" />
+          <div className="relative flex h-full items-end p-4 gap-4">
+            {props.imageUrl ? (
+              <SafeImage src={props.imageUrl} alt={props.name} className="h-16 w-16 rounded-full object-cover ring-2 ring-violet-500 shadow-lg shrink-0" />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-violet-600 ring-2 ring-violet-400 text-xl font-bold text-white shrink-0">
+                {props.name.charAt(0)}
+              </div>
+            )}
+            <div>
+              <h2 className={`${isMobile ? "text-xl" : "text-2xl"} font-bold text-white drop-shadow-lg`}>{props.name}</h2>
+              {props.realName && <p className="text-xs text-zinc-400">{props.realName}</p>}
+              <p className="text-xs text-zinc-500">{[props.origin, props.activeYears].filter(Boolean).join(" · ")}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Genre chips */}
+        {genres.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap px-4 py-2 border-b border-zinc-800">
+            {genres.map((g, i) => (
+              <span key={i} className="rounded-full border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300">{g}</span>
+            ))}
+          </div>
+        )}
+
+        {/* Stats chips */}
+        <div className="flex gap-2 overflow-x-auto border-b border-zinc-800 bg-zinc-800/20 px-4 py-2 scrollbar-none">
+          {[props.lastfmListeners && `${props.lastfmListeners} listeners`, props.lastfmScrobbles && `${props.lastfmScrobbles} scrobbles`, props.activeYears, albums.length > 0 && `${albums.length} albums`]
+            .filter(Boolean)
+            .map((stat, i) => (
+              <span key={i} className="shrink-0 rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-400">{stat}</span>
+            ))}
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1.5 overflow-x-auto border-b border-zinc-800 px-4 py-2 scrollbar-none">
+          {tabs.map((tab, i) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(i)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs transition-colors ${
+                activeTab === i ? "bg-violet-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-white"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="p-4">
+          {currentTab === "overview" && (
+            <div className="space-y-4">
+              {props.knownFor && (
+                <div className="rounded-lg bg-zinc-800/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Known for</p>
+                  <p className="text-sm text-zinc-300 leading-relaxed">{props.knownFor}</p>
+                </div>
+              )}
+              {labels.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Labels</p>
+                  <p className="text-sm text-zinc-300">{labels.join(" · ")}</p>
+                </div>
+              )}
+              {collaborators.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Collaborators</p>
+                  <div className="space-y-1">
+                    {collaborators.map((c, i) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <button onClick={() => injectChatMessage(`Tell me about ${c.name}`)} className="text-sm text-zinc-300 hover:text-white transition-colors">
+                          {c.name}{c.role ? ` — ${c.role}` : ""}
+                        </button>
+                        <span className="text-[9px] text-cyan-500">Deep Dive →</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {topTracks.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Top tracks</p>
+                  <div className="space-y-1">
+                    {topTracks.map((t, i) => (
+                      <div key={i} className="flex items-center gap-2 py-1">
+                        <PlayButton name={t.name} artist={props.name} />
+                        <span className="text-sm text-zinc-300">{t.name}</span>
+                        {t.album && <span className="text-xs text-zinc-600">{t.album}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {props.djTalkingPoint && (
+                <div className="rounded-lg border border-amber-900/30 bg-amber-950/20 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-400/70">On-Air Talking Point</p>
+                  <p className="mt-0.5 text-sm text-zinc-200">{props.djTalkingPoint}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {currentTab === "discography" && (
+            <div className="divide-y divide-zinc-800">
+              {albums.length > 0 ? (
+                albums.map((a, i) => <AlbumRow key={i} title={a.title} year={a.year} imageUrl={a.imageUrl} />)
+              ) : (
+                <p className="text-sm text-zinc-600 italic">No discography data available</p>
+              )}
+            </div>
+          )}
+
+          {currentTab === "connections" && (
+            <div className="space-y-4">
+              {influences.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Influenced by</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {influences.map((name, i) => (
+                      <ConnectionChip key={i} name={name} action={`/influence ${name}`} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {influenced.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Influenced</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {influenced.map((name, i) => (
+                      <ConnectionChip key={i} name={name} action={`/influence ${name}`} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={() => injectChatMessage(`/influence ${props.name}`)}
+                className="w-full rounded-lg border border-violet-800 bg-violet-900/20 py-2.5 text-sm text-violet-400 hover:bg-violet-900/40 transition-colors"
+              >
+                Map full influence chain →
+              </button>
+            </div>
+          )}
+
+          {currentTab === "media" && (
+            <div className="space-y-4">
+              {props.videoId && (
+                <YouTubeThumbnail videoId={props.videoId} videoTitle={props.videoTitle} />
+              )}
+              <div className="flex flex-wrap gap-2">
+                {props.bandcampUrl && <a href={props.bandcampUrl} target="_blank" rel="noopener noreferrer" className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 hover:text-white transition-colors">Bandcamp</a>}
+                {props.discogsUrl && <a href={props.discogsUrl} target="_blank" rel="noopener noreferrer" className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 hover:text-white transition-colors">Discogs</a>}
+                {props.geniusUrl && <a href={props.geniusUrl} target="_blank" rel="noopener noreferrer" className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 hover:text-white transition-colors">Genius</a>}
+                <a href={spotifyUrl} target="_blank" rel="noopener noreferrer" className="rounded-md border border-green-800 bg-green-900/30 px-3 py-1.5 text-xs text-green-400 hover:bg-green-900/50 transition-colors">Spotify</a>
+              </div>
+              {!props.videoId && !props.bandcampUrl && !props.discogsUrl && !props.geniusUrl && (
+                <p className="text-sm text-zinc-600 italic">No media links available</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Sources + actions */}
+        <div className="border-t border-zinc-800 px-4 py-3 space-y-2">
+          {sources.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {sources.map((s, i) => (
+                <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-cyan-500 hover:underline">{s.name}</a>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <a href={spotifyUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-green-800 bg-green-900/30 px-2.5 py-1 text-[11px] text-green-400 hover:bg-green-900/50 transition-colors">▶ Spotify</a>
+            <SlackSendButton label={`${props.name} artist profile`} />
+            <button onClick={() => injectChatMessage(`/influence ${props.name}`)} className="inline-flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 transition-colors">Influence →</button>
+            <button onClick={() => injectChatMessage(`/story ${props.name}`)} className="inline-flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 transition-colors">Story →</button>
+          </div>
+        </div>
+      </div>
+    );
+  },
+});
