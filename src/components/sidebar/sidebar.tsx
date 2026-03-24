@@ -13,7 +13,10 @@ const SidebarContext = createContext<SidebarContextValue | null>(null);
 
 export function useSidebar() {
   const ctx = useContext(SidebarContext);
-  if (!ctx) throw new Error("useSidebar must be used within Sidebar");
+  if (!ctx) {
+    // Return safe defaults when outside Sidebar (e.g. mobile sidebar overlay)
+    return { collapsed: false, toggle: () => {} };
+  }
   return ctx;
 }
 
