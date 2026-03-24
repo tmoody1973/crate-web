@@ -137,6 +137,15 @@ export async function GET(req: Request) {
       secure: true,
     });
     if (auth0UserId) {
+      // Store per-service user ID (each Auth0 social connection creates a separate user)
+      response.cookies.set(`auth0_user_id_${state.service}`, auth0UserId, {
+        path: "/",
+        maxAge: 365 * 24 * 60 * 60,
+        sameSite: "lax",
+        secure: true,
+        httpOnly: true,
+      });
+      // Also keep the legacy cookie for backwards compat
       response.cookies.set("auth0_user_id", auth0UserId, {
         path: "/",
         maxAge: 365 * 24 * 60 * 60,

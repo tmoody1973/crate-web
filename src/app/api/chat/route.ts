@@ -187,7 +187,7 @@ async function streamAgenticResponse(
   hasMemory?: boolean,
   hasInfluenceWrite?: boolean,
   maxSkills?: number,
-  auth0UserId?: string,
+  auth0UserIds?: { spotify?: string; slack?: string; google?: string },
 ): Promise<Response> {
   const encoder = new TextEncoder();
 
@@ -282,13 +282,13 @@ async function streamAgenticResponse(
 
         // Auth0 Token Vault-powered tools (Spotify, Slack, Google Docs)
         const webSpotifyConnectedTools = isTokenVaultConfigured()
-          ? createSpotifyConnectedTools(auth0UserId)
+          ? createSpotifyConnectedTools(auth0UserIds?.spotify)
           : [];
         const webSlackTools = isTokenVaultConfigured()
-          ? createSlackTools(auth0UserId)
+          ? createSlackTools(auth0UserIds?.slack)
           : [];
         const webGoogleDocsTools = isTokenVaultConfigured()
-          ? createGoogleDocsTools(auth0UserId)
+          ? createGoogleDocsTools(auth0UserIds?.google)
           : [];
 
         // Filter out crate-cli groups that use SQLite or mpv, inject web versions
@@ -690,11 +690,25 @@ export async function POST(req: Request) {
   // Agent-tier: full agentic loop with tools
   // Merge user keys + embedded keys for tool access
   const allEnvKeys = { ...embeddedKeys, ...userEnvKeys };
-  // Read Auth0 user ID from cookie (set during OAuth callback)
+  // Read per-service Auth0 user IDs from cookies (each social connection = separate Auth0 user)
   const cookieHeader = req.headers.get("cookie") ?? "";
-  const auth0Cookie = cookieHeader.split(";").find((c) => c.trim().startsWith("auth0_user_id="));
-  const auth0UserIdRaw = auth0Cookie ? auth0Cookie.split("=").slice(1).join("=").trim() : undefined;
-  const auth0UserId = auth0UserIdRaw ? decodeURIComponent(auth0UserIdRaw) : undefined;
+  function readAuth0Cookie(service: string): string | undefined {
+    // Try per-service cookie first, fall back to global
+    const perService = cookieHeader.split(";").find((c) => c.trim().startsWith(`auth0_user_id_${service}=`));
+    if (perService) {
+      const raw = perService.split("=").slice(1).join("=").trim();
+      return raw ? decodeURIComponent(raw) : undefined;
+    }
+    const global = cookieHeader.split(";").find((c) => c.trim().startsWith("auth0_user_id="));
+    if (global) {
+      const raw = global.split("=").slice(1).join("=").trim();
+      return raw ? decodeURIComponent(raw) : undefined;
+    }
+    return undefined;
+  }
+  const auth0UserIdSpotify = readAuth0Cookie("spotify");
+  const auth0UserIdSlack = readAuth0Cookie("slack");
+  const auth0UserIdGoogle = readAuth0Cookie("google");
 
   return streamAgenticResponse(
     message, apiKey, modelId, allEnvKeys, resolved.user._id, clerkId,
@@ -702,6 +716,6 @@ export async function POST(req: Request) {
     adminBypass || limits.hasMemory,
     adminBypass || limits.hasInfluenceCache,
     adminBypass ? 999 : limits.maxCustomSkills,
-    auth0UserId,
+    { spotify: auth0UserIdSpotify, slack: auth0UserIdSlack, google: auth0UserIdGoogle },
   );
 }
