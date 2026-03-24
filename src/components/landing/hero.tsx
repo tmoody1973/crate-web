@@ -6,7 +6,7 @@ import posthog from "posthog-js";
 export function Hero() {
   return (
     <section
-      className="relative min-h-[700px] overflow-hidden pb-20"
+      className="relative min-h-[700px] max-md:min-h-0 overflow-hidden pb-20 max-md:pb-10"
       style={{ backgroundColor: "#F5F0E8" }}
     >
       {/* 1. Orange accent block — behind photo, z-1 */}
@@ -24,9 +24,9 @@ export function Hero() {
         aria-hidden="true"
       />
 
-      {/* 2. Photo — on top of orange block, z-2 */}
+      {/* 2. Photo — on top of orange block, z-2. Hidden on mobile (shown below headline instead) */}
       <div
-        className="absolute max-md:relative max-md:right-auto max-md:top-auto max-md:h-[300px] max-md:w-full"
+        className="absolute max-md:hidden"
         role="img"
         aria-label="Record store shelves with vinyl albums"
         style={{
@@ -143,6 +143,24 @@ export function Hero() {
         >
           HOW IT WORKS
         </a>
+      </div>
+
+      {/* Mobile photo — shown only on mobile, after CTAs */}
+      <div
+        className="hidden max-md:block mt-8 mx-5"
+      >
+        <div
+          className="w-full h-[220px] rounded-lg overflow-hidden"
+          style={{
+            backgroundImage: "url('/photos/mick-haupt-CbNBjnXXhNg-unsplash.jpg')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            filter: "grayscale(40%) contrast(1.1)",
+            opacity: 0.85,
+          }}
+          role="img"
+          aria-label="Record store shelves with vinyl albums"
+        />
       </div>
 
       {/* 7. Vertical text right */}
