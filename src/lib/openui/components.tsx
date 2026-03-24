@@ -2488,6 +2488,7 @@ export const StoryCard = defineComponent({
     category: z.string().describe("Story type: 'The Story Behind', 'The Making Of', 'The History Of'"),
     keyFacts: z.preprocess(jsonPreprocess, z.array(z.any())).describe("Key stats as JSON array of {label, value} objects"),
     chapters: z.preprocess(jsonPreprocess, z.array(z.any())).describe("Story chapters as JSON array of {title, subtitle?, content} objects"),
+    tracks: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Key tracks from the story: [{name, artist, album?, year?}]. Include tracks mentioned in the narrative."),
     videoId: z.string().optional().describe("YouTube video ID for documentary/interview"),
     videoTitle: z.string().optional().describe("YouTube video title"),
     keyPeople: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Key people as JSON array of {name, role?, imageUrl?} objects"),
@@ -2552,6 +2553,18 @@ export const StoryCard = defineComponent({
       return { name: String(obj.name ?? ""), url: String(obj.url ?? "") };
     });
 
+    const rawTracks = ensureArray<unknown>(props.tracks);
+    const tracks = rawTracks.map((t) => {
+      if (typeof t === "string") {
+        // Parse "Track Name — Artist" or "Artist - Track" format
+        const dashMatch = (t as string).match(/^(.+?)\s*[—–-]\s*(.+)$/);
+        if (dashMatch) return { name: dashMatch[1].trim(), artist: dashMatch[2].trim(), album: undefined, year: undefined };
+        return { name: t as string, artist: "", album: undefined, year: undefined };
+      }
+      const obj = t as Record<string, unknown>;
+      return { name: String(obj.name ?? ""), artist: String(obj.artist ?? ""), album: obj.album ? String(obj.album) : undefined, year: obj.year ? String(obj.year) : undefined };
+    });
+
     const mainArtist = props.subtitle.split("·")[0]?.trim() || props.title;
     const spotifyUrl = `https://open.spotify.com/search/${encodeURIComponent(props.title + " " + mainArtist)}`;
 
@@ -2584,6 +2597,40 @@ export const StoryCard = defineComponent({
                 {mobileOpenSection === i && <div className="px-4 pb-4 text-sm leading-relaxed text-zinc-300">{ch.content}</div>}
               </div>
             ))}
+            {/* Tracks section */}
+            {tracks.length > 0 && (
+              <div>
+                <button onClick={() => setMobileOpenSection(mobileOpenSection === 99 ? null : 99)} className="flex w-full items-center justify-between px-4 py-3 text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-400 text-sm">♫</span>
+                    <div><p className="text-sm font-medium text-white">Key Tracks ({tracks.length})</p></div>
+                  </div>
+                  <span className={`text-zinc-500 text-xs transition-transform ${mobileOpenSection === 99 ? "rotate-180" : ""}`}>▾</span>
+                </button>
+                {mobileOpenSection === 99 && (
+                  <div className="px-4 pb-4 space-y-1.5">
+                    {tracks.map((t, i) => (
+                      <div key={i} className="flex items-center gap-2 rounded-lg bg-zinc-800/50 px-3 py-2">
+                        <PlayButton name={t.name} artist={t.artist} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-white truncate">{t.name}</p>
+                          <p className="text-[10px] text-zinc-500 truncate">{t.artist}{t.album ? ` · ${t.album}` : ""}{t.year ? ` (${t.year})` : ""}</p>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => {
+                        const trackQueries = tracks.map(t => `${t.artist} ${t.name}`).join('", "');
+                        injectChatMessage(`Export "${props.title}" tracks to Spotify: ["${trackQueries}"]`);
+                      }}
+                      className="w-full rounded-md border border-green-800 bg-green-900/30 py-2 text-xs text-green-400 mt-2"
+                    >
+                      ▶ Export to Spotify
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             {props.videoId && (
               <div>
                 <button onClick={() => setMobileOpenSection(mobileOpenSection === 100 ? null : 100)} className="flex w-full items-center justify-between px-4 py-3 text-left">
@@ -2649,6 +2696,37 @@ export const StoryCard = defineComponent({
             <div className="mb-5">
               {chapters[activeChapter].subtitle && <p className="text-xs text-zinc-500 mb-2">{chapters[activeChapter].subtitle}</p>}
               <div className="text-sm leading-relaxed text-zinc-300 whitespace-pre-line">{chapters[activeChapter].content}</div>
+            </div>
+          )}
+          {/* Key tracks */}
+          {tracks.length > 0 && (
+            <div className="mb-5">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">Key Tracks</p>
+              <div className="space-y-1.5">
+                {tracks.map((t, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg bg-zinc-800/50 px-3 py-2">
+                    <PlayButton name={t.name} artist={t.artist} />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm text-white">{t.name}</span>
+                      <span className="ml-2 text-xs text-zinc-500">{t.artist}</span>
+                    </div>
+                    {(t.album || t.year) && (
+                      <span className="shrink-0 text-xs text-zinc-600">
+                        {[t.album, t.year].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => {
+                  const trackQueries = tracks.map(t => `${t.artist} ${t.name}`).join('", "');
+                  injectChatMessage(`Export "${props.title}" tracks to Spotify: ["${trackQueries}"]`);
+                }}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-green-800 bg-green-900/30 px-3 py-1.5 text-xs text-green-400 hover:bg-green-900/50 transition-colors"
+              >
+                ▶ Export to Spotify
+              </button>
             </div>
           )}
           {props.videoId && <div className="mb-5"><YouTubeThumbnail videoId={props.videoId} videoTitle={props.videoTitle} /></div>}
