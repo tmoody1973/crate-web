@@ -86,7 +86,7 @@ function ResizableWorkspace() {
       {/* Chat */}
       <div
         className="relative overflow-hidden"
-        style={{ width: showPanel ? `${100 - panelWidth}%` : "100%" }}
+        style={{ width: (!isMobile && showPanel) ? `${100 - panelWidth}%` : "100%" }}
       >
         <ChatPanel />
 

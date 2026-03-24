@@ -909,7 +909,7 @@ function ChatHeader({ onOpenSetup }: { onOpenSetup?: () => void }) {
   }, []);
 
   return (
-    <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
+    <div className="hidden md:flex items-center justify-between border-b border-zinc-800 px-4 py-2">
       <ModelSelector hasOpenRouter={hasOpenRouter} />
       <button
         type="button"
