@@ -2611,7 +2611,16 @@ export const StoryCard = defineComponent({
       return (
         <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
           <div className="flex gap-3 p-3 border-b border-zinc-800">
-            <SafeImage src={props.heroImageUrl} alt={props.title} className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+            {/* Album art or first person's photo as fallback */}
+            {props.heroImageUrl ? (
+              <SafeImage src={props.heroImageUrl} alt={props.title} className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+            ) : peopleWithImages.find(p => p.imageUrl) ? (
+              <img src={peopleWithImages.find(p => p.imageUrl)!.imageUrl!} alt={props.title} className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+            ) : (
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#E8520E]/30 to-zinc-800 text-2xl font-bold text-white">
+                {props.title.charAt(0)}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-[10px] uppercase tracking-wider text-[#E8520E]">{props.category}</p>
               <h3 className="text-base font-bold text-white truncate">{props.title}</h3>
@@ -2703,13 +2712,24 @@ export const StoryCard = defineComponent({
     // ── Desktop: Magazine layout ──
     return (
       <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
-        <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#E8520E]/30 via-zinc-900 to-zinc-950">
+        <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#E8520E]/20 via-zinc-900 to-zinc-950">
+          {/* Hero image or people photo collage fallback */}
           <SafeImage src={props.heroImageUrl} alt={props.title} className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-transparent" />
+          {/* People collage — shows behind the gradient when hero image fails */}
+          {peopleWithImages.filter(p => p.imageUrl).length > 0 && (
+            <div className="absolute inset-0 flex">
+              {peopleWithImages.filter(p => p.imageUrl).slice(0, 5).map((p, i) => (
+                <div key={i} className="flex-1 overflow-hidden" style={{ opacity: 0.4 }}>
+                  <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/70 to-zinc-900/30" />
           <div className="relative flex h-full flex-col justify-end p-5">
             <p className="text-[10px] uppercase tracking-[2px] text-[#E8520E] mb-1">{props.category}</p>
-            <h2 className="text-2xl font-bold text-white drop-shadow">{props.title}</h2>
-            <p className="text-sm text-zinc-300">{props.subtitle}</p>
+            <h2 className="text-2xl font-bold text-white drop-shadow-lg">{props.title}</h2>
+            <p className="text-sm text-zinc-300 drop-shadow">{props.subtitle}</p>
           </div>
         </div>
         {/* Key facts — scrollable chips for long text, stat cards for short values */}
