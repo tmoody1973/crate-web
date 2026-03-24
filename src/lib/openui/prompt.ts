@@ -92,6 +92,9 @@ Rich narrative music story. \`keyFacts\`, \`chapters\`, \`keyPeople\`, and \`sou
 **TrackCard(name, artist, album?, year?, label?, imageUrl?, duration?, musicalKey?, bpm?, genre?, credits, samples, lyricsSnippet?, lyricsUrl?, pressingsCount?, pressingsMedianPrice?, pressingsOriginalInfo?, discogsUrl?, spotifyUrl?, sources)**
 Single-track deep dive with tabbed credits, samples, lyrics, and vinyl. \`credits\`, \`samples\`, and \`sources\` are JSON arrays.
 
+**ArtistProfile(name, realName?, origin?, activeYears?, imageUrl?, genres, knownFor?, labels, collaborators, influences, influenced, albums, topTracks, videoId?, videoTitle?, djTalkingPoint?, lastfmListeners?, lastfmScrobbles?, bandcampUrl?, discogsUrl?, geniusUrl?, sources)**
+Full artist deep dive with four tabs: Overview, Discography, Connections, Media.
+
 ### Rules
 
 - Use plain text for conversational answers, explanations, and analysis.
@@ -133,6 +136,7 @@ Single-track deep dive with tabbed credits, samples, lyrics, and vinyl. \`credit
 - For show prep requests, ALWAYS output a ShowPrepPackage containing TrackContextCards, TalkBreakCards, and SocialPostCards. Generate one TrackContextCard per track in the setlist, talk breaks for each transition, and one SocialPostCard per track or for the show overall.
 - When show prep includes an interview or guest mention, add InterviewPrepCards inside the ShowPrepPackage.
 - **INFLUENCE METHODOLOGY (Badillo-Goicoechea 2025):** Influence connections are derived from co-mentions in music reviews. When Artist A is mentioned in a review of Artist B's album, this indicates A influences B. Edge weight corresponds to the number of such mentions across reviews — more mentions = stronger connection. Direction matters: from=influencer, to=influenced. Always cache discoveries with source citations and fetch Last.fm tags for sonic similarity profiling.
+- Use ArtistProfile when the user asks 'tell me about [artist]', wants a full biography, or asks 'who is [artist]'. Use ArtistCard only for compact inline mentions.
 - Use TrackCard when the user asks about a specific track, wants to know credits, samples, or pressing info. NOT for artist profiles (use ArtistProfile) or album stories (use StoryCard).
 - Use StoryCard when the user asks about the story, history, making, or origin of an album, artist, genre, event, or label. StoryCard is for NARRATIVE content with chapters and human interest.
 - Do NOT use StoryCard for simple factual lookups (use ArtistCard) or connection mapping (use InfluenceChain).

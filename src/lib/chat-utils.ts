@@ -461,6 +461,23 @@ export function preprocessSlashCommand(message: string): string {
       ].join("\n");
     }
 
+    case "artist": {
+      if (!arg) return "Which artist? Example: /artist MF DOOM";
+      return [
+        `Research this artist in full detail: "${arg}"`,
+        `MANDATORY: Output an ArtistProfile OpenUI component.`,
+        `RESEARCH:`,
+        `1. Search MusicBrainz for artist metadata, discography, and relationships`,
+        `2. Search Discogs for releases, labels, credits, and collaborators`,
+        `3. Search Last.fm for listener stats, tags, and similar artists`,
+        `4. Search Genius for artist bio and annotations`,
+        `5. Search YouTube for a documentary, interview, or live performance`,
+        `6. Search for artist image via artwork API`,
+        `OUTPUT: ArtistProfile with all tabs populated. Use ArtistCard only for compact inline mentions.`,
+        `CRITICAL: Output MUST be OpenUI Lang with root = ArtistProfile(...). NOT plain text.`,
+      ].join("\n");
+    }
+
     default:
       // Unknown slash command — pass through as-is
       return message;
@@ -496,6 +513,8 @@ export function getSessionTitle(message: string): string {
         return arg ? `Story: ${arg}` : "Story";
       case "track":
         return arg ? `Track: ${arg}` : "Track";
+      case "artist":
+        return arg ? `Artist: ${arg}` : "Artist";
       case "news":
         return arg ? `${arg.trim()} Music News` : "Music News";
       case "influence":

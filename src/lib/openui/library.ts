@@ -27,6 +27,7 @@ import {
   SlackChannelPicker,
   StoryCard,
   TrackCard,
+  ArtistProfile,
 } from "./components";
 
 export const crateLibrary = createLibrary({
@@ -58,6 +59,7 @@ export const crateLibrary = createLibrary({
     SlackChannelPicker,
     StoryCard,
     TrackCard,
+    ArtistProfile,
   ],
   componentGroups: [
     {
@@ -132,6 +134,16 @@ export const crateLibrary = createLibrary({
       ],
     },
     {
+      name: "Artist Deep Dive",
+      components: ["ArtistProfile"],
+      notes: [
+        "Use ArtistProfile when the user asks for a detailed artist profile, biography, or 'tell me about [artist]'.",
+        "Use ArtistCard for compact inline mentions inside other components.",
+        "ArtistProfile has four tabs: Overview, Discography, Connections, Media. Populate all available tabs.",
+        "Search MusicBrainz + Discogs for discography, Last.fm for stats, Genius for bio, YouTube for video.",
+      ],
+    },
+    {
       name: "Show Prep",
       components: ["ShowPrepPackage", "TrackContextCard", "TalkBreakCard", "SocialPostCard", "InterviewPrepCard"],
       notes: [
@@ -180,6 +192,7 @@ tb1 = TalkBreakCard("transition", "Time (You and I)", "Gorilla", "From Texas bar
 sp1 = SocialPostCard("Khruangbin > Little Simz", "From Thai funk to London grime. Tonight's HYFIN set traces Khruangbin's Texas barn to Little Simz's independence.", "Thai funk > Texas barn > London grime > Mercury Prize. Tonight on HYFIN.", "Tonight on HYFIN: how Thai funk cassettes and a London rapper's refusal to sign connect across oceans.", "#HYFIN, #MKE, #Khruangbin, #LittleSimz")
 ev1 = ConcertEvent("Khruangbin", "Saturday, March 22", "8:00 PM", "Riverside Theatre", "Milwaukee", "$45-$75", "On Sale")`,
     `root = TrackCard("So What", "Miles Davis", "Kind of Blue", "1959", "Columbia", "https://example.com/kob.jpg", "9:22", "D Dorian", "", "Modal Jazz", [{name: "Miles Davis", role: "trumpet"}, {name: "John Coltrane", role: "tenor sax"}, {name: "Bill Evans", role: "piano"}], [{name: "N.Y. State of Mind", artist: "Nas", year: "1994", direction: "by"}], "", "", "847", "$25", "1959 mono: $450+", "https://discogs.com/...", "", [{name: "MusicBrainz", url: "https://musicbrainz.org"}])`,
+    `root = ArtistProfile("MF DOOM", "Daniel Dumile", "London, England", "1971–2020", "", ["Hip-Hop", "Underground Hip-Hop"], "Dense internal rhymes and masked alter-ego beats", ["Stones Throw", "Metal Face"], [{name: "Madlib", role: "producer"}, {name: "Ghostface Killah"}], [{name: "KRS-One"}, {name: "Rakim"}], [{name: "Earl Sweatshirt"}, {name: "Flying Lotus"}], [{title: "Operation: Doomsday", year: "1999"}, {title: "MM..FOOD", year: "2004"}], [{name: "Doomsday", album: "Operation: Doomsday"}, {name: "Accordion", album: "Madvillainy"}], "", "", "DOOM split his persona three ways — Viktor Vaughn, King Geedorah, and MF DOOM.", "1.2M", "42M", "", "", "", [{name: "MusicBrainz", url: "https://musicbrainz.org"}])`,
     `root = StoryCard("Donuts", "J Dilla · 2006 · Stones Throw Records", "https://upload.wikimedia.org/wikipedia/en/5/54/J_Dilla_-_Donuts.jpg", "The Story Behind", "[{\\"label\\":\\"tracks\\",\\"value\\":\\"31\\"},{\\"label\\":\\"samples\\",\\"value\\":\\"34\\"},{\\"label\\":\\"minutes\\",\\"value\\":\\"43\\"},{\\"label\\":\\"RS 500\\",\\"value\\":\\"#386\\"}]", "[{\\"title\\":\\"The Health Crisis\\",\\"subtitle\\":\\"How TTP changed everything\\",\\"content\\":\\"In early 2002, J Dilla was diagnosed with TTP, a rare blood disease. His condition deteriorated over three years, eventually confining him to Cedars-Sinai Medical Center.\\"},{\\"title\\":\\"The Recording\\",\\"subtitle\\":\\"Hospital bed, Boss SP-303\\",\\"content\\":\\"Despite his declining health, Dilla recorded using a portable sampler brought to his hospital room. His mother Ma Dukes brought vinyl records and massaged his swollen hands so he could work.\\"}]", "aiqK2rFEXHc", "J Dilla — Still Shining Documentary", "[{\\"name\\":\\"Ma Dukes\\",\\"role\\":\\"Mother\\"},{\\"name\\":\\"Madlib\\",\\"role\\":\\"Collaborator\\"},{\\"name\\":\\"Questlove\\",\\"role\\":\\"Advocate\\"}]", "[{\\"name\\":\\"Wikipedia\\",\\"url\\":\\"https://en.wikipedia.org/wiki/Donuts_(album)\\"},{\\"name\\":\\"Classic Album Sundays\\",\\"url\\":\\"https://classicalbumsundays.com/j-dilla-donuts/\\"}]")`,
   ],
 };
