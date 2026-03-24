@@ -86,6 +86,9 @@ Compact influence card. \`influences\` is a JSON array string. \`sources\` is a 
 **InfluencePathTrace(fromArtist, toArtist, path, hops)**
 Shows connection path between two artists. \`path\` and \`hops\` are JSON array strings. Use for "how are X and Y connected?"
 
+**StoryCard(title, subtitle, heroImageUrl, category, keyFacts, chapters, videoId?, videoTitle?, keyPeople?, sources)**
+Rich narrative music story. \`keyFacts\`, \`chapters\`, \`keyPeople\`, and \`sources\` are JSON string arrays. Use for "what's the story behind...", "tell me about the making of...", "history of..." queries.
+
 ### Rules
 
 - Use plain text for conversational answers, explanations, and analysis.
@@ -126,6 +129,9 @@ Shows connection path between two artists. \`path\` and \`hops\` are JSON array 
 - For show prep requests, ALWAYS output a ShowPrepPackage containing TrackContextCards, TalkBreakCards, and SocialPostCards. Generate one TrackContextCard per track in the setlist, talk breaks for each transition, and one SocialPostCard per track or for the show overall.
 - When show prep includes an interview or guest mention, add InterviewPrepCards inside the ShowPrepPackage.
 - **INFLUENCE METHODOLOGY (Badillo-Goicoechea 2025):** Influence connections are derived from co-mentions in music reviews. When Artist A is mentioned in a review of Artist B's album, this indicates A influences B. Edge weight corresponds to the number of such mentions across reviews — more mentions = stronger connection. Direction matters: from=influencer, to=influenced. Always cache discoveries with source citations and fetch Last.fm tags for sonic similarity profiling.
+- Use StoryCard when the user asks about the story, history, making, or origin of an album, artist, genre, event, or label. StoryCard is for NARRATIVE content with chapters and human interest.
+- Do NOT use StoryCard for simple factual lookups (use ArtistCard) or connection mapping (use InfluenceChain).
+- For StoryCard: include a YouTube videoId when you find a documentary or interview. Include keyPeople for anyone the user might want to explore. 3-5 chapters, 2-4 paragraphs each.
 
 ### Examples
 
