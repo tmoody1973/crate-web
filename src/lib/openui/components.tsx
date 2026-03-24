@@ -7,6 +7,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
 import { usePlayerSafe } from "@/components/player/player-provider";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 
 // ── JSON string preprocessor for OpenUI Lang ────────────────────
 // OpenUI Lang passes complex props as JSON strings from positional args.
@@ -2397,6 +2398,242 @@ export const SlackChannelPicker = defineComponent({
               <span className="text-sm text-zinc-400">@username</span>
               <span className="text-[10px] text-zinc-600">Direct message</span>
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  },
+});
+
+// ── Story Card Component ────────────────────────────────────────
+
+function YouTubeThumbnail({ videoId, videoTitle }: { videoId: string; videoTitle?: string }) {
+  const [playing, setPlaying] = useState(false);
+
+  if (playing) {
+    return (
+      <div className="relative w-full overflow-hidden rounded-lg" style={{ paddingBottom: "56.25%" }}>
+        <iframe
+          className="absolute inset-0 h-full w-full"
+          src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+          title={videoTitle || "Video"}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setPlaying(true)}
+      className="relative w-full overflow-hidden rounded-lg group"
+      style={{ paddingBottom: "56.25%" }}
+    >
+      <img
+        src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+        alt={videoTitle || "Video thumbnail"}
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 shadow-lg">
+          <svg className="h-6 w-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </div>
+      </div>
+      {videoTitle && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+          <p className="text-sm text-white">{videoTitle}</p>
+        </div>
+      )}
+    </button>
+  );
+}
+
+function StoryPersonCard({ name, role, imageUrl }: { name: string; role?: string; imageUrl?: string }) {
+  const autoImage = useAutoImage(name, imageUrl);
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="relative">
+        {autoImage ? (
+          <img src={autoImage} alt={name} className="h-12 w-12 rounded-full object-cover ring-2 ring-zinc-700" />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-700 text-sm font-bold text-white">
+            {name.charAt(0)}
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-zinc-300 text-center max-w-[64px] truncate">{name}</p>
+      {role && <p className="text-[10px] text-zinc-600 text-center">{role}</p>}
+      <button
+        onClick={() => injectChatMessage(`Tell me about ${name}`)}
+        className="text-[9px] text-cyan-500 hover:text-cyan-400"
+      >
+        Deep Dive →
+      </button>
+    </div>
+  );
+}
+
+export const StoryCard = defineComponent({
+  name: "StoryCard",
+  description:
+    "Rich narrative music story with hero image, key facts, chapter navigation, YouTube embed, key people, and sources. Use for album histories, artist origin stories, genre creation stories. NOT for simple facts (use ArtistCard) or connections (use InfluenceChain).",
+  props: z.object({
+    title: z.string().describe("Story subject — album name, artist, genre, event"),
+    subtitle: z.string().describe("Context line — artist · year · label"),
+    heroImageUrl: z.string().describe("Hero image URL — album cover, artist photo, or contextual image"),
+    category: z.string().describe("Story type: 'The Story Behind', 'The Making Of', 'The History Of'"),
+    keyFacts: z.preprocess(jsonPreprocess, z.array(z.object({
+      label: z.string(),
+      value: z.string(),
+    }))).describe("Key stats: [{label:'tracks', value:'31'}, ...]"),
+    chapters: z.preprocess(jsonPreprocess, z.array(z.object({
+      title: z.string(),
+      subtitle: z.string().optional(),
+      content: z.string(),
+    }))).describe("Story chapters: [{title, subtitle?, content}]"),
+    videoId: z.string().optional().describe("YouTube video ID for documentary/interview"),
+    videoTitle: z.string().optional().describe("YouTube video title"),
+    keyPeople: z.preprocess(jsonPreprocess, z.array(z.object({
+      name: z.string(),
+      role: z.string().optional(),
+      imageUrl: z.string().optional(),
+    }))).optional().describe("Key people: [{name, role?, imageUrl?}]"),
+    sources: z.preprocess(jsonPreprocess, z.array(z.object({
+      name: z.string(),
+      url: z.string(),
+    }))).describe("Sources: [{name, url}]"),
+  }),
+  component: ({ props }) => {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const isMobile = useIsMobile();
+    const [activeChapter, setActiveChapter] = useState(0);
+    const [mobileOpenSection, setMobileOpenSection] = useState<number | null>(0);
+
+    const chapters = ensureArray<{ title: string; subtitle?: string; content: string }>(props.chapters);
+    const keyFacts = ensureArray<{ label: string; value: string }>(props.keyFacts);
+    const keyPeople = ensureArray<{ name: string; role?: string; imageUrl?: string }>(props.keyPeople);
+    const sources = ensureArray<{ name: string; url: string }>(props.sources);
+
+    const mainArtist = props.subtitle.split("·")[0]?.trim() || props.title;
+    const spotifyUrl = `https://open.spotify.com/search/${encodeURIComponent(props.title + " " + mainArtist)}`;
+
+    // ── Mobile: Accordion layout ──
+    if (isMobile) {
+      return (
+        <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
+          <div className="flex gap-3 p-3 border-b border-zinc-800">
+            <SafeImage src={props.heroImageUrl} alt={props.title} className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase tracking-wider text-[#E8520E]">{props.category}</p>
+              <h3 className="text-base font-bold text-white truncate">{props.title}</h3>
+              <p className="text-xs text-zinc-400">{props.subtitle}</p>
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {keyFacts.map((f, i) => (
+                  <span key={i} className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">
+                    <span className="text-[#E8520E] font-semibold">{f.value}</span> {f.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="divide-y divide-zinc-800">
+            {chapters.map((ch, i) => (
+              <div key={i}>
+                <button onClick={() => setMobileOpenSection(mobileOpenSection === i ? null : i)} className="flex w-full items-center justify-between px-4 py-3 text-left">
+                  <div><p className="text-sm font-medium text-white">{ch.title}</p>{ch.subtitle && <p className="text-xs text-zinc-500">{ch.subtitle}</p>}</div>
+                  <span className={`text-zinc-500 text-xs transition-transform ${mobileOpenSection === i ? "rotate-180" : ""}`}>▾</span>
+                </button>
+                {mobileOpenSection === i && <div className="px-4 pb-4 text-sm leading-relaxed text-zinc-300">{ch.content}</div>}
+              </div>
+            ))}
+            {props.videoId && (
+              <div>
+                <button onClick={() => setMobileOpenSection(mobileOpenSection === 100 ? null : 100)} className="flex w-full items-center justify-between px-4 py-3 text-left">
+                  <div className="flex items-center gap-2"><div className="flex h-5 w-7 items-center justify-center rounded bg-red-600 text-[8px] text-white">▶</div><p className="text-sm font-medium text-white">Watch</p></div>
+                  <span className={`text-zinc-500 text-xs transition-transform ${mobileOpenSection === 100 ? "rotate-180" : ""}`}>▾</span>
+                </button>
+                {mobileOpenSection === 100 && <div className="px-4 pb-4"><YouTubeThumbnail videoId={props.videoId} videoTitle={props.videoTitle} /></div>}
+              </div>
+            )}
+            {keyPeople.length > 0 && (
+              <div>
+                <button onClick={() => setMobileOpenSection(mobileOpenSection === 101 ? null : 101)} className="flex w-full items-center justify-between px-4 py-3 text-left">
+                  <p className="text-sm font-medium text-white">Key People</p>
+                  <span className={`text-zinc-500 text-xs transition-transform ${mobileOpenSection === 101 ? "rotate-180" : ""}`}>▾</span>
+                </button>
+                {mobileOpenSection === 101 && <div className="flex gap-4 overflow-x-auto px-4 pb-4">{keyPeople.map((p, i) => <StoryPersonCard key={i} name={p.name} role={p.role} imageUrl={p.imageUrl} />)}</div>}
+              </div>
+            )}
+          </div>
+          <div className="border-t border-zinc-800 px-4 py-3 space-y-2">
+            {sources.length > 0 && <div className="flex flex-wrap gap-2">{sources.map((s, i) => <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-cyan-500 hover:underline">{s.name}</a>)}</div>}
+            <div className="flex flex-wrap gap-2">
+              <a href={spotifyUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-green-800 bg-green-900/30 px-2.5 py-1.5 text-[11px] text-green-400">▶ Spotify</a>
+              <SlackSendButton label={`"${props.title}" story`} />
+              <button onClick={() => injectChatMessage(`/influence ${mainArtist}`)} className="inline-flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-[11px] text-zinc-400">Influence →</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Desktop: Magazine layout ──
+    return (
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
+        <div className="relative h-48 overflow-hidden">
+          <img src={props.heroImageUrl} alt={props.title} className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-transparent" />
+          <div className="relative flex h-full flex-col justify-end p-5">
+            <p className="text-[10px] uppercase tracking-[2px] text-[#E8520E] mb-1">{props.category}</p>
+            <h2 className="text-2xl font-bold text-white drop-shadow">{props.title}</h2>
+            <p className="text-sm text-zinc-300">{props.subtitle}</p>
+          </div>
+        </div>
+        <div className="flex border-b border-zinc-800 bg-zinc-800/30">
+          {keyFacts.map((f, i) => (
+            <div key={i} className="flex-1 py-2 text-center border-r border-zinc-800 last:border-r-0">
+              <div className="text-lg font-bold text-[#E8520E]">{f.value}</div>
+              <div className="text-[10px] text-zinc-500">{f.label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="p-5">
+          {chapters.length > 1 && (
+            <div className="flex gap-1.5 mb-4 overflow-x-auto">
+              {chapters.map((ch, i) => (
+                <button key={i} onClick={() => setActiveChapter(i)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs transition-colors ${activeChapter === i ? "bg-[#E8520E] text-white" : "bg-zinc-800 text-zinc-400 hover:text-white"}`}>
+                  {ch.title}
+                </button>
+              ))}
+            </div>
+          )}
+          {chapters[activeChapter] && (
+            <div className="mb-5">
+              {chapters[activeChapter].subtitle && <p className="text-xs text-zinc-500 mb-2">{chapters[activeChapter].subtitle}</p>}
+              <div className="text-sm leading-relaxed text-zinc-300 whitespace-pre-line">{chapters[activeChapter].content}</div>
+            </div>
+          )}
+          {props.videoId && <div className="mb-5"><YouTubeThumbnail videoId={props.videoId} videoTitle={props.videoTitle} /></div>}
+          {keyPeople.length > 0 && (
+            <div className="mb-5">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">Key People</p>
+              <div className="flex gap-6">{keyPeople.map((p, i) => <StoryPersonCard key={i} name={p.name} role={p.role} imageUrl={p.imageUrl} />)}</div>
+            </div>
+          )}
+          {sources.length > 0 && (
+            <div className="mb-4">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Sources</p>
+              <div className="flex flex-wrap gap-3">{sources.map((s, i) => <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:underline">{s.name}</a>)}</div>
+            </div>
+          )}
+          <div className="flex gap-2 border-t border-zinc-800 pt-4">
+            <a href={spotifyUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-green-800 bg-green-900/30 px-2.5 py-1 text-[11px] text-green-400 hover:bg-green-900/50 transition-colors">▶ Spotify</a>
+            <SlackSendButton label={`"${props.title}" story`} />
+            <button onClick={() => injectChatMessage(`/influence ${mainArtist}`)} className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 transition-colors">Influence →</button>
           </div>
         </div>
       </div>
