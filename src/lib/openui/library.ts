@@ -25,6 +25,7 @@ import {
   SpotifyPlaylist,
   SlackMessage,
   SlackChannelPicker,
+  StoryCard,
 } from "./components";
 
 export const crateLibrary = createLibrary({
@@ -54,6 +55,7 @@ export const crateLibrary = createLibrary({
     SpotifyPlaylist,
     SlackMessage,
     SlackChannelPicker,
+    StoryCard,
   ],
   componentGroups: [
     {
@@ -65,6 +67,17 @@ export const crateLibrary = createLibrary({
         "ALWAYS use SlackChannelPicker when the user says 'send to Slack' — call list_slack_channels first, then render the picker. Never ask the user to type a channel name.",
         "Use SlackMessage to preview what will be sent to Slack before calling send_to_slack.",
         "SlackMessage sections: [{type:'header',content:'...'}, {type:'text',content:'...'}, {type:'bullets',items:['a','b']}, {type:'divider'}, {type:'quote',content:'...'}]",
+      ],
+    },
+    {
+      name: "Stories & Deep Dives",
+      components: ["StoryCard"],
+      notes: [
+        "Use StoryCard when the user asks about the story, history, making, or origin of an album, artist, genre, event, or label.",
+        "StoryCard is for NARRATIVE content — stories with chapters, context, and human interest. NOT for simple facts (use ArtistCard) or connections (use InfluenceChain).",
+        "Include a YouTube videoId when you find a relevant documentary, interview, or performance video.",
+        "Include keyPeople for anyone mentioned who the user might want to explore further.",
+        "Each chapter should be 2-4 paragraphs. 3-5 chapters is ideal.",
       ],
     },
     {
@@ -154,6 +167,7 @@ tc1 = TrackContextCard("Khruangbin", "Time (You and I)", "Born from the trio's d
 tb1 = TalkBreakCard("transition", "Time (You and I)", "Gorilla", "From Texas barn funk to London grime.", "That was Khruangbin taking you to Thailand via Texas. Now Little Simz turned down every label twice.", "Khruangbin learned their sound from Thai funk cassettes. Little Simz learned hers watching Lauryn Hill. Two paths to uncompromising art.", "Texas barn funk, Thai cassettes, Mercury Prize", "Hit before the beat drops at 0:04", "crew-ANG-bin")
 sp1 = SocialPostCard("Khruangbin > Little Simz", "From Thai funk to London grime. Tonight's HYFIN set traces Khruangbin's Texas barn to Little Simz's independence.", "Thai funk > Texas barn > London grime > Mercury Prize. Tonight on HYFIN.", "Tonight on HYFIN: how Thai funk cassettes and a London rapper's refusal to sign connect across oceans.", "#HYFIN, #MKE, #Khruangbin, #LittleSimz")
 ev1 = ConcertEvent("Khruangbin", "Saturday, March 22", "8:00 PM", "Riverside Theatre", "Milwaukee", "$45-$75", "On Sale")`,
+    `root = StoryCard("Donuts", "J Dilla · 2006 · Stones Throw Records", "https://upload.wikimedia.org/wikipedia/en/5/54/J_Dilla_-_Donuts.jpg", "The Story Behind", "[{\\"label\\":\\"tracks\\",\\"value\\":\\"31\\"},{\\"label\\":\\"samples\\",\\"value\\":\\"34\\"},{\\"label\\":\\"minutes\\",\\"value\\":\\"43\\"},{\\"label\\":\\"RS 500\\",\\"value\\":\\"#386\\"}]", "[{\\"title\\":\\"The Health Crisis\\",\\"subtitle\\":\\"How TTP changed everything\\",\\"content\\":\\"In early 2002, J Dilla was diagnosed with TTP, a rare blood disease. His condition deteriorated over three years, eventually confining him to Cedars-Sinai Medical Center.\\"},{\\"title\\":\\"The Recording\\",\\"subtitle\\":\\"Hospital bed, Boss SP-303\\",\\"content\\":\\"Despite his declining health, Dilla recorded using a portable sampler brought to his hospital room. His mother Ma Dukes brought vinyl records and massaged his swollen hands so he could work.\\"}]", "aiqK2rFEXHc", "J Dilla — Still Shining Documentary", "[{\\"name\\":\\"Ma Dukes\\",\\"role\\":\\"Mother\\"},{\\"name\\":\\"Madlib\\",\\"role\\":\\"Collaborator\\"},{\\"name\\":\\"Questlove\\",\\"role\\":\\"Advocate\\"}]", "[{\\"name\\":\\"Wikipedia\\",\\"url\\":\\"https://en.wikipedia.org/wiki/Donuts_(album)\\"},{\\"name\\":\\"Classic Album Sundays\\",\\"url\\":\\"https://classicalbumsundays.com/j-dilla-donuts/\\"}]")`,
   ],
 };
 
