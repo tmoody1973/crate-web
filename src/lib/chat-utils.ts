@@ -444,6 +444,23 @@ export function preprocessSlashCommand(message: string): string {
       ].join("\n");
     }
 
+    case "track": {
+      if (!arg) return "Which track? Example: /track So What Miles Davis";
+      return [
+        `Research this track in detail: "${arg}"`,
+        `MANDATORY: Output a TrackCard OpenUI component.`,
+        `RESEARCH:`,
+        `1. Search MusicBrainz for track credits (musicians, writers, composer)`,
+        `2. Search Discogs for production credits (producer, engineer, mastering, studio, label)`,
+        `3. Search WhoSampled for samples (what it samples + what sampled it)`,
+        `4. Search Genius for lyrics snippet or notable annotation`,
+        `5. Search Discogs for vinyl pressing count and pricing`,
+        `6. Search iTunes for album art`,
+        `OUTPUT: TrackCard with all available data. Hide tabs with no data.`,
+        `CRITICAL: Output MUST be OpenUI Lang with root = TrackCard(...). NOT plain text.`,
+      ].join("\n");
+    }
+
     default:
       // Unknown slash command — pass through as-is
       return message;
@@ -477,6 +494,8 @@ export function getSessionTitle(message: string): string {
       }
       case "story":
         return arg ? `Story: ${arg}` : "Story";
+      case "track":
+        return arg ? `Track: ${arg}` : "Track";
       case "news":
         return arg ? `${arg.trim()} Music News` : "Music News";
       case "influence":
