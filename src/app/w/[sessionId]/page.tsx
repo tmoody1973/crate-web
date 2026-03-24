@@ -16,6 +16,7 @@ function ResizableWorkspace() {
   const { history, showPanel, openPanel, dismissPanel, current } = useArtifact();
   const isMobile = useIsMobile();
   const [mobileShowDeepCuts, setMobileShowDeepCuts] = useState(false);
+  const lastAutoOpenedId = useRef<string | null>(null);
   const [panelWidth, setPanelWidth] = useState(() => {
     if (typeof window === "undefined") return DEFAULT_WIDTH;
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -58,8 +59,10 @@ function ResizableWorkspace() {
     };
   }, []);
 
+  // Auto-open mobile Deep Cuts only for NEW artifacts (not on re-render)
   useEffect(() => {
-    if (isMobile && showPanel && current) {
+    if (isMobile && showPanel && current && current.id !== lastAutoOpenedId.current) {
+      lastAutoOpenedId.current = current.id;
       setMobileShowDeepCuts(true);
     }
   }, [isMobile, showPanel, current]);
