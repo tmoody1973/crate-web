@@ -27,6 +27,10 @@ import { ResponseActions } from "./response-actions";
 import { QuickStartWizard } from "@/components/onboarding/quick-start-wizard";
 import { UpgradePrompt } from "@/components/chat/upgrade-prompt";
 import { getSessionTitle } from "@/lib/chat-utils";
+import { SpeechToTextButton } from "@/components/chat/speech-to-text";
+import { MobileChatHeader } from "@/components/chat/mobile-chat-header";
+import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useMobileNav } from "@/components/workspace/workspace-shell";
 
 // --- Tool activity context ---
 const ToolActivityContext = createContext<{ steps: ToolStep[] }>({ steps: [] });
@@ -583,6 +587,7 @@ function ShowPrepForm({ onSubmit, onCancel }: { onSubmit: (msg: string) => void;
 function ChatInput({ resendMessage, onResendConsumed, onOpenSetup, customSkills }: { resendMessage?: string | null; onResendConsumed?: () => void; onOpenSetup?: () => void; customSkills?: Array<{ command: string; description: string; name: string; isCustom: boolean }> }) {
   const [input, setInput] = useState("");
   const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const isMobile = useIsMobile();
   const [showPrepForm, setShowPrepForm] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const { processMessage, isRunning } = useThread();
@@ -750,6 +755,15 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup, customSkills 
             selectedIndex={selectedIndex}
           />
         )}
+        {isMobile && (
+          <div className="mb-2 flex justify-end">
+            <SpeechToTextButton
+              onTranscript={(text) => {
+                setInput((prev) => prev + (prev ? " " : "") + text);
+              }}
+            />
+          </div>
+        )}
         <textarea
           ref={inputRef}
           value={input}
@@ -757,7 +771,7 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup, customSkills 
           onKeyDown={handleKeyDown}
           rows={1}
           placeholder={isLoading ? "Crate is researching..." : "Who influenced Flying Lotus? Try / for commands"}
-          className="w-full resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none disabled:opacity-50"
+          className={`w-full resize-none border border-zinc-700 bg-zinc-900 px-4 py-3 text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none disabled:opacity-50 ${isMobile ? "rounded-full" : "rounded-lg"}`}
           disabled={isLoading}
         />
         {isLoading && (
@@ -914,6 +928,8 @@ export function ChatPanel() {
   const { play } = usePlayer();
   const playRef = useRef(play);
   playRef.current = play;
+  const isMobile = useIsMobile();
+  const mobileNav = useMobileNav();
 
   const [customSkills, setCustomSkills] = useState<
     Array<{ command: string; description: string; name: string; isCustom: boolean }>
@@ -1136,6 +1152,11 @@ export function ChatPanel() {
     <ToolActivityContext.Provider value={{ steps }}>
       <ChatProvider processMessage={processMessage} streamProtocol={adapter}>
         <div className="flex h-full flex-col bg-zinc-950">
+          {isMobile && mobileNav && (
+            <MobileChatHeader
+              onOpenSidebar={() => mobileNav.setMobileView("sidebar")}
+            />
+          )}
           <ChatHeader onOpenSetup={handleOpenSetup} />
           <ChatHydration />
           <ChatMessages />
