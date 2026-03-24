@@ -4,6 +4,8 @@ import { Suspense, useState, useCallback, useEffect, useRef } from "react";
 import { ArtifactProvider, useArtifact } from "@/components/workspace/artifact-provider";
 import { ChatPanel } from "@/components/workspace/chat-panel";
 import { DeepCutsPanel } from "@/components/workspace/deep-cuts-panel";
+import { useIsMobile } from "@/hooks/use-is-mobile";
+import { MobileDeepCuts } from "@/components/workspace/mobile-deep-cuts";
 
 const STORAGE_KEY = "deep-cuts-width";
 const DEFAULT_WIDTH = 55;
@@ -11,7 +13,9 @@ const MIN_WIDTH = 30;
 const MAX_WIDTH = 70;
 
 function ResizableWorkspace() {
-  const { history, showPanel, openPanel } = useArtifact();
+  const { history, showPanel, openPanel, current } = useArtifact();
+  const isMobile = useIsMobile();
+  const [mobileShowDeepCuts, setMobileShowDeepCuts] = useState(false);
   const [panelWidth, setPanelWidth] = useState(() => {
     if (typeof window === "undefined") return DEFAULT_WIDTH;
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -54,6 +58,23 @@ function ResizableWorkspace() {
     };
   }, []);
 
+  useEffect(() => {
+    if (isMobile && showPanel && current) {
+      setMobileShowDeepCuts(true);
+    }
+  }, [isMobile, showPanel, current]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const handler = () => setMobileShowDeepCuts(true);
+    window.addEventListener("open-mobile-deep-cuts", handler);
+    return () => window.removeEventListener("open-mobile-deep-cuts", handler);
+  }, [isMobile]);
+
+  if (isMobile && mobileShowDeepCuts) {
+    return <MobileDeepCuts onBack={() => setMobileShowDeepCuts(false)} />;
+  }
+
   return (
     <div ref={containerRef} className="flex h-full">
       {/* Chat */}
@@ -66,7 +87,7 @@ function ResizableWorkspace() {
         {/* Toggle button */}
         {!showPanel && history.length > 0 && (
           <button
-            onClick={openPanel}
+            onClick={() => isMobile ? setMobileShowDeepCuts(true) : openPanel()}
             className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-3 py-1.5 text-xs text-zinc-400 shadow-lg backdrop-blur transition hover:border-zinc-600 hover:text-white"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -78,7 +99,7 @@ function ResizableWorkspace() {
       </div>
 
       {/* Resize handle */}
-      {showPanel && (
+      {!isMobile && showPanel && (
         <div
           onMouseDown={startDrag}
           className="flex w-1.5 cursor-col-resize items-center justify-center bg-zinc-800 hover:bg-zinc-700 transition-colors"
@@ -88,7 +109,7 @@ function ResizableWorkspace() {
       )}
 
       {/* Deep Cuts panel */}
-      {showPanel && (
+      {!isMobile && showPanel && (
         <div style={{ width: `${panelWidth}%` }}>
           <DeepCutsPanel />
         </div>
