@@ -2499,10 +2499,20 @@ export const StoryCard = defineComponent({
     const [activeChapter, setActiveChapter] = useState(0);
     const [mobileOpenSection, setMobileOpenSection] = useState<number | null>(0);
 
-    // Handle both object arrays AND flat string arrays (LLM sometimes passes strings instead of objects)
+    // Handle multiple formats from the LLM:
+    // - Object arrays: [{title, content}] (correct)
+    // - Pipe-delimited strings: ["Title|Content paragraph 1|Content paragraph 2"] (common LLM format)
+    // - Plain strings: ["Chapter Title"] (fallback)
+    // - Markdown links in sources: ["[Name](url)"] (common)
     const rawChapters = ensureArray<unknown>(props.chapters);
     const chapters = rawChapters.map((ch) => {
-      if (typeof ch === "string") return { title: ch, subtitle: undefined, content: "" };
+      if (typeof ch === "string") {
+        const parts = (ch as string).split("|");
+        if (parts.length >= 2) {
+          return { title: parts[0].trim(), subtitle: undefined, content: parts.slice(1).join("\n\n").trim() };
+        }
+        return { title: ch as string, subtitle: undefined, content: "" };
+      }
       const obj = ch as Record<string, unknown>;
       return { title: String(obj.title ?? ""), subtitle: obj.subtitle ? String(obj.subtitle) : undefined, content: String(obj.content ?? "") };
     });
@@ -2510,8 +2520,8 @@ export const StoryCard = defineComponent({
     const rawFacts = ensureArray<unknown>(props.keyFacts);
     const keyFacts = rawFacts.map((f) => {
       if (typeof f === "string") {
-        // Parse "31 tracks" or "Best-selling jazz album" into {value, label}
-        const match = (f as string).match(/^(\S+)\s+(.+)$/);
+        // Try "31 tracks" pattern, otherwise use full string as label
+        const match = (f as string).match(/^([\d#,.]+[+%]?)\s+(.+)$/);
         return match ? { value: match[1], label: match[2] } : { value: "", label: f as string };
       }
       const obj = f as Record<string, unknown>;
@@ -2520,14 +2530,24 @@ export const StoryCard = defineComponent({
 
     const rawPeople = ensureArray<unknown>(props.keyPeople);
     const keyPeople = rawPeople.map((p) => {
-      if (typeof p === "string") return { name: p as string, role: undefined, imageUrl: undefined };
+      if (typeof p === "string") {
+        // Parse "Name — Role" or "Name (Role)" format
+        const dashMatch = (p as string).match(/^(.+?)\s*[—–-]\s*(.+)$/);
+        if (dashMatch) return { name: dashMatch[1].trim(), role: dashMatch[2].trim(), imageUrl: undefined };
+        return { name: p as string, role: undefined, imageUrl: undefined };
+      }
       const obj = p as Record<string, unknown>;
       return { name: String(obj.name ?? ""), role: obj.role ? String(obj.role) : undefined, imageUrl: obj.imageUrl ? String(obj.imageUrl) : undefined };
     });
 
     const rawSources = ensureArray<unknown>(props.sources);
     const sources = rawSources.map((s) => {
-      if (typeof s === "string") return { name: s as string, url: "" };
+      if (typeof s === "string") {
+        // Parse markdown links: "[Name](url)" or plain "Name"
+        const linkMatch = (s as string).match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkMatch) return { name: linkMatch[1], url: linkMatch[2] };
+        return { name: s as string, url: "" };
+      }
       const obj = s as Record<string, unknown>;
       return { name: String(obj.name ?? ""), url: String(obj.url ?? "") };
     });
