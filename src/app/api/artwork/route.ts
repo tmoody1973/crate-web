@@ -111,16 +111,69 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "artist/album or q param required" }, { status: 400 });
   }
 
-  // ── Spotify source ──────────────────────────────────────────────
+  // ── Spotify source (with fallbacks) ─────────────────────────────
   if (source === "spotify") {
+    // Try Spotify first
     const results = await searchSpotify(term, type);
-    if (results === null) {
-      return NextResponse.json(
-        { error: "Spotify credentials not configured or API error" },
-        { status: 502 },
-      );
+    if (results && results.length > 0 && results[0].image) {
+      return NextResponse.json({ source: "spotify", type, results });
     }
-    return NextResponse.json({ source: "spotify", type, results });
+
+    // Fallback 1: iTunes artist search
+    if (type === "artist") {
+      try {
+        const itunesRes = await fetch(
+          `https://itunes.apple.com/search?${new URLSearchParams({ term, entity: "musicArtist", limit: "1" })}`,
+        );
+        if (itunesRes.ok) {
+          const itunesData = await itunesRes.json();
+          const artist = itunesData.results?.[0];
+          if (artist?.artistLinkUrl) {
+            // iTunes doesn't directly return artist images, but we can try their album art
+            const albumRes = await fetch(
+              `https://itunes.apple.com/search?${new URLSearchParams({ term, entity: "album", limit: "1" })}`,
+            );
+            if (albumRes.ok) {
+              const albumData = await albumRes.json();
+              const album = albumData.results?.[0];
+              if (album?.artworkUrl100) {
+                const image = (album.artworkUrl100 as string).replace("100x100bb", "600x600bb");
+                return NextResponse.json({
+                  source: "itunes-fallback",
+                  type,
+                  results: [{ name: term, image, spotify_url: null, genres: [] }],
+                });
+              }
+            }
+          }
+        }
+      } catch { /* continue to next fallback */ }
+    }
+
+    // Fallback 2: Wikipedia/Wikimedia image
+    if (type === "artist") {
+      try {
+        const wikiRes = await fetch(
+          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term.replace(/ /g, "_"))}`,
+        );
+        if (wikiRes.ok) {
+          const wikiData = await wikiRes.json();
+          const thumb = wikiData.thumbnail?.source;
+          if (thumb) {
+            // Get higher resolution by modifying the URL
+            const hiRes = thumb.replace(/\/\d+px-/, "/400px-");
+            return NextResponse.json({
+              source: "wikipedia-fallback",
+              type,
+              results: [{ name: term, image: hiRes, spotify_url: null, genres: [] }],
+            });
+          }
+        }
+      } catch { /* continue */ }
+    }
+
+    // Return empty results if all sources failed
+    return NextResponse.json({ source: "spotify", type, results: results ?? [] });
   }
 
   // ── iTunes (default) ────────────────────────────────────────────
