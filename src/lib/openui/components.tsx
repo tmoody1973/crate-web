@@ -2486,26 +2486,12 @@ export const StoryCard = defineComponent({
     subtitle: z.string().describe("Context line — artist · year · label"),
     heroImageUrl: z.string().describe("Hero image URL — album cover, artist photo, or contextual image"),
     category: z.string().describe("Story type: 'The Story Behind', 'The Making Of', 'The History Of'"),
-    keyFacts: z.preprocess(jsonPreprocess, z.array(z.object({
-      label: z.string(),
-      value: z.string(),
-    }))).describe("Key stats: [{label:'tracks', value:'31'}, ...]"),
-    chapters: z.preprocess(jsonPreprocess, z.array(z.object({
-      title: z.string(),
-      subtitle: z.string().optional(),
-      content: z.string(),
-    }))).describe("Story chapters: [{title, subtitle?, content}]"),
+    keyFacts: z.preprocess(jsonPreprocess, z.array(z.any())).describe("Key stats as JSON array of {label, value} objects"),
+    chapters: z.preprocess(jsonPreprocess, z.array(z.any())).describe("Story chapters as JSON array of {title, subtitle?, content} objects"),
     videoId: z.string().optional().describe("YouTube video ID for documentary/interview"),
     videoTitle: z.string().optional().describe("YouTube video title"),
-    keyPeople: z.preprocess(jsonPreprocess, z.array(z.object({
-      name: z.string(),
-      role: z.string().optional(),
-      imageUrl: z.string().optional(),
-    }))).optional().describe("Key people: [{name, role?, imageUrl?}]"),
-    sources: z.preprocess(jsonPreprocess, z.array(z.object({
-      name: z.string(),
-      url: z.string(),
-    }))).describe("Sources: [{name, url}]"),
+    keyPeople: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Key people as JSON array of {name, role?, imageUrl?} objects"),
+    sources: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Sources as JSON array of {name, url} objects"),
   }),
   component: ({ props }) => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -2513,10 +2499,38 @@ export const StoryCard = defineComponent({
     const [activeChapter, setActiveChapter] = useState(0);
     const [mobileOpenSection, setMobileOpenSection] = useState<number | null>(0);
 
-    const chapters = ensureArray<{ title: string; subtitle?: string; content: string }>(props.chapters);
-    const keyFacts = ensureArray<{ label: string; value: string }>(props.keyFacts);
-    const keyPeople = ensureArray<{ name: string; role?: string; imageUrl?: string }>(props.keyPeople);
-    const sources = ensureArray<{ name: string; url: string }>(props.sources);
+    // Handle both object arrays AND flat string arrays (LLM sometimes passes strings instead of objects)
+    const rawChapters = ensureArray<unknown>(props.chapters);
+    const chapters = rawChapters.map((ch) => {
+      if (typeof ch === "string") return { title: ch, subtitle: undefined, content: "" };
+      const obj = ch as Record<string, unknown>;
+      return { title: String(obj.title ?? ""), subtitle: obj.subtitle ? String(obj.subtitle) : undefined, content: String(obj.content ?? "") };
+    });
+
+    const rawFacts = ensureArray<unknown>(props.keyFacts);
+    const keyFacts = rawFacts.map((f) => {
+      if (typeof f === "string") {
+        // Parse "31 tracks" or "Best-selling jazz album" into {value, label}
+        const match = (f as string).match(/^(\S+)\s+(.+)$/);
+        return match ? { value: match[1], label: match[2] } : { value: "", label: f as string };
+      }
+      const obj = f as Record<string, unknown>;
+      return { value: String(obj.value ?? ""), label: String(obj.label ?? "") };
+    });
+
+    const rawPeople = ensureArray<unknown>(props.keyPeople);
+    const keyPeople = rawPeople.map((p) => {
+      if (typeof p === "string") return { name: p as string, role: undefined, imageUrl: undefined };
+      const obj = p as Record<string, unknown>;
+      return { name: String(obj.name ?? ""), role: obj.role ? String(obj.role) : undefined, imageUrl: obj.imageUrl ? String(obj.imageUrl) : undefined };
+    });
+
+    const rawSources = ensureArray<unknown>(props.sources);
+    const sources = rawSources.map((s) => {
+      if (typeof s === "string") return { name: s as string, url: "" };
+      const obj = s as Record<string, unknown>;
+      return { name: String(obj.name ?? ""), url: String(obj.url ?? "") };
+    });
 
     const mainArtist = props.subtitle.split("·")[0]?.trim() || props.title;
     const spotifyUrl = `https://open.spotify.com/search/${encodeURIComponent(props.title + " " + mainArtist)}`;
