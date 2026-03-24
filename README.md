@@ -1,19 +1,19 @@
 <p align="center">
-  <a href="https://crate-web.vercel.app">
+  <a href="https://digcrate.app">
     <img src="public/branding/crate-logo_Dark.svg" alt="Crate" width="280" />
   </a>
 </p>
 
 <p align="center">
   AI-powered music research for DJs, producers, and crate diggers.<br />
-  19 sources. One agent. Zero tabs.
+  20+ sources. One agent. Zero tabs.
 </p>
 
 <p align="center">
-  <a href="https://crate-web.vercel.app">Live App</a> &middot;
-  <a href="https://crate-web.vercel.app/docs">Docs</a> &middot;
+  <a href="https://digcrate.app">Live App</a> &middot;
+  <a href="https://digcrate.app/help">Help</a> &middot;
   <a href="https://github.com/tmoody1973/crate-cli">CLI</a> &middot;
-  <a href="https://crate-web.vercel.app/guide">Guide</a>
+  <a href="https://digcrate.app/pricing">Pricing</a>
 </p>
 
 <p align="center">
@@ -22,39 +22,74 @@
 
 ---
 
-Crate Web is a browser workspace where an AI agent researches music across Discogs, MusicBrainz, Last.fm, Genius, Bandcamp, WhoSampled, Wikipedia, Ticketmaster, Spotify, and more. Ask about any artist, track, sample, or genre and get back interactive components, not just text.
+Crate is an AI music research workspace where an agent researches across Discogs, MusicBrainz, Last.fm, Genius, Bandcamp, WhoSampled, Wikipedia, Ticketmaster, Spotify, and more. Ask about any artist, track, sample, or genre and get back interactive components — not just text. Connect your Spotify, Slack, and Google accounts to act on what you find.
+
+Built for the [Auth0 "Authorized to Act" Hackathon](https://auth0.devpost.com/) (deadline April 6, 2026).
 
 ## Features
 
-- **Agentic research** — Claude-powered agent with tool-use across 19+ MCP data sources. Conversation history maintained within sessions.
-- **Influence mapping** — Network-based artist influence discovery using review co-mentions, Last.fm similarity, and MusicBrainz credits. Results cached in a Convex-backed graph database.
-- **Dynamic components** — Agent generates interactive album grids, track lists with play buttons, influence chains, sample trees, and show prep packages at runtime via OpenUI.
-- **Bandcamp deep dives** — Tag exploration, related tag discovery, and album search with direct Bandcamp links.
-- **WhoSampled integration** — Sample search, track sample details, and artist connection mapping via Kernel.sh.
-- **Album artwork pipeline** — Spotify, fanart.tv, iTunes, Discogs, Bandcamp, and Genius with automatic fallback chain.
-- **Publishing** — Publish research to Telegraph or Tumblr directly from chat.
-- **Multi-model** — Claude Sonnet 4.6, GPT-4o, GPT-4.1, Gemini 2.5, Llama 4, DeepSeek R1, Mistral Large via OpenRouter.
-- **Audio player** — Persistent bottom bar with YouTube playback.
-- **Team key sharing** — Admins share encrypted API keys with `@domain` teammates.
-- **Response actions** — Copy, Slack, email, and share buttons on every response (Perplexity-style).
-- **Sidebar** — Crates (projects), starred/recent sessions, playlists, published research, full-text search.
-- **Show prep** — Generate track context cards, talk break scripts, social media copy, and interview prep for radio DJs.
-- **Keyboard shortcuts** — `Cmd+K` search, `Cmd+N` new chat, `Cmd+B` toggle sidebar, `Shift+S` settings.
+### Core research
+- **Agentic research** — Claude-powered agent with tool-use across 20+ MCP data sources
+- **Influence mapping** — `/influence [artist]` traces connections through review co-mentions, Last.fm similarity, and enriches via Perplexity with pull quotes, sonic elements, and key works
+- **Show prep** — `/prep [station]: [setlist]` generates track context, talk breaks, social copy, and interview prep for radio DJs
+- **Music news** — `/news [station] [count]` generates daily music news segments from RSS feeds and web search
+- **Story cards** — `/story [topic]` creates rich narrative deep dives with chapters, YouTube embeds, key tracks, and people cards. Works for albums, artists, genres, labels, and events
+
+### Connected services (Auth0 Token Vault)
+- **Spotify** — Read your library, playlists, and top artists. Create new playlists from research. Export influence chains as playlists.
+- **Slack** — Send research to any channel or DM with Block Kit formatting (headers, bullet lists, tables, dividers). Channel picker UI.
+- **Google Docs** — Save research as shareable Google Docs
+
+### Dynamic UI (OpenUI)
+- **25+ interactive components** — Agent generates album grids, track lists with play buttons, influence chains with hero banners, show prep packages, story cards, Spotify playlist viewers, Slack channel pickers, and more at runtime
+- **Deep Cuts panel** — Resizable split panel (desktop) or full-screen view (mobile) for viewing saved research. Dropdown selector with type-colored dots, publish to shareable links
+- **Action buttons on every component** — Export to Spotify, Send to Slack, Publish, Deep Dive, Influence Map
+
+### Custom skills
+- **`/create-skill [description]`** — Teach Crate a new reusable command. Describe what you want, Crate does a dry run, saves it as a slash command
+- **`/skills`** — List, enable/disable, edit, and delete your custom skills
+- Free: 3 skills. Pro: 20 skills
+
+### Subscription billing
+- **Free tier** — 10 agent queries/month, 5 sessions, 3 custom skills, connected services, 20+ data sources
+- **Pro ($15/mo)** — 50 queries, unlimited sessions, 20 skills, cross-session memory, influence caching, publishing
+- **Team ($25/mo)** — 200 pooled queries, admin dashboard, shared org keys
+- **BYOK** — Bring your own Anthropic or OpenRouter key for unlimited queries
+- Stripe checkout, billing portal, webhook processing
+
+### Mobile responsive
+- **Full mobile UX** — Hamburger sidebar overlay, full-screen Deep Cuts with horizontal tabs, mini player bar, speech-to-text mic button
+- **Touch optimized** — 44px+ touch targets, larger fonts, pill-shaped input
+- **Capacitor ready** — designed to wrap for iOS App Store
+
+### Publishing & sharing
+- **Deep Cut publishing** — Click Publish on any research to get a shareable link at `digcrate.app/cuts/[id]`
+- **Published Deep Cuts** — Render with audio player so anyone can listen
+- **Telegraph/Tumblr** — Pro users can publish formatted articles with citations
+
+### Other
+- **Audio player** — Persistent bottom bar with YouTube playback (mini mode on mobile, hides on keyboard)
+- **Live radio** — `/radio [genre/station]` streams any of 30,000+ stations
+- **Multi-model** — Claude Sonnet 4.6, GPT-4o, Gemini 2.5, Llama 4, DeepSeek R1, Mistral Large via OpenRouter
+- **Speech-to-text** — Mic button on mobile using Web Speech API
+- **Keyboard shortcuts** — `Cmd+K` search, `Cmd+N` new chat, `Cmd+B` toggle sidebar, `Shift+S` settings
 
 ## Tech stack
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | Framework | Next.js 16 (App Router) | SSR, API routes, Turbopack dev |
-| Deployment | Vercel | Serverless functions, zero-config deploys |
-| Auth | Clerk | OAuth (Google, GitHub), user management |
-| Database | Convex | Real-time sessions, messages, playlists, collections, influence graph |
+| Deployment | Vercel | Serverless functions |
+| Auth | Clerk | User sign-in, OAuth |
+| Connected services | Auth0 Token Vault | OAuth connections for Spotify, Slack, Google |
+| Database | Convex | Real-time sessions, messages, playlists, collections, influence graph, subscriptions, skills, shares |
 | Dynamic UI | OpenUI (`@openuidev/react-lang`) | Agent-generated interactive components |
-| Agent | Anthropic SDK + manual agentic loop | Tool-use loop with crate-cli MCP servers |
-| Web tools | Custom handlers | WhoSampled, Bandcamp tags, browser, Spotify artwork, influence cache |
-| Styling | Tailwind CSS v4 + `@tailwindcss/typography` | Dark theme, prose rendering |
+| Agent | Anthropic SDK + agentic loop | Tool-use loop with crate-cli MCP servers |
+| Billing | Stripe | Checkout, billing portal, webhooks |
+| Styling | Tailwind CSS v4 | Dark theme, responsive mobile |
 | Audio | YouTube IFrame API | Persistent player bar |
-| Email | AgentMail REST API | Send research to Slack or email |
+| Analytics | PostHog | Product analytics, LLM observability |
+| Feedback | Canny | User feedback widget |
 
 ## Quick start
 
@@ -64,7 +99,6 @@ Crate Web is a browser workspace where an AI agent researches music across Disco
 - npm 10+
 - [Clerk](https://clerk.com) account (free tier)
 - [Convex](https://convex.dev) account (free tier)
-- [Anthropic](https://console.anthropic.com) API key (or [OpenRouter](https://openrouter.ai) key for multi-model)
 
 ### Install
 
@@ -76,44 +110,51 @@ npm install
 
 ### Environment variables
 
-Copy the example and fill in your keys:
-
 ```bash
 cp .env.local.example .env.local
 ```
 
-Required variables:
+Required:
 
 ```bash
-# Clerk (https://dashboard.clerk.com → API Keys)
+# Clerk
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
 CLERK_SECRET_KEY=sk_...
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-CLERK_WEBHOOK_SECRET=whsec_...
 
-# Convex (https://dashboard.convex.dev)
+# Convex
 NEXT_PUBLIC_CONVEX_URL=https://...convex.cloud
 CONVEX_DEPLOYMENT=dev:...
 
-# Encryption key for API key storage
-# Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-ENCRYPTION_KEY=<64-char hex string>
+# Encryption
+ENCRYPTION_KEY=<64-char hex>
+
+# Platform AI key (for free/pro users without BYOK)
+PLATFORM_ANTHROPIC_KEY=sk-ant-...
+
+# Admin
+ADMIN_EMAILS=admin@example.com
 ```
 
-Optional embedded keys (free for all users):
+Auth0 Token Vault (for connected services):
 
 ```bash
-EMBEDDED_DISCOGS_KEY=
-EMBEDDED_DISCOGS_SECRET=
-EMBEDDED_LASTFM_KEY=
-EMBEDDED_TICKETMASTER_KEY=
-EMBEDDED_KERNEL_KEY=          # Kernel.sh — unlocks WhoSampled + browser tools
-YOUTUBE_API_KEY=
-AGENTMAIL_API_KEY=am_...
-SPOTIFY_CLIENT_ID=
-SPOTIFY_CLIENT_SECRET=
-FANART_API_KEY=
+AUTH0_DOMAIN=your-tenant.us.auth0.com
+AUTH0_CLIENT_ID=your-client-id
+AUTH0_CLIENT_SECRET=your-client-secret
+AUTH0_CALLBACK_URL=http://localhost:3000/api/auth0/callback
+```
+
+Stripe billing:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRO_MONTHLY_PRICE_ID=price_...
+STRIPE_PRO_ANNUAL_PRICE_ID=price_...
+STRIPE_TEAM_MONTHLY_PRICE_ID=price_...
 ```
 
 ### Run
@@ -126,100 +167,127 @@ npx convex dev
 npm run dev
 ```
 
-Open [localhost:3000](http://localhost:3000), sign in, add your Anthropic key in Settings, and start digging.
+Open [localhost:3000](http://localhost:3000) and start digging.
 
 ## Project structure
 
 ```
 crate-web/
 ├── convex/                              # Convex backend
-│   ├── schema.ts                        # Database schema
+│   ├── schema.ts                        # Database schema (13 tables)
 │   ├── sessions.ts                      # Chat session CRUD
 │   ├── messages.ts                      # Message persistence
 │   ├── playlists.ts                     # Playlist management
 │   ├── collection.ts                    # Vinyl collection
-│   ├── crates.ts                        # Research project groups
 │   ├── influence.ts                     # Influence graph cache
-│   ├── published.ts                     # Published research
-│   ├── users.ts                         # User sync (Clerk → Convex)
-│   ├── keys.ts                          # Encrypted API key storage
-│   └── orgKeys.ts                       # Team shared key storage
+│   ├── subscriptions.ts                 # Stripe subscription state
+│   ├── usage.ts                         # Usage tracking + quotas
+│   ├── userSkills.ts                    # Custom skill CRUD
+│   ├── shares.ts                        # Published Deep Cut shares
+│   ├── artifacts.ts                     # Saved research artifacts
+│   └── users.ts                         # User sync (Clerk → Convex)
 ├── src/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── chat/route.ts            # SSE streaming — agentic loop + direct chat
-│   │   │   ├── keys/route.ts            # User API key management
-│   │   │   ├── org-keys/route.ts        # Team key sharing
-│   │   │   ├── email/route.ts           # AgentMail integration
-│   │   │   ├── artwork/route.ts         # Spotify artwork proxy
-│   │   │   ├── youtube/route.ts         # YouTube search
-│   │   │   └── webhooks/clerk/          # Clerk user sync webhook
-│   │   ├── w/[sessionId]/               # Workspace (authenticated)
-│   │   ├── sign-in/                     # Clerk sign-in
-│   │   └── sign-up/                     # Clerk sign-up
+│   │   │   ├── chat/route.ts            # SSE streaming — agentic loop
+│   │   │   ├── auth0/                   # OAuth connect, callback, status, debug
+│   │   │   ├── cuts/publish/            # Deep Cut publishing
+│   │   │   ├── stripe/                  # Checkout, portal, webhooks
+│   │   │   ├── skills/                  # Custom skill management
+│   │   │   ├── keys/route.ts            # API key management
+│   │   │   └── artwork/route.ts         # Spotify artwork proxy
+│   │   ├── cuts/[shareId]/              # Public share page
+│   │   ├── w/[sessionId]/              # Workspace (authenticated)
+│   │   ├── pricing/                     # Pricing page
+│   │   └── help/                        # Help guide
 │   ├── components/
-│   │   ├── landing/                     # Landing page
+│   │   ├── chat/                        # Mobile header, mic, inline cards
 │   │   ├── workspace/
-│   │   │   ├── chat-panel.tsx           # Chat with OpenUI rendering + history
-│   │   │   ├── artifact-slide-in.tsx    # Artifact panel
-│   │   │   ├── model-selector.tsx       # Multi-model dropdown
-│   │   │   ├── response-actions.tsx     # Copy/Slack/Email/Share bar
-│   │   │   └── workspace-shell.tsx      # Layout orchestration
-│   │   ├── sidebar/                     # Sidebar sections
+│   │   │   ├── chat-panel.tsx           # Chat with OpenUI rendering
+│   │   │   ├── deep-cuts-panel.tsx      # Resizable Deep Cuts panel
+│   │   │   ├── mobile-deep-cuts.tsx     # Full-screen mobile Deep Cuts
+│   │   │   └── workspace-shell.tsx      # Layout + mobile nav
+│   │   ├── sidebar/                     # Desktop + mobile sidebar
+│   │   ├── settings/                    # Connected services, plan, skills, keys
 │   │   ├── player/                      # YouTube audio player
-│   │   └── settings/                    # API key management
+│   │   ├── onboarding/                  # Quick start wizard
+│   │   └── landing/                     # Landing page sections
+│   ├── hooks/
+│   │   ├── use-is-mobile.ts            # SSR-safe mobile breakpoint
+│   │   └── use-keyboard-visible.ts     # iOS keyboard detection
 │   └── lib/
 │       ├── openui/
-│       │   ├── components.tsx           # 19 OpenUI component definitions
-│       │   ├── library.ts              # Component registry
+│       │   ├── components.tsx           # 25+ OpenUI component definitions
+│       │   ├── library.ts              # Component registry + examples
 │       │   └── prompt.ts               # System prompt for agent → OpenUI
 │       ├── web-tools/
-│       │   ├── whosampled.ts           # WhoSampled search, samples, connections
-│       │   ├── bandcamp.ts             # Bandcamp related tags
-│       │   ├── browser.ts             # URL browsing and screenshots
-│       │   ├── images.ts              # Spotify + fanart.tv artwork
-│       │   ├── influence-cache.ts     # Convex-backed influence graph tools
-│       │   ├── radio.ts               # Radio stream playback
-│       │   ├── telegraph.ts           # Telegraph publishing
-│       │   ├── tumblr.ts              # Tumblr publishing
-│       │   └── infographic.ts         # Gemini image generation
-│       ├── agentic-loop.ts             # Manual agentic loop (Anthropic + OpenRouter)
-│       ├── tool-adapter.ts             # CrateToolDef → SDK tool conversion
-│       ├── chat-utils.ts               # Slash commands, prompt routing
-│       ├── resolve-user-keys.ts        # API key resolution chain
-│       └── encryption.ts               # AES-256-GCM key encryption
-└── docs/superpowers/                    # Design specs + implementation plans
+│       │   ├── spotify-connected.ts    # Read library, create playlists, read tracks
+│       │   ├── slack.ts                # List channels, send messages
+│       │   ├── slack-formatter.ts      # Block Kit rich text formatting
+│       │   ├── google-docs.ts          # Save to Google Docs
+│       │   ├── user-skills.ts          # Custom skill tools
+│       │   ├── prep-research.ts        # Perplexity-powered research
+│       │   └── ...                     # WhoSampled, Bandcamp, radio, etc.
+│       ├── auth0-token-vault.ts        # OAuth token exchange via Management API
+│       ├── agentic-loop.ts             # Agentic loop (Anthropic + OpenRouter)
+│       ├── plans.ts                    # Subscription tiers, rate limiting
+│       ├── deep-cut-utils.ts           # Type detection, colors, actions
+│       └── chat-utils.ts              # Slash commands, prompt routing
+└── docs/
+    ├── storycard-guide.md              # StoryCard component guide
+    ├── testing-guide.md                # Feature testing checklist
+    ├── articles/                       # LinkedIn, blog posts
+    └── superpowers/                    # Design specs + plans
 ```
 
-## API key tiers
+## OpenUI components
 
-| Tier | How it works | Examples |
-|------|-------------|----------|
-| **Embedded** | Platform keys in Vercel env vars — free for all users | Discogs, Last.fm, Ticketmaster, Kernel.sh |
-| **Required** | User adds their own key in Settings | Anthropic (or OpenRouter) |
-| **Optional** | User adds to unlock extra sources | Genius, Tavily, Exa, Tumblr, Mem0, Spotify |
+| Component | Purpose |
+|-----------|---------|
+| ArtistCard | Baseball-card artist profiles with auto-fetched images |
+| InfluenceChain | Narrative influence timeline with hero banner, tabs, source cards |
+| StoryCard | Rich narrative stories with chapters, YouTube, tracks, key people |
+| ShowPrepPackage | Full show prep with track context, talk breaks, social copy |
+| TrackList | Playable playlist with auto-save and AI-generated cover art |
+| SpotifyPlaylists | Spotify library browser with Explore/Open buttons |
+| SpotifyPlaylist | Track table from a Spotify playlist with action buttons |
+| SlackChannelPicker | Clickable channel grid for sending to Slack |
+| SlackMessage | Slack message preview with send status |
+| AlbumGrid | Discography display with cover art |
+| SampleTree | Sample relationship visualization |
+| ConcertList | Event listings with venue, date, price |
 
-Resolution order: **User key > Org shared key > Embedded key**
+## Auth0 Token Vault integration
 
-## Multi-model support
+Crate uses Auth0 Token Vault to securely connect to third-party services on behalf of users. The architecture:
 
-With an OpenRouter key, switch models in the chat header:
+1. **Clerk** handles user sign-in (existing auth)
+2. **Auth0** handles OAuth connections to Spotify, Slack, Google
+3. Token Vault stores and manages OAuth tokens — Crate never sees raw credentials
+4. The Management API retrieves IdP access tokens at runtime
 
-| Model | Provider |
-|-------|----------|
-| Claude Sonnet 4.6 | Anthropic (direct) |
-| Claude Haiku 4.5 | Anthropic (direct) |
-| GPT-4o | OpenAI via OpenRouter |
-| GPT-4.1 | OpenAI via OpenRouter |
-| Gemini 2.5 Flash | Google via OpenRouter |
-| Gemini 2.5 Pro | Google via OpenRouter |
-| Llama 4 Scout | Meta via OpenRouter |
-| DeepSeek R1 | DeepSeek via OpenRouter |
-| Mistral Large | Mistral via OpenRouter |
+### Connection flow
+
+```
+User clicks "Connect Spotify" in Settings
+  → /api/auth0/connect?service=spotify (generates CSRF nonce, redirects to Auth0)
+  → Auth0 /authorize (user grants permissions)
+  → /api/auth0/callback (exchanges code, extracts Auth0 user ID, sets cookies)
+  → Redirects back to current session
+```
+
+### Token retrieval
+
+```
+Agent calls read_spotify_library tool
+  → getTokenVaultToken("spotify", auth0UserId)
+  → Gets Management API token (cached 23h)
+  → Calls /api/v2/users/{userId}?fields=identities
+  → Returns access_token from the spotify identity
+  → Tool uses token to call Spotify Web API
+```
 
 ## Data sources
-
-The agent queries these MCP servers via crate-cli:
 
 | Source | Data |
 |--------|------|
@@ -231,32 +299,32 @@ The agent queries these MCP servers via crate-cli:
 | WhoSampled | Sample origins, covers, remixes |
 | Wikipedia | Artist bios, discography context |
 | Ticketmaster | Concert listings, ticket availability |
-| Spotify | Album/artist artwork (640x640) |
-| fanart.tv | HD artist backgrounds, logos, album covers |
-| iTunes | Album artwork (600x600), track search |
-| AllMusic | Reviews, ratings, style classifications |
-| Pitchfork | Reviews via 26-publication review search |
-| Rate Your Music | Community ratings and lists |
-| Setlist.fm | Live setlist history |
-| YouTube | Music videos, live performances |
+| Spotify | Library, playlists, top artists (via Auth0) |
+| fanart.tv | HD artist backgrounds, logos |
+| iTunes | Album artwork, track search |
+| YouTube | Music videos, documentaries |
 | Exa.ai | Semantic web search |
 | Tavily | AI-optimized web search |
-| Mem0 | Cross-session user memory |
+| Perplexity (Sonar) | Research enrichment with citations |
+| Mem0 | Cross-session user memory (Pro) |
+| Radio Browser | 30,000+ live radio stations |
 
 ## Deploy
 
 ```bash
 npm i -g vercel
-vercel
+vercel --prod
+npx convex deploy --yes
 ```
 
-Set all environment variables in Vercel dashboard → Settings → Environment Variables.
+Set all environment variables in Vercel dashboard.
 
 ## Related
 
-- [Crate CLI](https://github.com/tmoody1973/crate-cli) — Terminal-based AI music research agent. 19 MCP servers, autonomous workflows, TUI.
-- [OpenUI](https://github.com/thesysdev/openui) — Dynamic UI generation framework for agent-created components.
-- [Convex](https://convex.dev) — Real-time database for sessions, messages, and collections.
+- [Crate CLI](https://github.com/tmoody1973/crate-cli) — Terminal-based AI music research agent
+- [OpenUI](https://github.com/thesysdev/openui) — Dynamic UI generation framework
+- [Auth0 Token Vault](https://auth0.com/ai/docs/intro/token-vault) — Secure token exchange for AI agents
+- [Convex](https://convex.dev) — Real-time database
 
 ## License
 
