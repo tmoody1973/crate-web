@@ -358,7 +358,10 @@ async function streamAgenticResponse(
           "genius", "lastfm", "discogs", "images", "infographic", "itunes",
           "memory", "whosampled", "browser", "bandcamp-web", "prep-research",
         ]);
-        const toolGroups = isResearchCommand
+        // Only filter tools for /influence (needs trimmed set to stay under context limit)
+        // /news, /prep, and playlist creation need ALL tools
+        const isInfluenceCommand = /^\/influence\b/i.test(message);
+        const toolGroups = isInfluenceCommand
           ? allToolGroups.filter((g: { serverName: string }) => RESEARCH_SERVERS.has(g.serverName))
           : allToolGroups;
 
