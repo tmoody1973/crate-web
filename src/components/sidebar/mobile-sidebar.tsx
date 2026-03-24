@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { SidebarFooter } from "./sidebar-footer";
 
 interface MobileSidebarProps {
   open: boolean;
@@ -64,6 +65,9 @@ export function MobileSidebar({ open, onClose, children }: MobileSidebarProps) {
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {children}
         </div>
+
+        {/* Footer: user, help, feedback, settings */}
+        <SidebarFooter />
       </div>
     </div>
   );
