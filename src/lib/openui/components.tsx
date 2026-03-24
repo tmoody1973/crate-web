@@ -2683,28 +2683,41 @@ export const StoryCard = defineComponent({
             <p className="text-sm text-zinc-300">{props.subtitle}</p>
           </div>
         </div>
-        <div className="flex border-b border-zinc-800 bg-zinc-800/30">
-          {keyFacts.map((f, i) => (
-            <div key={i} className="flex-1 py-2 text-center border-r border-zinc-800 last:border-r-0">
-              <div className="text-lg font-bold text-[#E8520E]">{f.value}</div>
-              <div className="text-[10px] text-zinc-500">{f.label}</div>
-            </div>
+        {/* Key facts — scrollable chips for long text, stat cards for short values */}
+        <div className="flex gap-2 overflow-x-auto border-b border-zinc-800 bg-zinc-800/20 px-4 py-3 scrollbar-none">
+          {keyFacts.slice(0, 6).map((f, i) => (
+            f.value ? (
+              <div key={i} className="flex shrink-0 flex-col items-center rounded-lg bg-zinc-800/60 px-4 py-2 min-w-[80px]">
+                <div className="text-lg font-bold text-[#E8520E] leading-tight">{f.value}</div>
+                <div className="text-[10px] text-zinc-500 text-center">{f.label}</div>
+              </div>
+            ) : (
+              <div key={i} className="shrink-0 rounded-lg bg-zinc-800/60 px-3 py-2 max-w-[200px]">
+                <p className="text-xs text-zinc-400 leading-snug line-clamp-3">{f.label}</p>
+              </div>
+            )
           ))}
         </div>
         <div className="p-5">
           {chapters.length > 1 && (
             <div className="flex gap-1.5 mb-4 overflow-x-auto">
               {chapters.map((ch, i) => (
-                <button key={i} onClick={() => setActiveChapter(i)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs transition-colors ${activeChapter === i ? "bg-[#E8520E] text-white" : "bg-zinc-800 text-zinc-400 hover:text-white"}`}>
-                  {ch.title}
+                <button key={i} onClick={() => setActiveChapter(i)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs max-w-[200px] truncate transition-colors ${activeChapter === i ? "bg-[#E8520E] text-white" : "bg-zinc-800 text-zinc-400 hover:text-white"}`}>
+                  {ch.title.length > 40 ? ch.title.slice(0, 40) + "..." : ch.title}
                 </button>
               ))}
             </div>
           )}
           {chapters[activeChapter] && (
             <div className="mb-5">
-              {chapters[activeChapter].subtitle && <p className="text-xs text-zinc-500 mb-2">{chapters[activeChapter].subtitle}</p>}
-              <div className="text-sm leading-relaxed text-zinc-300 whitespace-pre-line">{chapters[activeChapter].content}</div>
+              {chapters[activeChapter].subtitle && (
+                <p className="text-xs italic text-zinc-500 mb-3 border-l-2 border-[#E8520E]/30 pl-3">{chapters[activeChapter].subtitle}</p>
+              )}
+              {chapters[activeChapter].content ? (
+                <div className="text-[14px] leading-[1.75] text-zinc-300 whitespace-pre-line">{chapters[activeChapter].content}</div>
+              ) : (
+                <p className="text-sm text-zinc-600 italic">Content for this chapter is being researched...</p>
+              )}
             </div>
           )}
           {/* Key tracks */}
