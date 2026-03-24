@@ -2508,11 +2508,20 @@ export const StoryCard = defineComponent({
     const rawChapters = ensureArray<unknown>(props.chapters);
     const chapters = rawChapters.map((ch) => {
       if (typeof ch === "string") {
-        const parts = (ch as string).split("|");
+        const s = (ch as string).trim();
+        // Try parsing as JSON object string: { "title": "...", "content": "..." }
+        if (s.startsWith("{")) {
+          try {
+            const parsed = JSON.parse(s);
+            return { title: String(parsed.title ?? ""), subtitle: parsed.subtitle ? String(parsed.subtitle) : undefined, content: String(parsed.content ?? "") };
+          } catch { /* fall through */ }
+        }
+        // Pipe-delimited: "Title|Content paragraph 1|Content paragraph 2"
+        const parts = s.split("|");
         if (parts.length >= 2) {
           return { title: parts[0].trim(), subtitle: undefined, content: parts.slice(1).join("\n\n").trim() };
         }
-        return { title: ch as string, subtitle: undefined, content: "" };
+        return { title: s, subtitle: undefined, content: "" };
       }
       const obj = ch as Record<string, unknown>;
       return { title: String(obj.title ?? ""), subtitle: obj.subtitle ? String(obj.subtitle) : undefined, content: String(obj.content ?? "") };
@@ -2665,8 +2674,8 @@ export const StoryCard = defineComponent({
     // ── Desktop: Magazine layout ──
     return (
       <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
-        <div className="relative h-48 overflow-hidden">
-          <img src={props.heroImageUrl} alt={props.title} className="absolute inset-0 h-full w-full object-cover" />
+        <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#E8520E]/30 via-zinc-900 to-zinc-950">
+          <SafeImage src={props.heroImageUrl} alt={props.title} className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-transparent" />
           <div className="relative flex h-full flex-col justify-end p-5">
             <p className="text-[10px] uppercase tracking-[2px] text-[#E8520E] mb-1">{props.category}</p>
