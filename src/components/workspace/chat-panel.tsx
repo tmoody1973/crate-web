@@ -323,14 +323,14 @@ function ChatMessages() {
             {m.role === "user" ? "You" : "Crate"}
           </span>
           {m.role === "user" ? (
-            <div className="mt-1 text-white">
+            <div className="mt-1 text-[15px] md:text-sm text-white">
               {getContentParts(m.content).map((c, i) =>
                 c.type === "text" ? <span key={i}>{c.text}</span> : null,
               )}
             </div>
           ) : (
             <>
-              <div className="prose prose-invert prose-sm mt-1 max-w-none overflow-hidden break-words">
+              <div className="prose prose-invert prose-sm [&_*]:text-[15px] md:[&_*]:text-sm mt-1 max-w-none overflow-hidden break-words">
                 {getContentParts(m.content).flatMap((c, ci) => {
                   if (c.type !== "text") return [];
                   const text = c.text ?? "";
@@ -401,7 +401,7 @@ function SlashCommandMenu({
           key={cmd.command}
           type="button"
           onClick={() => onSelect(cmd.command + " ")}
-          className={`flex w-full items-start gap-3 px-4 py-2.5 text-left transition first:rounded-t-lg last:rounded-b-lg ${
+          className={`flex min-h-[48px] w-full items-start gap-3 px-4 py-2.5 text-left transition first:rounded-t-lg last:rounded-b-lg ${
             i === selectedIndex ? "bg-zinc-800" : "hover:bg-zinc-800/50"
           }`}
         >
@@ -746,7 +746,7 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup, customSkills 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-zinc-800 p-4">
+    <form onSubmit={handleSubmit} className="border-t border-zinc-800 px-3 py-3 md:px-4">
       <div className="relative">
         {showSlashMenu && (
           <SlashCommandMenu
