@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import { defineComponent } from "@openuidev/react-lang";
 import { z } from "zod";
 import { useMutation, useQuery } from "convex/react";
@@ -8,6 +9,15 @@ import { useAuth } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
 import { usePlayerSafe } from "@/components/player/player-provider";
 import { useIsMobile } from "@/hooks/use-is-mobile";
+
+const InfluenceGraph = dynamic(() => import("./influence-graph"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[340px] bg-zinc-900 text-zinc-500 text-sm">
+      Loading graph...
+    </div>
+  ),
+});
 
 // ── JSON string preprocessor for OpenUI Lang ────────────────────
 // OpenUI Lang passes complex props as JSON strings from positional args.
@@ -1595,9 +1605,48 @@ export const InfluenceChain = defineComponent({
     const [toggledIds, setToggledIds] = useState<Set<string>>(new Set());
     const [activeTab, setActiveTab] = useState<GroupKey>("roots");
     const [fetchedImages, setFetchedImages] = useState<Record<string, string>>({});
+    const [viewMode, setViewMode] = useState<"list" | "graph">("list");
 
     // Runtime parse
     const rawConnections = ensureArray<ParsedConnection>(props.connections);
+
+    // Empty-state fallback — if parsing produced no connections, show a helpful message
+    if (rawConnections.length === 0) {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const heroImg = useAutoImage(props.artist);
+      return (
+        <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
+          <div className="relative h-32 bg-gradient-to-r from-violet-900/60 via-zinc-900 to-zinc-900">
+            {heroImg && (
+              <img src={heroImg} alt={props.artist} className="absolute inset-0 h-full w-full object-cover opacity-30" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-transparent" />
+            <div className="relative flex h-full items-end gap-4 px-4 pb-3">
+              {heroImg ? (
+                <img src={heroImg} alt={props.artist} className="h-16 w-16 rounded-full object-cover ring-2 ring-violet-500 shadow-lg" />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-violet-600 ring-2 ring-violet-400">
+                  <span className="text-xl font-bold text-white">{props.artist.charAt(0)}</span>
+                </div>
+              )}
+              <div>
+                <h2 className="text-lg font-bold text-white drop-shadow">{props.artist}</h2>
+                <p className="text-xs text-violet-300">Influence Chain</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-4 text-center">
+            <p className="text-sm text-zinc-400 mb-3">No connections loaded yet. Try running the query again.</p>
+            <button
+              onClick={() => injectChatMessage(`/influence ${props.artist}`)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-violet-700 bg-violet-900/30 px-3 py-1.5 text-xs text-violet-300 hover:bg-violet-900/50 hover:border-violet-500 transition-colors"
+            >
+              Retry influence map
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     // Auto-fetch missing images from Spotify via artwork API
     useEffect(() => {
@@ -1716,66 +1765,107 @@ export const InfluenceChain = defineComponent({
             {summary}
           </p>
 
-        {/* Tabs */}
-        {useTabs && (
-          <div className="mb-3 flex" role="tablist">
-            {availableTabs.map((key) => {
-              const meta = GROUP_META[key];
-              const isActive = key === currentTab;
-              return (
-                <button
-                  key={key}
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setActiveTab(key)}
-                  className={`flex-1 py-2 text-center text-xs font-medium transition-colors ${
-                    isActive
-                      ? `${meta.color} border-b-2 ${meta.activeBg} bg-zinc-800/50`
-                      : "border-b border-zinc-700 text-zinc-500 hover:text-zinc-400"
-                  }`}
-                >
-                  {meta.label} ({groups[key].length})
-                </button>
-              );
-            })}
+          {/* List / Graph toggle */}
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex bg-zinc-800 rounded overflow-hidden border border-zinc-700">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-3 py-1 text-xs transition-colors ${
+                  viewMode === "list"
+                    ? "bg-violet-600 text-white"
+                    : "text-zinc-400 hover:text-zinc-300"
+                }`}
+              >
+                List
+              </button>
+              <button
+                onClick={() => setViewMode("graph")}
+                className={`px-3 py-1 text-xs transition-colors ${
+                  viewMode === "graph"
+                    ? "bg-violet-600 text-white"
+                    : "text-zinc-400 hover:text-zinc-300"
+                }`}
+              >
+                Graph
+              </button>
+            </div>
           </div>
-        )}
 
-        {/* Connection list */}
-        <div className="relative ml-3" role={useTabs ? "tabpanel" : undefined}>
-          <div className="absolute left-0 top-0 bottom-0 w-px bg-zinc-700" />
-
-          <div className="space-y-3">
-            {currentConnections.map((conn, i) => (
-              <ConnectionNode
-                key={`${currentTab}-${conn.name}-${i}`}
-                conn={conn}
-                id={`${currentTab}-${conn.name}-${i}`}
-                isExpanded={i < 3
-                  ? !toggledIds.has(`${currentTab}-${conn.name}-${i}`)
-                  : toggledIds.has(`${currentTab}-${conn.name}-${i}`)
-                }
-                onToggle={(id) => setToggledIds(prev => {
-                  const next = new Set(prev);
-                  if (next.has(id)) next.delete(id); else next.add(id);
-                  return next;
+        {viewMode === "list" ? (
+          <>
+            {/* Tabs */}
+            {useTabs && (
+              <div className="mb-3 flex" role="tablist">
+                {availableTabs.map((key) => {
+                  const meta = GROUP_META[key];
+                  const isActive = key === currentTab;
+                  return (
+                    <button
+                      key={key}
+                      role="tab"
+                      aria-selected={isActive}
+                      onClick={() => setActiveTab(key)}
+                      className={`flex-1 py-2 text-center text-xs font-medium transition-colors ${
+                        isActive
+                          ? `${meta.color} border-b-2 ${meta.activeBg} bg-zinc-800/50`
+                          : "border-b border-zinc-700 text-zinc-500 hover:text-zinc-400"
+                      }`}
+                    >
+                      {meta.label} ({groups[key].length})
+                    </button>
+                  );
                 })}
-                dotColor={dotColor}
-              />
-            ))}
-          </div>
-        </div>
+              </div>
+            )}
 
-        {/* Action buttons */}
-        <div className="flex gap-2 border-t border-zinc-800 pt-3 mt-3">
-          <SlackSendButton label={`${props.artist} influence chain`} />
-          <button
-            onClick={() => injectChatMessage(`Save the ${props.artist} influence chain as a Spotify playlist`)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-green-800 bg-green-900/30 px-2.5 py-1 text-[11px] text-green-400 hover:bg-green-900/50 hover:border-green-600 transition-colors"
-          >
-            <span>▶</span> Export Playlist
-          </button>
-        </div>
+            {/* Connection list */}
+            <div className="relative ml-3" role={useTabs ? "tabpanel" : undefined}>
+              <div className="absolute left-0 top-0 bottom-0 w-px bg-zinc-700" />
+
+              <div className="space-y-3">
+                {currentConnections.map((conn, i) => (
+                  <ConnectionNode
+                    key={`${currentTab}-${conn.name}-${i}`}
+                    conn={conn}
+                    id={`${currentTab}-${conn.name}-${i}`}
+                    isExpanded={i < 3
+                      ? !toggledIds.has(`${currentTab}-${conn.name}-${i}`)
+                      : toggledIds.has(`${currentTab}-${conn.name}-${i}`)
+                    }
+                    onToggle={(id) => setToggledIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(id)) next.delete(id); else next.add(id);
+                      return next;
+                    })}
+                    dotColor={dotColor}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2 border-t border-zinc-800 pt-3 mt-3">
+              <SlackSendButton label={`${props.artist} influence chain`} />
+              <button
+                onClick={() => injectChatMessage(`Save the ${props.artist} influence chain as a Spotify playlist`)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-green-800 bg-green-900/30 px-2.5 py-1 text-[11px] text-green-400 hover:bg-green-900/50 hover:border-green-600 transition-colors"
+              >
+                <span>▶</span> Export Playlist
+              </button>
+            </div>
+          </>
+        ) : (
+          <InfluenceGraph
+            artist={props.artist}
+            connections={connections.map(c => ({
+              ...c,
+              sources: Array.isArray(c.sources)
+                ? (c.sources as Array<{ name: string; url: string; snippet?: string }>)
+                : undefined,
+            }))}
+            isPro={false}
+          />
+        )}
       </div>
       </div>
     );
