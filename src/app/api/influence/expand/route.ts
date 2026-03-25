@@ -121,10 +121,18 @@ Only include well-documented connections. Weight should reflect strength of infl
     .replace(/```\s*$/i, "")
     .trim();
 
-  const parsed = JSON.parse(cleaned);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (err) {
+    console.error("[influence/expand] Failed to parse Perplexity response:", cleaned.slice(0, 500), err);
+    return { connections: [], citations, enrichment: null };
+  }
   const connections: PerplexityConnection[] = Array.isArray(parsed) ? parsed : [];
   // For sonar-pro, parsed is a single object with enrichment fields (not an array)
-  const enrichment = !Array.isArray(parsed) && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+  const enrichment = !Array.isArray(parsed) && typeof parsed === "object" && parsed !== null
+    ? parsed as Record<string, unknown>
+    : null;
 
   return { connections, citations, enrichment };
 }

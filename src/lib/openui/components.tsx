@@ -1607,23 +1607,24 @@ export const InfluenceChain = defineComponent({
     const [fetchedImages, setFetchedImages] = useState<Record<string, string>>({});
     const [viewMode, setViewMode] = useState<"list" | "graph">("list");
 
+    // Hook must be called unconditionally (before any conditional returns)
+    const heroImage = useAutoImage(props.artist);
+
     // Runtime parse
     const rawConnections = ensureArray<ParsedConnection>(props.connections);
 
     // Empty-state fallback — if parsing produced no connections, show a helpful message
     if (rawConnections.length === 0) {
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      const heroImg = useAutoImage(props.artist);
       return (
         <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
           <div className="relative h-32 bg-gradient-to-r from-violet-900/60 via-zinc-900 to-zinc-900">
-            {heroImg && (
-              <img src={heroImg} alt={props.artist} className="absolute inset-0 h-full w-full object-cover opacity-30" />
+            {heroImage && (
+              <img src={heroImage} alt={props.artist} className="absolute inset-0 h-full w-full object-cover opacity-30" />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-transparent" />
             <div className="relative flex h-full items-end gap-4 px-4 pb-3">
-              {heroImg ? (
-                <img src={heroImg} alt={props.artist} className="h-16 w-16 rounded-full object-cover ring-2 ring-violet-500 shadow-lg" />
+              {heroImage ? (
+                <img src={heroImage} alt={props.artist} className="h-16 w-16 rounded-full object-cover ring-2 ring-violet-500 shadow-lg" />
               ) : (
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-violet-600 ring-2 ring-violet-400">
                   <span className="text-xl font-bold text-white">{props.artist.charAt(0)}</span>
@@ -1697,9 +1698,6 @@ export const InfluenceChain = defineComponent({
 
     const dotColor = (w: number) =>
       w > 0.7 ? "bg-green-500" : w >= 0.5 ? "bg-yellow-500" : "bg-zinc-500";
-
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const heroImage = useAutoImage(props.artist);
 
     return (
       <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">

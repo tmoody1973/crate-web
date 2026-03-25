@@ -173,7 +173,7 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
         const res = await fetch("/api/influence/expand", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ artist: node.name, tier: isPro ? "pro" : "free" }),
+          body: JSON.stringify({ artist: node.name }),
         });
         if (!res.ok) throw new Error("Expand failed");
         const data: ExpandResponse = await res.json();
@@ -335,7 +335,7 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
       const l = link as GraphLink & { source: RuntimeNode; target: RuntimeNode };
       const src = l.source;
       const tgt = l.target;
-      if (!src?.x || !tgt?.x) return;
+      if (src?.x == null || src?.y == null || tgt?.x == null || tgt?.y == null) return;
 
       const focus = selectedNode ? connectedIds(selectedNode.id) : null;
       const srcId = src.id;
@@ -494,7 +494,7 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
       {/* ── Cap warning ──────────────────────────────────────────── */}
       {capWarning && (
         <div className="flex items-center justify-between border-b border-yellow-900/40 bg-yellow-950/30 px-3 py-1.5 text-xs text-yellow-400">
-          <span>Graph is at the 60-node limit. Reset to explore a different branch.</span>
+          <span>Graph is at the {NODE_CAP}-node limit. Reset to explore a different branch.</span>
           <button
             className="ml-3 underline hover:no-underline"
             onClick={() => setCapWarning(false)}
