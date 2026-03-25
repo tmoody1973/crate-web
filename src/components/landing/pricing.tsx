@@ -85,7 +85,7 @@ function FeatureValue({ value }: { value: string | boolean }) {
     return <X className="w-4 h-4 text-zinc-600 mx-auto" aria-label="Not included" />;
   }
   return (
-    <span className="font-[family-name:var(--font-space)] text-sm text-zinc-300">
+    <span className="font-[family-name:var(--font-space)] text-sm font-semibold text-zinc-200">
       {value}
     </span>
   );
@@ -165,7 +165,7 @@ export function Pricing() {
       </ScrollReveal>
 
       {/* Cards */}
-      <div className="grid grid-cols-3 gap-6 max-w-[1000px] max-lg:grid-cols-1 max-lg:gap-5">
+      <div className="mx-auto grid grid-cols-3 gap-8 max-w-[1100px] max-lg:grid-cols-1 max-lg:max-w-[420px] max-lg:gap-6">
         {plans.map((plan) => (
           <ScrollReveal key={plan.id}>
             <div
@@ -236,7 +236,7 @@ export function Pricing() {
                       key={feature.label}
                       className="flex items-center gap-3"
                     >
-                      <span className="shrink-0 w-4 flex justify-center">
+                      <span className={`shrink-0 flex ${typeof value === "string" ? "w-auto min-w-[2rem]" : "w-4 justify-center"}`}>
                         <FeatureValue value={value} />
                       </span>
                       <span
