@@ -224,6 +224,46 @@ export function createPrepResearchTools(
     }
   };
 
+  /**
+   * Batch enrichment: fires parallel Perplexity calls for multiple connections.
+   * Reduces agent tool calls from 5 to 1 for the enrichment phase.
+   */
+  const researchInfluencesBatchHandler = async (args: {
+    artist: string;
+    connections: string[];
+  }) => {
+    const { artist, connections } = args;
+    const maxConnections = Math.min(connections.length, 6);
+    const batch = connections.slice(0, maxConnections);
+
+    const results = await Promise.allSettled(
+      batch.map(async (connName) => {
+        const result = await researchInfluenceHandler({
+          fromArtist: artist,
+          toArtist: connName,
+        });
+        const text = result.content[0]?.text ?? "{}";
+        try {
+          return { connection: connName, ...JSON.parse(text) };
+        } catch {
+          return { connection: connName, error: "Parse failed" };
+        }
+      }),
+    );
+
+    const enriched = results.map((r, i) => {
+      if (r.status === "fulfilled") return r.value;
+      return { connection: batch[i], error: String(r.reason) };
+    });
+
+    return toolResult({
+      artist,
+      enriched,
+      count: enriched.filter((e) => !e.error).length,
+      total: batch.length,
+    });
+  };
+
   return [
     {
       name: "research_track",
@@ -248,6 +288,19 @@ export function createPrepResearchTools(
         toArtist: z.string().describe("The influenced artist (e.g. 'Flying Lotus')"),
       },
       handler: researchInfluenceHandler,
+    },
+    {
+      name: "research_influences_batch",
+      description:
+        "Batch-research multiple influence connections in parallel using Perplexity Sonar Pro. Accepts an artist and an array of connection names (max 6). Returns enriched context for all connections in a single tool response. Use this instead of calling research_influence multiple times.",
+      inputSchema: {
+        artist: z.string().describe("Central artist name"),
+        connections: z
+          .array(z.string())
+          .max(6)
+          .describe("Array of connected artist names to enrich"),
+      },
+      handler: researchInfluencesBatchHandler,
     },
   ];
 }
