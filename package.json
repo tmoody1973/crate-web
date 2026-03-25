@@ -34,6 +34,7 @@
     "posthog-node": "^5.28.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-force-graph-2d": "^1.29.1",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.7.2",
     "remark-gfm": "^4.0.1",
