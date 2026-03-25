@@ -456,7 +456,7 @@ export function preprocessSlashCommand(message: string): string {
         `3. Search WhoSampled for BOTH directions:`,
         `   - What samples does this track USE (direction: "from", use fields: name, artist, year, element)`,
         `   - What tracks have SAMPLED this track (direction: "by", use fields: name, artist, year)`,
-        `4. Search Genius for lyrics snippet or notable annotation`,
+        `4. Search Genius for a notable annotation or fun fact about the track (do NOT include full lyrics — just context or trivia)`,
         `5. Search Discogs for vinyl pressing count, median price, and original pressing details`,
         `6. Search iTunes for album art (or use Discogs cover art URL)`,
         `7. Use search_web (Perplexity) for the story behind the track — recording context, cultural impact, interesting facts`,
