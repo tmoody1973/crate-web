@@ -9,7 +9,7 @@
 
 ## Milwaukee DJ builds AI music research platform that outpaces Spotify's new SongDNA feature
 
-*Crate, currently in beta, connects to Spotify, Slack, and Google Docs through Auth0 Token Vault — letting an AI agent act on a user's behalf across services. Built in two weeks by one person.*
+*Crate, currently in beta, connects to Spotify, Slack, and Google Docs through Auth0 Token Vault — letting an AI agent act on a user's behalf across services. Built by a non-technical radio executive using Claude Code.*
 
 ---
 
@@ -31,11 +31,17 @@ Crate's influence mapping is based on a methodology from Badillo-Goicoechea's 20
 
 Spotify recently acquired data from WhoSampled to power SongDNA's sample connections. Crate's influence chains are the layer above samples — they capture stylistic lineage, not just audio reuse.
 
-**Built in two weeks**
+**Built by a radio executive, not a software engineer**
 
-Tarik Moody built Crate in two weeks using Claude Code, Anthropic's AI coding tool. Moody is a developer and DJ at Radio Milwaukee, where he works across three stations: 88Nine (eclectic/community), HYFIN (hip-hop/neo-soul/Afrobeats), and Rhythm Lab (global beats/electronic/jazz). Radio Milwaukee uses Crate daily for show prep, music news segments, and artist research.
+Tarik Moody is not a traditional developer. He is Director of Strategy and Innovation at Radio Milwaukee, an NPR member public radio station he has been with since its launch in 2007. Before radio, he practiced architecture. He has no computer science degree.
 
-"I built it because I needed it," Moody said. "I was spending hours every week researching artists across a dozen different websites, copying information into documents, then reformatting it for air. Now I type one command and get everything — cited, formatted, and ready to send to the team on Slack."
+Moody built Crate in two weeks using Claude Code, Anthropic's AI coding tool. Crate evolved from an earlier terminal application — the Crate CLI — that Moody built to speed up his own research workflow. The web version adds connected services, interactive components, and a workspace designed for teams.
+
+Moody has been building AI products with Claude Code for months, winning multiple hackathons along the way. He sees AI as a productivity layer for non-technical people. "I'm building AI products for the rest of us," Moody said. "People who have deep domain expertise but aren't software engineers. AI tools like Claude Code let someone who knows music inside and out build a product that a traditional engineering team would need months to deliver."
+
+Radio Milwaukee is currently testing Crate across its stations: 88Nine (eclectic/community), HYFIN (hip-hop/neo-soul/Afrobeats), and the syndicated Rhythm Lab Radio, a show Moody has hosted and produced for over 20 years.
+
+"I was spending hours every week researching artists across a dozen different websites, copying information into documents, then reformatting it for air," Moody said. "Now I type one command and get everything — cited, formatted, and ready to send to the team on Slack."
 
 The platform includes 27 interactive components — influence chains with artist photos and cited sources, story cards with chapters and embedded YouTube documentaries, track deep dives with credits from MusicBrainz and Discogs, playable playlists that export directly to Spotify, and more. Each component renders dynamically from the AI agent's research using OpenUI, an open framework for agent-generated interfaces.
 
@@ -57,11 +63,15 @@ Current capabilities:
 
 **About Tarik Moody**
 
-Tarik Moody is a developer, DJ, and on-air host at Radio Milwaukee. He has worked in music and technology in Milwaukee for over 15 years. Crate grew out of his daily workflow at the station — the gap between what he needed for show prep and what existing tools provided.
+Tarik Moody is Director of Strategy and Innovation at Radio Milwaukee, where he has worked since the station's launch in 2007. He hosts and produces Rhythm Lab Radio, a syndicated music show now in its 20th year. Before radio, he practiced architecture. He builds AI-powered products using Claude Code and has won multiple hackathons. He lives in Milwaukee, WI.
+
+**About Radio Milwaukee**
+
+Radio Milwaukee is a public radio station and NPR member serving Milwaukee, WI. It operates three distinct formats: 88Nine (eclectic/community), HYFIN (hip-hop/neo-soul/Afrobeats), and Rhythm Lab Radio (global beats/electronic/jazz). The station is currently testing Crate for daily show prep and music research.
 
 **About Crate**
 
-Crate is an AI-powered music research workspace for DJs, radio producers, playlist curators, music journalists, and crate diggers. It queries 20+ live databases through an AI agent and renders interactive, publishable research components. Currently in beta at digcrate.app.
+Crate is an AI-powered music research workspace for DJs, radio producers, playlist curators, music journalists, and crate diggers. It queries 20+ live databases through an AI agent and renders interactive, publishable research components. Evolved from the Crate CLI terminal application. Currently in beta at digcrate.app.
 
 ---
 
