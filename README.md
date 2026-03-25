@@ -34,6 +34,8 @@ Built for the [Auth0 "Authorized to Act" Hackathon](https://auth0.devpost.com/) 
 - **Show prep** — `/prep [station]: [setlist]` generates track context, talk breaks, social copy, and interview prep for radio DJs
 - **Music news** — `/news [station] [count]` generates daily music news segments from RSS feeds and web search
 - **Story cards** — `/story [topic]` creates rich narrative deep dives with chapters, YouTube embeds, key tracks, and people cards. Works for albums, artists, genres, labels, and events
+- **Track deep dive** — `/track [song] [artist]` shows full credits (MusicBrainz + Discogs), samples (WhoSampled), lyrics (Genius), and vinyl pressings (Discogs) in a tabbed view. Crate's SongDNA competitor.
+- **Artist profile** — `/artist [name]` renders a full artist deep dive with tabbed discography (playable albums), influence connections (tappable chips), media (YouTube + external links), and top tracks
 
 ### Connected services (Auth0 Token Vault)
 - **Spotify** — Read your library, playlists, and top artists. Create new playlists from research. Export influence chains as playlists.
@@ -41,7 +43,7 @@ Built for the [Auth0 "Authorized to Act" Hackathon](https://auth0.devpost.com/) 
 - **Google Docs** — Save research as shareable Google Docs
 
 ### Dynamic UI (OpenUI)
-- **25+ interactive components** — Agent generates album grids, track lists with play buttons, influence chains with hero banners, show prep packages, story cards, Spotify playlist viewers, Slack channel pickers, and more at runtime
+- **27+ interactive components** — Agent generates artist profiles, track deep dives, album grids, track lists with play buttons, influence chains with hero banners, show prep packages, story cards, Spotify playlist viewers, Slack channel pickers, and more at runtime
 - **Deep Cuts panel** — Resizable split panel (desktop) or full-screen view (mobile) for viewing saved research. Dropdown selector with type-colored dots, publish to shareable links
 - **Action buttons on every component** — Export to Spotify, Send to Slack, Publish, Deep Dive, Influence Map
 
@@ -217,7 +219,7 @@ crate-web/
 │   │   └── use-keyboard-visible.ts     # iOS keyboard detection
 │   └── lib/
 │       ├── openui/
-│       │   ├── components.tsx           # 25+ OpenUI component definitions
+│       │   ├── components.tsx           # 27+ OpenUI component definitions
 │       │   ├── library.ts              # Component registry + examples
 │       │   └── prompt.ts               # System prompt for agent → OpenUI
 │       ├── web-tools/
@@ -244,7 +246,9 @@ crate-web/
 
 | Component | Purpose |
 |-----------|---------|
-| ArtistCard | Baseball-card artist profiles with auto-fetched images |
+| ArtistProfile | Full artist deep dive — tabbed discography, connections, media, top tracks |
+| ArtistCard | Compact baseball-card artist profiles with auto-fetched images |
+| TrackCard | Single-track deep dive — tabbed credits, samples, lyrics, vinyl pressings |
 | InfluenceChain | Narrative influence timeline with hero banner, tabs, source cards |
 | StoryCard | Rich narrative stories with chapters, YouTube, tracks, key people |
 | ShowPrepPackage | Full show prep with track context, talk breaks, social copy |
