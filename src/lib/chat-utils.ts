@@ -440,7 +440,7 @@ export function preprocessSlashCommand(message: string): string {
         `- keyPeople: important people mentioned in the story`,
         `- sources: cited source links from your research`,
         ``,
-        `CRITICAL: The output MUST be OpenUI Lang with root = StoryCard(...). NOT plain text.`,
+        `CRITICAL: Your ENTIRE response must be ONLY the OpenUI Lang: root = StoryCard(...). Do NOT write any text before or after. No explanations.`,
       ].join("\n");
     }
 
@@ -465,8 +465,14 @@ export function preprocessSlashCommand(message: string): string {
         `  {name: "Track Name", artist: "Artist Name", year: "1990", direction: "from", element: "drum break"}`,
         `  {name: "Track Name", artist: "Artist Name", year: "2005", direction: "by"}`,
         ``,
-        `OUTPUT: TrackCard with all available data. Include lyricsSnippet from Genius. Include imageUrl from iTunes/Discogs.`,
-        `CRITICAL: Output MUST be OpenUI Lang with root = TrackCard(...). NOT plain text.`,
+        `OUTPUT: TrackCard with all available data. Include lyricsSnippet from Genius. Include imageUrl from iTunes/Discogs. Include context from Perplexity.`,
+        ``,
+        `CRITICAL OUTPUT RULES:`,
+        `- Your ENTIRE response must be ONLY the OpenUI Lang: root = TrackCard(...)`,
+        `- Do NOT write any text before or after the component`,
+        `- Do NOT explain your research process`,
+        `- Do NOT say "Let me assemble" or "Here's the TrackCard"`,
+        `- Just output the component directly — nothing else`,
       ].join("\n");
     }
 
@@ -483,7 +489,7 @@ export function preprocessSlashCommand(message: string): string {
         `5. Search YouTube for a documentary, interview, or live performance`,
         `6. Search for artist image via artwork API`,
         `OUTPUT: ArtistProfile with all tabs populated. Use ArtistCard only for compact inline mentions.`,
-        `CRITICAL: Output MUST be OpenUI Lang with root = ArtistProfile(...). NOT plain text.`,
+        `CRITICAL: Your ENTIRE response must be ONLY the OpenUI Lang: root = ArtistProfile(...). Do NOT write any text before or after. No explanations.`,
       ].join("\n");
     }
 

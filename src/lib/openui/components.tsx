@@ -2991,9 +2991,10 @@ export const TrackCard = defineComponent({
     const spotifyUrl = props.spotifyUrl || `https://open.spotify.com/search/${encodeURIComponent(props.name + " " + props.artist)}`;
 
     // Build available tabs
-    const tabs: { label: string; id: string }[] = [
-      { label: `Credits (${credits.length})`, id: "credits" },
-    ];
+    const hasContext = !!props.context;
+    const tabs: { label: string; id: string }[] = [];
+    if (hasContext) tabs.push({ label: "Story", id: "story" });
+    tabs.push({ label: `Credits (${credits.length})`, id: "credits" });
     if (samples.length > 0) tabs.push({ label: `Samples (${samples.length})`, id: "samples" });
     if (hasLyrics) tabs.push({ label: "Lyrics", id: "lyrics" });
     if (hasVinyl) tabs.push({ label: "Vinyl", id: "vinyl" });
@@ -3044,15 +3045,14 @@ export const TrackCard = defineComponent({
 
         {/* Tab content */}
         <div className="p-4">
+          {currentTab === "story" && props.context && (
+            <div>
+              <p className="text-[14px] leading-[1.75] text-zinc-300 whitespace-pre-line">{props.context}</p>
+            </div>
+          )}
+
           {currentTab === "credits" && (
             <div>
-              {/* Track backstory from Perplexity */}
-              {props.context && (
-                <div className="mb-4 rounded-lg bg-zinc-800/40 p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-[#E8520E] mb-1">The Story</p>
-                  <p className="text-sm leading-relaxed text-zinc-300">{props.context}</p>
-                </div>
-              )}
               <div className="divide-y divide-zinc-800">
                 {creditsWithImages.length > 0 ? (
                   creditsWithImages.map((c, i) => (
