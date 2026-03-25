@@ -2850,20 +2850,32 @@ function TrackCreditRow({ name, role, imageUrl }: { name: string; role?: string;
   );
 }
 
-function SampleRow({ name, artist, year, direction }: { name: string; artist: string; year?: string; direction: string }) {
+function SampleRow({ name, artist, year, direction, element }: { name: string; artist: string; year?: string; direction: string; element?: string }) {
+  // "info" direction = metadata note, not a playable sample
+  if (direction === "info") {
+    return (
+      <div className="py-2 text-xs text-zinc-500 italic">{name}</div>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-2 py-2">
-      <PlayButton name={name} artist={artist} />
+    <div className="flex items-center gap-3 py-2.5">
+      {artist && <PlayButton name={name} artist={artist} />}
       <div className="flex-1 min-w-0">
         <p className="text-sm text-white truncate">{name}</p>
-        <p className="text-xs text-zinc-500 truncate">{artist}{year ? ` · ${year}` : ""}</p>
+        <p className="text-xs text-zinc-500 truncate">
+          {artist}{year ? ` · ${year}` : ""}
+          {element ? ` — ${element}` : ""}
+        </p>
       </div>
-      <button
-        onClick={() => injectChatMessage(`/track ${name} ${artist}`)}
-        className="text-[10px] text-cyan-500 hover:text-cyan-400 shrink-0"
-      >
-        Details →
-      </button>
+      {artist && (
+        <button
+          onClick={() => injectChatMessage(`/track ${name} ${artist}`)}
+          className="text-[10px] text-cyan-500 hover:text-cyan-400 shrink-0"
+        >
+          Details →
+        </button>
+      )}
     </div>
   );
 }
@@ -2891,6 +2903,7 @@ export const TrackCard = defineComponent({
     pressingsMedianPrice: z.string().optional().describe("Median price"),
     pressingsOriginalInfo: z.string().optional().describe("Original pressing details"),
     discogsUrl: z.string().optional().describe("Discogs URL"),
+    context: z.string().optional().describe("Story/backstory behind the track from Perplexity research"),
     spotifyUrl: z.string().optional().describe("Direct Spotify track URL"),
     sources: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Sources: [{name, url}]"),
   }),
@@ -2915,12 +2928,19 @@ export const TrackCard = defineComponent({
     const samples = rawSamples.map((s) => {
       if (typeof s === "string") {
         const dashMatch = (s as string).match(/^(.+?)\s*[—–-]\s*(.+)$/);
-        if (dashMatch) return { name: dashMatch[1].trim(), artist: dashMatch[2].trim(), year: undefined, direction: "from" };
-        return { name: s as string, artist: "", year: undefined, direction: "from" };
+        if (dashMatch) return { name: dashMatch[1].trim(), artist: dashMatch[2].trim(), year: undefined, direction: "from", element: undefined };
+        return { name: s as string, artist: "", year: undefined, direction: "from", element: undefined };
       }
       const obj = s as Record<string, unknown>;
-      return { name: String(obj.name ?? ""), artist: String(obj.artist ?? ""), year: obj.year ? String(obj.year) : undefined, direction: String(obj.direction ?? "from") };
-    });
+      // Handle multiple field name patterns from LLM (name/track/originalTrack, artist/originalArtist)
+      const name = String(obj.name ?? obj.track ?? obj.originalTrack ?? obj.title ?? "");
+      const artist = String(obj.artist ?? obj.originalArtist ?? obj.by ?? "");
+      const element = obj.element ? String(obj.element) : undefined;
+      const note = obj.note ? String(obj.note) : undefined;
+      // Skip metadata-only entries (no track name)
+      if (!name && note) return { name: note, artist: "", year: undefined, direction: "info", element: undefined };
+      return { name, artist, year: obj.year ? String(obj.year) : undefined, direction: String(obj.direction ?? obj.type ?? "from").toLowerCase(), element };
+    }).filter(s => s.name); // Remove empty entries
 
     const rawSources = ensureArray<unknown>(props.sources);
     const sources = rawSources.map((s) => {
@@ -2963,8 +2983,9 @@ export const TrackCard = defineComponent({
       imageUrl: c.imageUrl || fetchedCreditImages[c.name],
     }));
 
-    const samplesFrom = samples.filter(s => s.direction === "from");
-    const samplesBy = samples.filter(s => s.direction === "by");
+    const samplesFrom = samples.filter(s => s.direction === "from" || s.direction === "sample");
+    const samplesBy = samples.filter(s => s.direction === "by" || s.direction === "sampled_by");
+    const samplesInfo = samples.filter(s => s.direction === "info");
     const hasLyrics = !!props.lyricsSnippet;
     const hasVinyl = !!props.pressingsCount;
     const spotifyUrl = props.spotifyUrl || `https://open.spotify.com/search/${encodeURIComponent(props.name + " " + props.artist)}`;
@@ -3024,14 +3045,23 @@ export const TrackCard = defineComponent({
         {/* Tab content */}
         <div className="p-4">
           {currentTab === "credits" && (
-            <div className="divide-y divide-zinc-800">
-              {creditsWithImages.length > 0 ? (
-                creditsWithImages.map((c, i) => (
-                  <TrackCreditRow key={i} name={c.name} role={c.role} imageUrl={c.imageUrl} />
-                ))
-              ) : (
-                <p className="text-sm text-zinc-600 italic">No credit information available</p>
+            <div>
+              {/* Track backstory from Perplexity */}
+              {props.context && (
+                <div className="mb-4 rounded-lg bg-zinc-800/40 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-[#E8520E] mb-1">The Story</p>
+                  <p className="text-sm leading-relaxed text-zinc-300">{props.context}</p>
+                </div>
               )}
+              <div className="divide-y divide-zinc-800">
+                {creditsWithImages.length > 0 ? (
+                  creditsWithImages.map((c, i) => (
+                    <TrackCreditRow key={i} name={c.name} role={c.role} imageUrl={c.imageUrl} />
+                  ))
+                ) : (
+                  <p className="text-sm text-zinc-600 italic">No credit information available</p>
+                )}
+              </div>
             </div>
           )}
 
@@ -3051,6 +3081,11 @@ export const TrackCard = defineComponent({
                   <div className="divide-y divide-zinc-800">
                     {samplesBy.map((s, i) => <SampleRow key={i} {...s} />)}
                   </div>
+                </div>
+              )}
+              {samplesInfo.length > 0 && (
+                <div className="mt-3">
+                  {samplesInfo.map((s, i) => <SampleRow key={i} {...s} />)}
                 </div>
               )}
             </div>
