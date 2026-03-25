@@ -9,6 +9,7 @@ import {
   type GraphData,
   type ExpandResponse,
   GROUP_COLORS,
+  classifyGroup,
   seedGraphData,
 } from "./influence-graph-types";
 
@@ -96,13 +97,14 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
     return () => observer.disconnect();
   }, []);
 
-  // ── Pulse animation timer ─────────────────────────────────────
+  // ── Pulse animation timer (only when nodes are loading) ──────
   useEffect(() => {
+    if (loadingNodes.size === 0) return;
     const interval = setInterval(() => {
       setPulseAngle((a) => (a + 0.1) % (Math.PI * 2));
     }, 50);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadingNodes.size]);
 
   // ── Reheat for loading nodes ──────────────────────────────────
   useEffect(() => {
@@ -115,7 +117,7 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
 
   // ── Batch image fetch for nodes missing images ────────────────
   useEffect(() => {
-    const missing = graphData.nodes.filter((n) => !n.imageUrl);
+    const missing = graphData.nodes.filter((n) => !n.imageUrl && n.group !== "central");
     if (missing.length === 0) return;
     let cancelled = false;
 
@@ -190,7 +192,7 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
             newNodes.push({
               id: nodeId,
               name: conn.name,
-              group: "built",
+              group: classifyGroup(conn.relationship ?? "collaborated with"),
               weight: conn.weight ?? 0.5,
               imageUrl: conn.imageUrl,
               context: conn.context,

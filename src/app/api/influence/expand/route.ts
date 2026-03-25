@@ -60,7 +60,7 @@ interface PerplexityConnection {
 async function discoverWithPerplexity(
   artist: string,
   model: "sonar" | "sonar-pro",
-): Promise<{ connections: PerplexityConnection[]; citations: string[] }> {
+): Promise<{ connections: PerplexityConnection[]; citations: string[]; enrichment: Record<string, unknown> | null }> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) throw new Error("PERPLEXITY_API_KEY not configured");
 
@@ -123,8 +123,10 @@ Only include well-documented connections. Weight should reflect strength of infl
 
   const parsed = JSON.parse(cleaned);
   const connections: PerplexityConnection[] = Array.isArray(parsed) ? parsed : [];
+  // For sonar-pro, parsed is a single object with enrichment fields (not an array)
+  const enrichment = !Array.isArray(parsed) && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
 
-  return { connections, citations };
+  return { connections, citations, enrichment };
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
@@ -299,25 +301,22 @@ export async function POST(req: Request): Promise<Response> {
       );
 
       enrichResults.forEach((result, idx) => {
-        if (result.status === "fulfilled") {
-          // The sonar-pro prompt returns a single object (not an array)
-          // Re-parse the raw content to extract the enrichment fields
-          // discoverWithPerplexity returns connections=[] for sonar-pro (object, not array)
-          // We need the raw parsed object — but our helper discards non-array results.
-          // Instead, fetch the citations and store them on the connection.
-          const { citations } = result.value;
-          if (citations.length > 0 && merged[idx]) {
-            const existing = merged[idx]!;
-            merged[idx] = {
-              ...existing,
-              sources: [
-                ...(existing.sources ?? []),
-                ...citations
-                  .slice(0, 2)
-                  .map((url) => ({ name: "Perplexity Sonar Pro", url })),
-              ],
-            };
-          }
+        if (result.status === "fulfilled" && merged[idx]) {
+          const { citations, enrichment } = result.value;
+          const existing = merged[idx]!;
+          merged[idx] = {
+            ...existing,
+            // Merge enrichment fields from sonar-pro (pullQuote, sonicElements, keyWorks, context)
+            ...(enrichment?.context ? { context: String(enrichment.context) } : {}),
+            ...(enrichment?.pullQuote ? { pullQuote: String(enrichment.pullQuote) } : {}),
+            ...(enrichment?.pullQuoteAttribution ? { pullQuoteAttribution: String(enrichment.pullQuoteAttribution) } : {}),
+            ...(Array.isArray(enrichment?.sonicElements) ? { sonicElements: enrichment.sonicElements as string[] } : {}),
+            ...(enrichment?.keyWorks ? { keyWorks: String(enrichment.keyWorks) } : {}),
+            sources: [
+              ...(existing.sources ?? []),
+              ...citations.slice(0, 2).map((url) => ({ name: "Perplexity Sonar Pro", url })),
+            ],
+          };
           enriched = true;
         }
       });
