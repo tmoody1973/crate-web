@@ -84,6 +84,19 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
   const [capWarning, setCapWarning] = useState(false);
   const [pulseAngle, setPulseAngle] = useState(0);
 
+  // ── Configure d3 forces for better spacing ──────────────────
+  useEffect(() => {
+    const fg = graphRef.current as { d3Force?: (name: string, force?: unknown) => unknown } | null;
+    if (!fg?.d3Force) return;
+    // Increase repulsion so nodes spread out
+    const charge = fg.d3Force("charge") as { strength?: (v: number) => void; distanceMax?: (v: number) => void } | undefined;
+    if (charge?.strength) charge.strength(-120);
+    if (charge?.distanceMax) charge.distanceMax(300);
+    // Set link distance for comfortable spacing
+    const link = fg.d3Force("link") as { distance?: (v: number | ((l: unknown) => number)) => void } | undefined;
+    if (link?.distance) link.distance(60);
+  }, [graphData]);
+
   // ── ResizeObserver ────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
@@ -261,13 +274,35 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
     [graphData.links],
   );
 
+  // ── Image cache for canvas rendering ──────────────────────────
+  const imgCacheRef = useRef<Map<string, HTMLImageElement | "loading" | "failed">>(new Map());
+
+  // Preload images into HTMLImageElement cache when imageUrl changes
+  useEffect(() => {
+    const cache = imgCacheRef.current;
+    for (const node of graphData.nodes) {
+      if (!node.imageUrl || cache.has(node.imageUrl)) continue;
+      cache.set(node.imageUrl, "loading");
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        cache.set(node.imageUrl!, img);
+        // Trigger a re-render to paint the loaded image
+        graphRef.current?.d3ReheatSimulation();
+      };
+      img.onerror = () => { cache.set(node.imageUrl!, "failed"); };
+      img.src = node.imageUrl;
+    }
+  }, [graphData.nodes]);
+
   // ── Canvas node renderer ──────────────────────────────────────
   const nodeCanvasObject = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const n = node as RuntimeNode;
       const isCentral = n.group === "central";
-      const radius = isCentral ? 18 : 6 + (n.weight ?? 0.5) * 10;
+      // Smaller, proportional nodes: central=10, others=4-7 based on weight
+      const radius = isCentral ? 10 : 4 + (n.weight ?? 0.5) * 3;
       const color = GROUP_COLORS[n.group] ?? "#a1a1aa";
       const isSelected = selectedNode?.id === n.id;
       const focus = selectedNode ? connectedIds(selectedNode.id) : null;
@@ -282,9 +317,9 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
       if (n.loading) {
         const pulse = 0.5 + 0.5 * Math.sin(pulseAngle);
         ctx.beginPath();
-        ctx.arc(x, y, radius + 6 + pulse * 4, 0, Math.PI * 2);
+        ctx.arc(x, y, radius + 3 + pulse * 2, 0, Math.PI * 2);
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1;
         ctx.globalAlpha = opacity * 0.4 * pulse;
         ctx.stroke();
         ctx.globalAlpha = opacity;
@@ -293,35 +328,67 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
       // Selected glow ring
       if (isSelected) {
         ctx.beginPath();
-        ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
+        ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = opacity * 0.8;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = opacity * 0.6;
         ctx.stroke();
         ctx.globalAlpha = opacity;
       }
 
-      // Node image or circle
-      if (n.imageUrl) {
-        // Draw circular clipped image
+      // Node: try image first, then initial, then solid color
+      const cachedImg = n.imageUrl ? imgCacheRef.current.get(n.imageUrl) : null;
+      const hasImage = cachedImg instanceof HTMLImageElement;
+
+      if (hasImage) {
+        // Circular clipped artist photo
+        ctx.save();
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
+        ctx.clip();
+        ctx.drawImage(cachedImg, x - radius, y - radius, radius * 2, radius * 2);
+        ctx.restore();
+        // Thin colored ring around the photo
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = isCentral ? 1.5 : 1;
+        ctx.stroke();
       } else {
+        // Dark circle with colored border + initial
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = color;
+        ctx.fillStyle = isCentral ? color : "#18181b";
         ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = isCentral ? 1.5 : 1;
+        ctx.stroke();
+
+        // Initial letter inside the node
+        if (!isCentral) {
+          const initFontSize = Math.max(radius * 0.9, 3);
+          ctx.font = `600 ${initFontSize}px system-ui, sans-serif`;
+          ctx.fillStyle = color;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(n.name.charAt(0).toUpperCase(), x, y);
+        } else {
+          const initFontSize = Math.max(radius * 0.7, 4);
+          ctx.font = `700 ${initFontSize}px system-ui, sans-serif`;
+          ctx.fillStyle = "#fff";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(n.name.charAt(0).toUpperCase(), x, y);
+        }
       }
 
-      // Label
-      const fontSize = Math.max((isCentral ? 12 : 10) / globalScale, 2);
-      ctx.font = `${isCentral ? "600 " : ""}${fontSize}px sans-serif`;
-      ctx.fillStyle = "#f4f4f5";
+      // Label below node
+      const fontSize = Math.max((isCentral ? 10 : 8) / globalScale, 1.5);
+      ctx.font = `${isCentral ? "600 " : ""}${fontSize}px system-ui, sans-serif`;
+      ctx.fillStyle = isCentral ? "#f4f4f5" : "#a1a1aa";
       ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(n.name, x, y + radius + fontSize + 1);
+      ctx.textBaseline = "top";
+      ctx.fillText(n.name, x, y + radius + 2);
 
       ctx.restore();
     },
@@ -343,9 +410,9 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
       const isConnected = focus ? (focus.has(srcId) && focus.has(tgtId)) : true;
 
       ctx.save();
-      ctx.globalAlpha = isConnected ? 0.5 : 0.08;
-      ctx.strokeStyle = "#a1a1aa";
-      ctx.lineWidth = Math.max(0.5, (l.weight ?? 0.5) * 2);
+      ctx.globalAlpha = isConnected ? 0.35 : 0.06;
+      ctx.strokeStyle = "#71717a";
+      ctx.lineWidth = Math.max(0.3, (l.weight ?? 0.5) * 1.2);
       ctx.beginPath();
       ctx.moveTo(src.x ?? 0, src.y ?? 0);
       ctx.lineTo(tgt.x ?? 0, tgt.y ?? 0);
@@ -522,10 +589,12 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
             nodePointerAreaPaint={(node: unknown, color: string, ctx: CanvasRenderingContext2D) => {
               const n = node as RuntimeNode;
               const isCentral = n.group === "central";
-              const radius = isCentral ? 18 : 6 + (n.weight ?? 0.5) * 10;
+              const radius = isCentral ? 10 : 4 + (n.weight ?? 0.5) * 3;
+              // Generous hit area for tap targets (min 12px)
+              const hitRadius = Math.max(radius + 4, 12);
               ctx.fillStyle = color;
               ctx.beginPath();
-              ctx.arc(n.x ?? 0, n.y ?? 0, radius + 4, 0, Math.PI * 2);
+              ctx.arc(n.x ?? 0, n.y ?? 0, hitRadius, 0, Math.PI * 2);
               ctx.fill();
             }}
             cooldownTicks={120}
