@@ -84,10 +84,13 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
   const [capWarning, setCapWarning] = useState(false);
   const [pulseAngle, setPulseAngle] = useState(0);
 
-  // ── Configure d3 forces for better spacing ──────────────────
+  // ── Configure d3 forces once on mount ───────────────────────
+  const forcesConfigured = useRef(false);
   useEffect(() => {
+    if (forcesConfigured.current) return;
     const fg = graphRef.current as { d3Force?: (name: string, force?: unknown) => unknown } | null;
     if (!fg?.d3Force) return;
+    forcesConfigured.current = true;
     // Increase repulsion so nodes spread out
     const charge = fg.d3Force("charge") as { strength?: (v: number) => void; distanceMax?: (v: number) => void } | undefined;
     if (charge?.strength) charge.strength(-120);
@@ -95,7 +98,7 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
     // Set link distance for comfortable spacing
     const link = fg.d3Force("link") as { distance?: (v: number | ((l: unknown) => number)) => void } | undefined;
     if (link?.distance) link.distance(60);
-  }, [graphData]);
+  });
 
   // ── ResizeObserver ────────────────────────────────────────────
   useEffect(() => {
@@ -277,7 +280,8 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
   // ── Image cache for canvas rendering ──────────────────────────
   const imgCacheRef = useRef<Map<string, HTMLImageElement | "loading" | "failed">>(new Map());
 
-  // Preload images into HTMLImageElement cache when imageUrl changes
+  // Preload images into HTMLImageElement cache
+  const reheatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const cache = imgCacheRef.current;
     for (const node of graphData.nodes) {
@@ -287,13 +291,17 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
       img.crossOrigin = "anonymous";
       img.onload = () => {
         cache.set(node.imageUrl!, img);
-        // Trigger a re-render to paint the loaded image
-        graphRef.current?.d3ReheatSimulation();
+        // Debounce reheat — batch multiple image loads into one simulation restart
+        if (reheatTimerRef.current) clearTimeout(reheatTimerRef.current);
+        reheatTimerRef.current = setTimeout(() => {
+          graphRef.current?.d3ReheatSimulation();
+        }, 200);
       };
       img.onerror = () => { cache.set(node.imageUrl!, "failed"); };
       img.src = node.imageUrl;
     }
-  }, [graphData.nodes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graphData.nodes.length]);
 
   // ── Canvas node renderer ──────────────────────────────────────
   const nodeCanvasObject = useCallback(
@@ -366,7 +374,7 @@ export default function InfluenceGraph({ artist, connections, isPro }: Influence
 
         // Initial letter inside the node
         if (!isCentral) {
-          const initFontSize = Math.max(radius * 0.9, 3);
+          const initFontSize = Math.max(radius * 0.9, 4);
           ctx.font = `600 ${initFontSize}px system-ui, sans-serif`;
           ctx.fillStyle = color;
           ctx.textAlign = "center";
