@@ -45,7 +45,10 @@ export async function GET(req: Request) {
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("client_id", clientId!);
   authUrl.searchParams.set("redirect_uri", callbackUrl);
-  authUrl.searchParams.set("scope", ["openid", "profile", "email", ...config.scopes].join(" "));
+  // Auth0 OIDC scopes (for Auth0's own token)
+  authUrl.searchParams.set("scope", "openid profile email");
+  // Service-specific scopes go in connection_scope (passed to the IdP)
+  authUrl.searchParams.set("connection_scope", config.scopes.join(" "));
   authUrl.searchParams.set("connection", config.connection);
   authUrl.searchParams.set("state", nonce); // Only nonce in URL, not user data
 
