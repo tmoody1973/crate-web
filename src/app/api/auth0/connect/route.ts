@@ -49,6 +49,11 @@ export async function GET(req: Request) {
   authUrl.searchParams.set("connection", config.connection);
   authUrl.searchParams.set("state", nonce); // Only nonce in URL, not user data
 
+  // Slack v2 API requires user_scope (comma-separated) instead of space-separated scope
+  if (service === "slack") {
+    authUrl.searchParams.set("user_scope", config.scopes.join(","));
+  }
+
   // Response.redirect() creates an immutable response, so build manually
   return new Response(null, {
     status: 302,

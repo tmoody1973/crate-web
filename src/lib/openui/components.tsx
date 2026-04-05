@@ -2089,7 +2089,7 @@ export const InfluencePathTrace = defineComponent({
 export const SpotifyPlaylists = defineComponent({
   name: "SpotifyPlaylists",
   description:
-    "Display the user's Spotify playlists with explore buttons. Use when read_spotify_library returns type=playlists. Each playlist has buttons to view tracks, deep dive, or export.",
+    "Display the user's Spotify playlists with embedded players and explore buttons. Use when read_spotify_library returns type=playlists. Each playlist can be played inline via Spotify embed, explored for tracks, or opened in Spotify.",
   props: z.object({
     totalCount: z.number().describe("Total number of playlists"),
     playlists: z.preprocess(jsonPreprocess, z.array(z.object({
@@ -2104,6 +2104,7 @@ export const SpotifyPlaylists = defineComponent({
       trackCount: number;
       playlistId: string;
     }>(props.playlists);
+    const [activePlayer, setActivePlayer] = useState<string | null>(null);
 
     return (
       <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
@@ -2125,27 +2126,53 @@ export const SpotifyPlaylists = defineComponent({
         {/* Playlist list */}
         <div className="divide-y divide-zinc-800">
           {playlists.map((pl, i) => (
-            <div key={i} className="flex items-center justify-between px-4 py-3 hover:bg-zinc-800/30 transition-colors">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-white truncate">{pl.name}</p>
-                <p className="text-xs text-zinc-500">{pl.trackCount} tracks</p>
+            <div key={i} className="hover:bg-zinc-800/20 transition-colors">
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-white truncate">{pl.name}</p>
+                  <p className="text-xs text-zinc-500">{pl.trackCount} tracks</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <button
+                    onClick={() => setActivePlayer(activePlayer === pl.playlistId ? null : pl.playlistId)}
+                    className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors ${
+                      activePlayer === pl.playlistId
+                        ? "border-green-600 bg-green-900/40 text-green-400"
+                        : "border-green-800 bg-green-900/20 text-green-500 hover:bg-green-900/40"
+                    }`}
+                  >
+                    {activePlayer === pl.playlistId ? "Hide" : "Play"}
+                  </button>
+                  <button
+                    onClick={() => injectChatMessage(`Show me the tracks in "${pl.name}"`)}
+                    className="rounded-md border border-cyan-800 bg-cyan-900/30 px-2.5 py-1 text-[11px] text-cyan-400 hover:bg-cyan-900/50 transition-colors"
+                  >
+                    Explore
+                  </button>
+                  <a
+                    href={`https://open.spotify.com/playlist/${pl.playlistId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-md border border-zinc-700 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 transition-colors"
+                  >
+                    Open
+                  </a>
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0 ml-3">
-                <button
-                  onClick={() => injectChatMessage(`Show me the tracks in "${pl.name}"`)}
-                  className="rounded-md border border-cyan-800 bg-cyan-900/30 px-2.5 py-1 text-[11px] text-cyan-400 hover:bg-cyan-900/50 transition-colors"
-                >
-                  Explore
-                </button>
-                <a
-                  href={`https://open.spotify.com/playlist/${pl.playlistId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-md border border-zinc-700 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 transition-colors"
-                >
-                  Open
-                </a>
-              </div>
+              {/* Inline Spotify embed player */}
+              {activePlayer === pl.playlistId && (
+                <div className="px-4 pb-3">
+                  <iframe
+                    src={`https://open.spotify.com/embed/playlist/${pl.playlistId}?theme=0`}
+                    width="100%"
+                    height="152"
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                    className="rounded-lg"
+                    title={`Spotify player: ${pl.name}`}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -2157,7 +2184,7 @@ export const SpotifyPlaylists = defineComponent({
 export const SpotifyPlaylist = defineComponent({
   name: "SpotifyPlaylist",
   description:
-    "Display a Spotify playlist with tracks, open-in-Spotify button, and artist stats. Use after read_playlist_tracks returns data.",
+    "Display a Spotify playlist with embedded player, tracks, open-in-Spotify button, and artist stats. Use after read_playlist_tracks returns data. The embedded Spotify player lets users play the playlist directly within Crate.",
   props: z.object({
     name: z.string().describe("Playlist name"),
     trackCount: z.number().describe("Total number of tracks"),
@@ -2174,6 +2201,7 @@ export const SpotifyPlaylist = defineComponent({
   }),
   component: ({ props }) => {
     const [expanded, setExpanded] = useState(false);
+    const [showPlayer, setShowPlayer] = useState(true);
     const tracks = ensureArray<{
       position?: number;
       name: string;
@@ -2208,16 +2236,39 @@ export const SpotifyPlaylist = defineComponent({
               <h3 className="text-lg font-bold text-white truncate">{props.name}</h3>
               <p className="text-sm text-zinc-400">{props.trackCount} tracks · {uniqueArtists.length} artists</p>
             </div>
-            <a
-              href={spotifyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-full bg-green-500 px-4 py-1.5 text-sm font-semibold text-black hover:bg-green-400 transition-colors shrink-0"
-            >
-              Open in Spotify
-            </a>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setShowPlayer(!showPlayer)}
+                className="flex items-center gap-1.5 rounded-full border border-green-600 px-3 py-1.5 text-sm font-medium text-green-400 hover:bg-green-900/30 transition-colors"
+              >
+                {showPlayer ? "Hide Player" : "Play"}
+              </button>
+              <a
+                href={spotifyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-full bg-green-500 px-4 py-1.5 text-sm font-semibold text-black hover:bg-green-400 transition-colors"
+              >
+                Open in Spotify
+              </a>
+            </div>
           </div>
         </div>
+
+        {/* Embedded Spotify Player */}
+        {showPlayer && (
+          <div className="px-4 pb-2">
+            <iframe
+              src={`https://open.spotify.com/embed/playlist/${props.playlistId}?theme=0`}
+              width="100%"
+              height="152"
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="lazy"
+              className="rounded-lg"
+              title={`Spotify player: ${props.name}`}
+            />
+          </div>
+        )}
 
         {/* Track list */}
         <div className="p-4">

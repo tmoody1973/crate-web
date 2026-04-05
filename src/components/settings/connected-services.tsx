@@ -110,11 +110,33 @@ export function ConnectedServices() {
 
   const handleConnect = (serviceId: string) => {
     setConnecting(serviceId);
-    // Store current URL so we can return here after OAuth (instead of creating a new session)
     try {
       localStorage.setItem("auth0_return_url", window.location.pathname);
     } catch { /* ignore */ }
     window.location.href = `/api/auth0/connect?service=${serviceId}`;
+  };
+
+  const handleDisconnect = async (serviceId: string) => {
+    setConnecting(serviceId);
+    try {
+      const res = await fetch("/api/auth0/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ service: serviceId }),
+      });
+      if (res.ok) {
+        // Update localStorage
+        const current = getStoredConnections();
+        delete current[serviceId];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+        // Update state
+        setStatus((prev) => prev ? {
+          ...prev,
+          connections: { ...prev.connections, [serviceId]: false },
+        } : prev);
+      }
+    } catch { /* ignore */ }
+    setConnecting(null);
   };
 
   return (
@@ -142,6 +164,15 @@ export function ConnectedServices() {
                   <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-green-400">
                     Connected
                   </span>
+                )}
+                {isConnected && (
+                  <button
+                    onClick={() => handleDisconnect(service.id)}
+                    disabled={connecting === service.id}
+                    className="rounded-md border border-red-800 px-3 py-1.5 text-xs text-red-400 hover:border-red-600 hover:text-red-300 disabled:opacity-50"
+                  >
+                    {connecting === service.id ? "..." : "Disconnect"}
+                  </button>
                 )}
                 <button
                   onClick={() => handleConnect(service.id)}

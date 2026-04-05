@@ -50,6 +50,14 @@ const commands = [
       "View all your published content across Telegraph and Tumblr. Shows titles, URLs, categories, and publication dates grouped by platform.",
     output: "List of all published items with links",
   },
+  {
+    name: "/spotify",
+    usage: "/spotify [playlist name]",
+    example: "/spotify HYFIN",
+    description:
+      "Browse and play your Spotify playlists directly in Crate. Without arguments, shows your full playlist library with inline Spotify players. With a playlist name, searches your library and opens that playlist with embedded playback, track list, and action buttons for deep dives and Slack sharing. Requires Spotify connected in Settings.",
+    output: "SpotifyPlaylists or SpotifyPlaylist component with embedded Spotify player",
+  },
 ];
 
 export function Commands() {

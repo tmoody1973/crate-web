@@ -494,6 +494,36 @@ export function preprocessSlashCommand(message: string): string {
       ].join("\n");
     }
 
+    case "spotify": {
+      if (!arg) {
+        return [
+          `The user wants to explore their Spotify library. Follow these steps EXACTLY:`,
+          ``,
+          `1. Call read_spotify_library with type="playlists" and limit=20`,
+          `2. Render the results using the SpotifyPlaylists component — pass the full playlists array as JSON and the total count`,
+          `3. If the user asks to explore a specific playlist, call read_playlist_tracks with that playlistId, then render SpotifyPlaylist with the embedded player`,
+          ``,
+          `OUTPUT: SpotifyPlaylists component showing their library. Each playlist should have Play, Explore, and Open buttons.`,
+          `IMPORTANT: Do NOT ask the user which playlist they want. Show ALL playlists first with the SpotifyPlaylists component, then let them click Explore on the one they want.`,
+          `If Spotify is not connected, tell the user to connect Spotify in Settings → Connected Services.`,
+        ].join("\n");
+      }
+
+      // /spotify [playlist name] — search for a specific playlist
+      return [
+        `The user wants to find and play "${arg}" from their Spotify library. Follow these steps:`,
+        ``,
+        `1. Call read_spotify_library with type="playlists" and limit=50`,
+        `2. Find the playlist matching "${arg}" (fuzzy match on name)`,
+        `3. If found, call read_playlist_tracks with that playlistId`,
+        `4. Render SpotifyPlaylist with the embedded player, tracks, and action buttons`,
+        `5. If not found, show all playlists using SpotifyPlaylists and tell the user which ones are available`,
+        ``,
+        `OUTPUT: SpotifyPlaylist component with embedded player for the matching playlist.`,
+        `If Spotify is not connected, tell the user to connect Spotify in Settings → Connected Services.`,
+      ].join("\n");
+    }
+
     default:
       // Unknown slash command — pass through as-is
       return message;
@@ -545,6 +575,8 @@ export function getSessionTitle(message: string): string {
         return arg ? `Create Skill: ${arg.slice(0, 30)}` : "Create Skill";
       case "skills":
         return "My Skills";
+      case "spotify":
+        return arg ? `Spotify: ${arg.trim().slice(0, 30)}` : "My Spotify Library";
       default:
         break;
     }

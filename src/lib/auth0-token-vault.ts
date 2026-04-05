@@ -19,7 +19,7 @@ const SERVICE_CONFIG: Record<TokenVaultService, { connection: string; scopes: st
   },
   slack: {
     connection: "slack-v2",
-    scopes: ["chat:write", "channels:read"],
+    scopes: ["chat:write", "channels:read", "users:read", "im:write"],
   },
   google: {
     connection: "google-oauth2",

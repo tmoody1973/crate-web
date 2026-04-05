@@ -56,6 +56,13 @@ const COMMANDS = [
     tier: "pro",
   },
   {
+    name: "/spotify",
+    aliases: [],
+    description: "Browse and play your Spotify playlists with embedded players. Search for a specific playlist or explore your full library.",
+    example: "/spotify HYFIN",
+    tier: "free",
+  },
+  {
     name: "/help",
     aliases: [],
     description: "Open the help guide.",
