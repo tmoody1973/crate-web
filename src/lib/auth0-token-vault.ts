@@ -15,6 +15,11 @@ const SERVICE_CONFIG: Record<TokenVaultService, { connection: string; scopes: st
       "playlist-read-private",
       "playlist-modify-public",
       "playlist-modify-private",
+      "streaming",
+      "user-read-playback-state",
+      "user-modify-playback-state",
+      "user-read-email",
+      "user-read-private",
     ],
   },
   slack: {

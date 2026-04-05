@@ -10,6 +10,19 @@ import { api } from "../../../convex/_generated/api";
 import { usePlayerSafe } from "@/components/player/player-provider";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
+const SpotifyWebPlayer = dynamic(
+  () => import("@/components/spotify/spotify-player").then((m) => ({ default: m.SpotifyWebPlayer })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center gap-3 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-500 border-t-transparent" />
+        <span className="text-sm text-zinc-400">Loading player...</span>
+      </div>
+    ),
+  },
+);
+
 const InfluenceGraph = dynamic(() => import("./influence-graph"), {
   ssr: false,
   loading: () => (
@@ -2159,17 +2172,13 @@ export const SpotifyPlaylists = defineComponent({
                   </a>
                 </div>
               </div>
-              {/* Inline Spotify embed player */}
+              {/* Inline Spotify Web Playback SDK player */}
               {activePlayer === pl.playlistId && (
                 <div className="px-4 pb-3">
-                  <iframe
-                    src={`https://open.spotify.com/embed/playlist/${pl.playlistId}?theme=0`}
-                    width="100%"
-                    height="152"
-                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                    loading="lazy"
-                    className="rounded-lg"
-                    title={`Spotify player: ${pl.name}`}
+                  <SpotifyWebPlayer
+                    playlistId={pl.playlistId}
+                    playlistName={pl.name}
+                    compact
                   />
                 </div>
               )}
@@ -2255,17 +2264,12 @@ export const SpotifyPlaylist = defineComponent({
           </div>
         </div>
 
-        {/* Embedded Spotify Player */}
+        {/* Spotify Web Playback SDK Player */}
         {showPlayer && (
           <div className="px-4 pb-2">
-            <iframe
-              src={`https://open.spotify.com/embed/playlist/${props.playlistId}?theme=0`}
-              width="100%"
-              height="152"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy"
-              className="rounded-lg"
-              title={`Spotify player: ${props.name}`}
+            <SpotifyWebPlayer
+              playlistId={props.playlistId}
+              playlistName={props.name}
             />
           </div>
         )}
