@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   if (!isTokenVaultConfigured()) {
     return Response.json({
       configured: false,
-      connections: { spotify: false, slack: false, google: false },
+      connections: { spotify: false, slack: false, google: false, tumblr: false },
     });
   }
 
@@ -27,6 +27,7 @@ export async function GET(req: Request) {
       spotify: connectedServices.includes("spotify"),
       slack: connectedServices.includes("slack"),
       google: connectedServices.includes("google"),
+      tumblr: connectedServices.includes("tumblr"),
     },
   });
 }

@@ -8,6 +8,7 @@ interface ConnectionStatus {
     spotify: boolean;
     slack: boolean;
     google: boolean;
+    tumblr: boolean;
   };
 }
 
@@ -29,6 +30,12 @@ const SERVICES = [
     name: "Google",
     description: "Save research to Google Docs",
     icon: "📄",
+  },
+  {
+    id: "tumblr" as const,
+    name: "Tumblr",
+    description: "Discover music, publish research",
+    icon: "📝",
   },
 ];
 
@@ -66,13 +73,14 @@ export function ConnectedServices() {
         spotify: stored.spotify ?? false,
         slack: stored.slack ?? false,
         google: stored.google ?? false,
+        tumblr: stored.tumblr ?? false,
       },
     });
 
     // Check for callback params (connected or error)
     const params = new URLSearchParams(window.location.search);
     const connected = params.get("auth0_connected");
-    if (connected && (connected === "spotify" || connected === "slack" || connected === "google")) {
+    if (connected && (connected === "spotify" || connected === "slack" || connected === "google" || connected === "tumblr")) {
       storeConnection(connected);
       setStatus((prev) => prev ? {
         ...prev,
@@ -100,6 +108,7 @@ export function ConnectedServices() {
             spotify: data.connections.spotify || stored.spotify || false,
             slack: data.connections.slack || stored.slack || false,
             google: data.connections.google || stored.google || false,
+            tumblr: data.connections.tumblr || stored.tumblr || false,
           },
         });
       })
