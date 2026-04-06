@@ -149,8 +149,8 @@ export default function PrivacyPage() {
             <h2 className="mb-3 text-lg font-semibold text-white">10. Contact Us</h2>
             <p>
               If you have questions about this Privacy Policy, contact us at:{" "}
-              <a href="mailto:tarik@radiomilwaukee.org" className="text-cyan-400 hover:text-cyan-300">
-                tarik@radiomilwaukee.org
+              <a href="mailto:tarikjmoody@gmail.com" className="text-cyan-400 hover:text-cyan-300">
+                tarikjmoody@gmail.com
               </a>
             </p>
           </section>

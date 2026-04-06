@@ -173,8 +173,8 @@ export default function TermsPage() {
             <h2 className="mb-3 text-lg font-semibold text-white">14. Contact</h2>
             <p>
               Questions about these Terms? Contact us at:{" "}
-              <a href="mailto:tarik@radiomilwaukee.org" className="text-cyan-400 hover:text-cyan-300">
-                tarik@radiomilwaukee.org
+              <a href="mailto:tarikjmoody@gmail.com" className="text-cyan-400 hover:text-cyan-300">
+                tarikjmoody@gmail.com
               </a>
             </p>
           </section>
