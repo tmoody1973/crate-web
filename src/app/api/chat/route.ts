@@ -17,6 +17,7 @@ import { createUserSkillTools } from "@/lib/web-tools/user-skills";
 import { createSpotifyConnectedTools } from "@/lib/web-tools/spotify-connected";
 import { createSlackTools } from "@/lib/web-tools/slack";
 import { createGoogleDocsTools } from "@/lib/web-tools/google-docs";
+import { createTumblrConnectedTools } from "@/lib/web-tools/tumblr-connected";
 import { isTokenVaultConfigured } from "@/lib/auth0-token-vault";
 import {
   searchMemories,
@@ -187,7 +188,7 @@ async function streamAgenticResponse(
   hasMemory?: boolean,
   hasInfluenceWrite?: boolean,
   maxSkills?: number,
-  auth0UserIds?: { spotify?: string; slack?: string; google?: string },
+  auth0UserIds?: { spotify?: string; slack?: string; google?: string; tumblr?: string },
 ): Promise<Response> {
   const encoder = new TextEncoder();
 
@@ -290,6 +291,9 @@ async function streamAgenticResponse(
         const webGoogleDocsTools = isTokenVaultConfigured()
           ? createGoogleDocsTools(auth0UserIds?.google)
           : [];
+        const webTumblrConnectedTools = isTokenVaultConfigured()
+          ? createTumblrConnectedTools(auth0UserIds?.tumblr)
+          : [];
 
         // Filter out crate-cli groups that use SQLite or mpv, inject web versions
         // For radio: keep crate-cli's search/browse/tags tools, replace play_radio
@@ -348,6 +352,9 @@ async function streamAgenticResponse(
             : []),
           ...(webGoogleDocsTools.length > 0
             ? [{ serverName: "google-docs", tools: webGoogleDocsTools }]
+            : []),
+          ...(webTumblrConnectedTools.length > 0
+            ? [{ serverName: "tumblr-connected", tools: webTumblrConnectedTools }]
             : []),
         ];
 
@@ -609,7 +616,7 @@ export async function POST(req: Request) {
   }
 
   // Force Sonnet for research-heavy commands that need deep tool use + structured output
-  const isSlashResearch = /^\/(?:influence|show-prep|prep|news|story|track|artist|spotify)\b/i.test(rawMessage.trim());
+  const isSlashResearch = /^\/(?:influence|show-prep|prep|news|story|track|artist|spotify|tumblr)\b/i.test(rawMessage.trim());
   // Natural language research: playlist creation, influence traces, deep dives
   const isNaturalResearch = /\b(create|make|build).*(playlist|mix|setlist)\b/i.test(rawMessage) ||
     /\b(influence|trace|connection).*(between|from|chain)\b/i.test(rawMessage) ||
@@ -709,6 +716,7 @@ export async function POST(req: Request) {
   const auth0UserIdSpotify = readAuth0Cookie("spotify");
   const auth0UserIdSlack = readAuth0Cookie("slack");
   const auth0UserIdGoogle = readAuth0Cookie("google");
+  const auth0UserIdTumblr = readAuth0Cookie("tumblr");
 
   return streamAgenticResponse(
     message, apiKey, modelId, allEnvKeys, resolved.user._id, clerkId,
@@ -716,6 +724,6 @@ export async function POST(req: Request) {
     adminBypass || limits.hasMemory,
     adminBypass || limits.hasInfluenceCache,
     adminBypass ? 999 : limits.maxCustomSkills,
-    { spotify: auth0UserIdSpotify, slack: auth0UserIdSlack, google: auth0UserIdGoogle },
+    { spotify: auth0UserIdSpotify, slack: auth0UserIdSlack, google: auth0UserIdGoogle, tumblr: auth0UserIdTumblr },
   );
 }
