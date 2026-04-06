@@ -122,22 +122,28 @@ export function ResponseActions({
         )}
       </button>
 
-      {/* Send to Slack — only for allowed users/domains */}
-      {showSlack && (
+      {/* Send to Slack via Token Vault — shows channel picker */}
+      {onSendMessage && (
         <button
-          onClick={handleSlack}
-          disabled={slackStatus === "sending"}
-          className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300 disabled:opacity-50"
+          onClick={() => {
+            const clean = cleanContentForPublish(content);
+            const title = clean.split("\n")[0]?.replace(/[#*_]/g, "").trim().slice(0, 100) || "Crate Research";
+            onSendMessage([
+              `Send this to Slack. Follow these steps EXACTLY:`,
+              `1. Call list_slack_channels to get available channels`,
+              `2. Render the results as a SlackChannelPicker component so the user can click to choose`,
+              `3. Wait for the user to pick a channel`,
+              `4. Then call send_to_slack with the chosen channel`,
+              ``,
+              `Title: "${title}"`,
+              `Content to send:`,
+              clean,
+            ].join("\n"));
+          }}
+          className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
           title="Send to Slack"
         >
-          <SlackIcon />
-          {slackStatus === "sending"
-            ? "Sending..."
-            : slackStatus === "sent"
-              ? "Sent!"
-              : slackStatus === "error"
-                ? "Failed"
-                : "Slack"}
+          <SlackIcon /> Slack
         </button>
       )}
 
