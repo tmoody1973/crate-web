@@ -1,0 +1,387 @@
+/**
+ * Tumblr connected tools powered by Auth0 Token Vault.
+ * Read dashboard, tagged posts, likes — and publish posts — requires user to connect Tumblr via OAuth.
+ */
+
+import { getTokenVaultToken } from "@/lib/auth0-token-vault";
+import { markdownToNpf } from "@/lib/web-tools/tumblr";
+import type { CrateToolDef } from "../tool-adapter";
+import { z } from "zod";
+
+const TUMBLR_API = "https://api.tumblr.com/v2";
+
+function toolResult(data: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+  };
+}
+
+// ── Post normalization ────────────────────────────────────────────
+
+interface TumblrPost {
+  type: string;
+  id: string | number;
+  blog_name: string;
+  blog?: { url?: string };
+  post_url?: string;
+  timestamp?: number;
+  date?: string;
+  tags?: string[];
+  note_count?: number;
+  summary?: string;
+  // audio fields
+  artist?: string;
+  source_title?: string;
+  track_name?: string;
+  album?: string;
+  album_art?: string;
+  plays?: number;
+  source_url?: string;
+  // text fields
+  title?: string;
+  body?: string;
+  // photo fields
+  caption?: string;
+  photos?: Array<{ original_size?: { url?: string } }>;
+  // link fields
+  url?: string;
+  description?: string;
+  // video fields
+  video_url?: string;
+  thumbnail_url?: string;
+  // quote fields
+  text?: string;
+  source?: string;
+}
+
+interface NormalizedPost {
+  type: string;
+  id: string;
+  blog_name: string;
+  blog_url: string | undefined;
+  post_url: string | undefined;
+  timestamp: number | undefined;
+  date: string | undefined;
+  tags: string[];
+  note_count: number | undefined;
+  summary: string | undefined;
+  // type-specific fields (optional)
+  artist?: string;
+  track_name?: string;
+  album?: string;
+  album_art?: string;
+  plays?: number;
+  external_url?: string;
+  title?: string;
+  body_excerpt?: string;
+  image_url?: string;
+  url?: string;
+  description?: string;
+  caption?: string;
+  video_url?: string;
+  thumbnail_url?: string;
+  text?: string;
+  source?: string;
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+}
+
+function normalizePost(post: TumblrPost): NormalizedPost {
+  const base: NormalizedPost = {
+    type: post.type,
+    id: String(post.id),
+    blog_name: post.blog_name,
+    blog_url: post.blog?.url,
+    post_url: post.post_url,
+    timestamp: post.timestamp,
+    date: post.date,
+    tags: post.tags ?? [],
+    note_count: post.note_count,
+    summary: post.summary,
+  };
+
+  switch (post.type) {
+    case "audio":
+      return {
+        ...base,
+        artist: post.artist ?? post.source_title,
+        track_name: post.track_name,
+        album: post.album,
+        album_art: post.album_art,
+        plays: post.plays,
+        external_url: post.source_url,
+      };
+    case "text":
+      return {
+        ...base,
+        title: post.title,
+        body_excerpt: post.body ? stripHtml(post.body).slice(0, 300) : undefined,
+      };
+    case "photo":
+      return {
+        ...base,
+        caption: post.caption ? stripHtml(post.caption).slice(0, 300) : undefined,
+        image_url: post.photos?.[0]?.original_size?.url,
+      };
+    case "link":
+      return {
+        ...base,
+        title: post.title,
+        url: post.url,
+        description: post.description ? stripHtml(post.description).slice(0, 200) : undefined,
+      };
+    case "video":
+      return {
+        ...base,
+        caption: post.caption ? stripHtml(post.caption).slice(0, 200) : undefined,
+        video_url: post.video_url,
+        thumbnail_url: post.thumbnail_url,
+      };
+    case "quote":
+      return {
+        ...base,
+        text: post.text,
+        source: post.source,
+      };
+    default:
+      return base;
+  }
+}
+
+// ── Tool factory ──────────────────────────────────────────────────
+
+export function createTumblrConnectedTools(auth0UserId?: string): CrateToolDef[] {
+  return [
+    {
+      name: "read_tumblr_dashboard",
+      description:
+        "Read posts from the user's Tumblr dashboard — the feed of posts from all blogs they follow. Returns all post types (audio, text, photo, link, video, quote). Great for discovering music and content from curated blogs.",
+      inputSchema: {
+        limit: z.number().optional().describe("Number of posts to return (default 20, max 50)"),
+      },
+      handler: async (args: { limit?: number }) => {
+        const token = await getTokenVaultToken("tumblr", auth0UserId);
+        if (!token) {
+          return toolResult({
+            error: "Tumblr not connected. Ask the user to connect Tumblr in Settings.",
+            action: "connect_tumblr",
+          });
+        }
+
+        const limit = Math.min(args.limit ?? 20, 50);
+
+        try {
+          const res = await fetch(`${TUMBLR_API}/user/dashboard?limit=${limit}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!res.ok) {
+            const detail = await res.text().catch(() => "");
+            return toolResult({ error: `Tumblr API error: ${res.status}`, detail });
+          }
+
+          const data = await res.json();
+          const posts: TumblrPost[] = data.response?.posts ?? [];
+
+          return toolResult({
+            source: "dashboard",
+            total: posts.length,
+            posts: posts.map(normalizePost),
+          });
+        } catch (err) {
+          return toolResult({ error: err instanceof Error ? err.message : "Tumblr dashboard request failed" });
+        }
+      },
+    },
+
+    {
+      name: "read_tumblr_tagged",
+      description:
+        "Discover Tumblr posts by tag — great for tag-based music discovery (e.g. 'jazz', 'hip-hop', 'vinyl', 'producer'). Returns all post types from anyone on Tumblr using that tag. Use the 'before' param for pagination.",
+      inputSchema: {
+        tag: z.string().describe("Tag to search (without #, e.g. 'jazz' or 'hip-hop')"),
+        before: z.number().optional().describe("Unix timestamp — return posts before this time (for pagination)"),
+      },
+      handler: async (args: { tag: string; before?: number }) => {
+        const token = await getTokenVaultToken("tumblr", auth0UserId);
+        if (!token) {
+          return toolResult({
+            error: "Tumblr not connected. Ask the user to connect Tumblr in Settings.",
+            action: "connect_tumblr",
+          });
+        }
+
+        // Strip leading # if present
+        const tag = args.tag.replace(/^#/, "");
+        let url = `${TUMBLR_API}/tagged?tag=${encodeURIComponent(tag)}`;
+        if (args.before !== undefined) {
+          url += `&before=${args.before}`;
+        }
+
+        try {
+          const res = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!res.ok) {
+            const detail = await res.text().catch(() => "");
+            return toolResult({ error: `Tumblr API error: ${res.status}`, detail });
+          }
+
+          const data = await res.json();
+          // /tagged returns response as array directly
+          const posts: TumblrPost[] = Array.isArray(data.response) ? data.response : [];
+
+          return toolResult({
+            source: "tagged",
+            tag,
+            total: posts.length,
+            posts: posts.map(normalizePost),
+          });
+        } catch (err) {
+          return toolResult({ error: err instanceof Error ? err.message : "Tumblr tagged request failed" });
+        }
+      },
+    },
+
+    {
+      name: "read_tumblr_likes",
+      description:
+        "Read posts the user has liked on Tumblr. Useful for reviewing saved music content and curated discoveries.",
+      inputSchema: {
+        limit: z.number().optional().describe("Number of liked posts to return (default 20, max 50)"),
+      },
+      handler: async (args: { limit?: number }) => {
+        const token = await getTokenVaultToken("tumblr", auth0UserId);
+        if (!token) {
+          return toolResult({
+            error: "Tumblr not connected. Ask the user to connect Tumblr in Settings.",
+            action: "connect_tumblr",
+          });
+        }
+
+        const limit = Math.min(args.limit ?? 20, 50);
+
+        try {
+          const res = await fetch(`${TUMBLR_API}/user/likes?limit=${limit}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!res.ok) {
+            const detail = await res.text().catch(() => "");
+            return toolResult({ error: `Tumblr API error: ${res.status}`, detail });
+          }
+
+          const data = await res.json();
+          const posts: TumblrPost[] = data.response?.liked_posts ?? [];
+          const total: number = data.response?.liked_count ?? posts.length;
+
+          return toolResult({
+            source: "likes",
+            total,
+            posts: posts.map(normalizePost),
+          });
+        } catch (err) {
+          return toolResult({ error: err instanceof Error ? err.message : "Tumblr likes request failed" });
+        }
+      },
+    },
+
+    {
+      name: "post_to_tumblr",
+      description:
+        "Publish a post to the user's Tumblr blog. Content is markdown (headings, bold, italic, links, lists, blockquotes, code) — converted to Tumblr NPF format. Auto-tags with 'crate' and 'music'. Requires Tumblr connection.",
+      inputSchema: {
+        title: z.string().max(256).describe("Post title"),
+        content: z.string().describe("Post content in markdown format"),
+        tags: z.array(z.string()).optional().describe("Tags for the post"),
+        category: z
+          .enum(["influence", "artist", "playlist", "collection", "note"])
+          .optional()
+          .describe("Category tag (auto-added to tags)"),
+      },
+      handler: async (args: {
+        title: string;
+        content: string;
+        tags?: string[];
+        category?: string;
+      }) => {
+        const token = await getTokenVaultToken("tumblr", auth0UserId);
+        if (!token) {
+          return toolResult({
+            error: "Tumblr not connected. Ask the user to connect Tumblr in Settings.",
+            action: "connect_tumblr",
+          });
+        }
+
+        try {
+          // Step 1: Get the user's blog name
+          const infoRes = await fetch(`${TUMBLR_API}/user/info`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!infoRes.ok) {
+            const detail = await infoRes.text().catch(() => "");
+            return toolResult({ error: `Failed to get Tumblr user info: ${infoRes.status}`, detail });
+          }
+
+          const infoData = await infoRes.json();
+          const blogName: string = infoData.response?.user?.blogs?.[0]?.name;
+          if (!blogName) {
+            return toolResult({ error: "Could not determine Tumblr blog name from user info" });
+          }
+
+          // Step 2: Build NPF content
+          const npfBlocks = markdownToNpf(args.content);
+          const contentBlocks = [
+            { type: "text", subtype: "heading1", text: args.title },
+            ...npfBlocks,
+          ];
+
+          // Step 3: Build tags (category first, then user tags, then auto-tags)
+          const tags = [...(args.tags ?? [])];
+          if (args.category && !tags.includes(args.category)) {
+            tags.unshift(args.category);
+          }
+          if (!tags.includes("crate")) tags.push("crate");
+          if (!tags.includes("music")) tags.push("music");
+
+          // Step 4: Publish the post
+          const postRes = await fetch(`${TUMBLR_API}/blog/${blogName}/posts`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              content: contentBlocks,
+              tags: tags.join(","),
+              state: "published",
+            }),
+          });
+
+          if (!postRes.ok) {
+            const detail = await postRes.text().catch(() => "");
+            return toolResult({ error: `Failed to publish post: ${postRes.status}`, detail });
+          }
+
+          const postData = await postRes.json();
+          const postId = String(postData.response?.id ?? "unknown");
+          const postUrl = `https://${blogName}.tumblr.com/post/${postId}`;
+
+          return toolResult({
+            status: "published",
+            post_url: postUrl,
+            tumblr_post_id: postId,
+            blog_name: blogName,
+            tags,
+          });
+        } catch (err) {
+          return toolResult({ error: err instanceof Error ? err.message : "Tumblr post failed" });
+        }
+      },
+    },
+  ];
+}
