@@ -494,6 +494,68 @@ export function preprocessSlashCommand(message: string): string {
       ].join("\n");
     }
 
+    case "tumblr": {
+      if (!arg) {
+        return [
+          `The user wants to browse their Tumblr dashboard for music content. Follow these steps EXACTLY:`,
+          ``,
+          `1. Call read_tumblr_dashboard with limit=20`,
+          `2. Take the posts array from the result and stringify it as JSON`,
+          `3. Output ONLY OpenUI Lang using TumblrFeed — nothing else`,
+          ``,
+          `TumblrFeed takes three arguments:`,
+          `  - posts (JSON string): the posts array`,
+          `  - source (string): "dashboard"`,
+          `  - totalCount (number): number of posts returned`,
+          ``,
+          `Example OpenUI Lang output:`,
+          `root = TumblrFeed("[{\\"type\\":\\"audio\\",\\"blog_name\\":\\"musicblog\\",\\"artist\\":\\"Ezra Collective\\",\\"track_name\\":\\"No Confusion\\"}]", "dashboard", 20)`,
+          ``,
+          `If Tumblr is not connected, tell the user to connect Tumblr in Settings → Connected Services.`,
+          ``,
+          `CRITICAL: Your ENTIRE response must be ONLY the OpenUI Lang: root = TumblrFeed(...). Do NOT write any text before or after. No markdown. No explanations. Just the OpenUI Lang.`,
+        ].join("\n");
+      }
+
+      if (arg.toLowerCase().trim() === "likes") {
+        return [
+          `The user wants to see their liked Tumblr posts. Follow these steps EXACTLY:`,
+          ``,
+          `1. Call read_tumblr_likes with limit=20`,
+          `2. Take the posts array from the result and stringify it as JSON`,
+          `3. Output ONLY OpenUI Lang using TumblrFeed — nothing else`,
+          ``,
+          `TumblrFeed takes three arguments:`,
+          `  - posts (JSON string): the posts array`,
+          `  - source (string): "likes"`,
+          `  - totalCount (number): number of posts returned`,
+          ``,
+          `CRITICAL: Your ENTIRE response must be ONLY the OpenUI Lang: root = TumblrFeed(...). Do NOT write any text before or after.`,
+        ].join("\n");
+      }
+
+      // /tumblr #tag or /tumblr tag
+      const tag = arg.replace(/^#/, "").trim();
+      return [
+        `The user wants to discover music on Tumblr tagged "${tag}". Follow these steps EXACTLY:`,
+        ``,
+        `1. Call read_tumblr_tagged with tag="${tag}"`,
+        `2. Take the posts array from the result and stringify it as JSON`,
+        `3. Output ONLY OpenUI Lang using TumblrFeed — nothing else`,
+        ``,
+        `TumblrFeed takes four arguments:`,
+        `  - posts (JSON string): the posts array`,
+        `  - source (string): "tagged"`,
+        `  - totalCount (number): number of posts returned`,
+        `  - tag (string): "${tag}"`,
+        ``,
+        `Example OpenUI Lang output:`,
+        `root = TumblrFeed("[{\\"type\\":\\"audio\\",\\"blog_name\\":\\"afrobeatfm\\",\\"artist\\":\\"Fela Kuti\\",\\"track_name\\":\\"Zombie\\"}]", "tagged", 15, "${tag}")`,
+        ``,
+        `CRITICAL: Your ENTIRE response must be ONLY the OpenUI Lang: root = TumblrFeed(...). Do NOT write any text before or after. No markdown. No explanations.`,
+      ].join("\n");
+    }
+
     case "spotify": {
       if (!arg) {
         return [
@@ -595,6 +657,9 @@ export function getSessionTitle(message: string): string {
         return "My Skills";
       case "spotify":
         return arg ? `Spotify: ${arg.trim().slice(0, 30)}` : "My Spotify Library";
+      case "tumblr":
+        if (arg?.toLowerCase().trim() === "likes") return "Tumblr Likes";
+        return arg ? `Tumblr: #${arg.replace(/^#/, "").trim()}` : "Tumblr Dashboard";
       default:
         break;
     }
