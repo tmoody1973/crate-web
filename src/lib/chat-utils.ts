@@ -497,7 +497,30 @@ export function preprocessSlashCommand(message: string): string {
     case "tumblr": {
       if (!arg) {
         return [
-          `The user wants to browse their Tumblr dashboard. Follow these steps EXACTLY:`,
+          `The user wants to see their Tumblr blog posts. Follow these steps EXACTLY:`,
+          ``,
+          `1. Call read_tumblr_blog WITHOUT blog_name to get the list of blogs`,
+          `2. If the user has multiple blogs, ask which one to show`,
+          `3. Call read_tumblr_blog with the chosen blog_name and limit=20`,
+          `4. Take the ENTIRE posts array from the result`,
+          `5. JSON.stringify the posts array`,
+          `6. Output ONLY this single line of OpenUI Lang — NOTHING ELSE:`,
+          ``,
+          `root = TumblrFeed("<posts JSON string>", "dashboard", <count>)`,
+          ``,
+          `If Tumblr is not connected (tool returns error), tell the user to connect in Settings.`,
+          `If the blog has 0 posts, output: root = TumblrFeed("[]", "dashboard", 0)`,
+          ``,
+          `CRITICAL OUTPUT RULES:`,
+          `- Your ENTIRE response must be ONLY: root = TumblrFeed(...)`,
+          `- Do NOT write any text before or after the component`,
+          `- Do NOT summarize or explain — just output the OpenUI Lang`,
+        ].join("\n");
+      }
+
+      if (arg.toLowerCase().trim() === "dashboard") {
+        return [
+          `The user wants to see their Tumblr dashboard (posts from blogs they follow). Follow these steps EXACTLY:`,
           ``,
           `1. Call read_tumblr_dashboard with limit=20`,
           `2. Take the ENTIRE posts array from the result`,
@@ -506,13 +529,9 @@ export function preprocessSlashCommand(message: string): string {
           ``,
           `root = TumblrFeed("<posts JSON string>", "dashboard", <count>)`,
           ``,
-          `If Tumblr is not connected (tool returns error), tell the user to connect in Settings.`,
-          `If the dashboard is empty (0 posts), output: root = TumblrFeed("[]", "dashboard", 0)`,
-          ``,
           `CRITICAL OUTPUT RULES:`,
           `- Your ENTIRE response must be ONLY: root = TumblrFeed(...)`,
           `- Do NOT write any text before or after the component`,
-          `- Do NOT summarize or explain — just output the OpenUI Lang`,
         ].join("\n");
       }
 
@@ -662,7 +681,8 @@ export function getSessionTitle(message: string): string {
         return arg ? `Spotify: ${arg.trim().slice(0, 30)}` : "My Spotify Library";
       case "tumblr":
         if (arg?.toLowerCase().trim() === "likes") return "Tumblr Likes";
-        return arg ? `Tumblr: #${arg.replace(/^#/, "").trim()}` : "Tumblr Dashboard";
+        if (arg?.toLowerCase().trim() === "dashboard") return "Tumblr Dashboard";
+        return arg ? `Tumblr: #${arg.replace(/^#/, "").trim()}` : "My Tumblr";
       default:
         break;
     }

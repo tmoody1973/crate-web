@@ -155,6 +155,72 @@ function normalizePost(post: TumblrPost): NormalizedPost {
 export function createTumblrConnectedTools(auth0UserId?: string): CrateToolDef[] {
   return [
     {
+      name: "read_tumblr_blog",
+      description:
+        "Read posts from a specific Tumblr blog. If blog_name is omitted, lists the user's blogs so they can choose. Use this as the default /tumblr command — shows the user's own blog content.",
+      inputSchema: {
+        blog_name: z.string().optional().describe("Blog name to read (e.g. 'tarik-crate'). Omit to list available blogs."),
+        limit: z.number().optional().describe("Number of posts to return (default 20, max 50)"),
+      },
+      handler: async (args: { blog_name?: string; limit?: number }) => {
+        const token = await getTokenVaultToken("tumblr", auth0UserId);
+        if (!token) {
+          return toolResult({
+            error: "Tumblr not connected. Ask the user to connect Tumblr in Settings.",
+            action: "connect_tumblr",
+          });
+        }
+
+        try {
+          // If no blog specified, list available blogs
+          if (!args.blog_name) {
+            const infoRes = await fetch(`${TUMBLR_API}/user/info`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!infoRes.ok) {
+              return toolResult({ error: `Tumblr API error: ${infoRes.status}` });
+            }
+            const infoData = await infoRes.json();
+            const blogs = (infoData.response?.user?.blogs ?? []).map((b: { name: string; title: string; url: string; primary: boolean; posts: number }) => ({
+              name: b.name,
+              title: b.title,
+              url: b.url,
+              primary: b.primary,
+              posts: b.posts,
+            }));
+            return toolResult({
+              action: "choose_blog",
+              message: "Ask the user which blog to read. Then call read_tumblr_blog again with blog_name.",
+              blogs,
+            });
+          }
+
+          const limit = Math.min(args.limit ?? 20, 50);
+          const res = await fetch(`${TUMBLR_API}/blog/${args.blog_name}/posts?limit=${limit}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!res.ok) {
+            const detail = await res.text().catch(() => "");
+            return toolResult({ error: `Tumblr API error: ${res.status}`, detail });
+          }
+
+          const data = await res.json();
+          const posts: TumblrPost[] = data.response?.posts ?? [];
+
+          return toolResult({
+            source: "blog",
+            blog_name: args.blog_name,
+            total: posts.length,
+            posts: posts.map(normalizePost),
+          });
+        } catch (err) {
+          return toolResult({ error: err instanceof Error ? err.message : "Tumblr blog request failed" });
+        }
+      },
+    },
+
+    {
       name: "read_tumblr_dashboard",
       description:
         "Read posts from the user's Tumblr dashboard — the feed of posts from all blogs they follow. Returns all post types (audio, text, photo, link, video, quote). Great for discovering music and content from curated blogs.",
