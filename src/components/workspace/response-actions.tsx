@@ -170,7 +170,10 @@ export function ResponseActions({
       {/* Save to Google Docs */}
       {onSendMessage && (
         <button
-          onClick={() => onSendMessage("Save the previous response to Google Docs")}
+          onClick={() => {
+            const title = content.split("\n")[0]?.replace(/[#*_]/g, "").trim().slice(0, 100) || "Crate Research";
+            onSendMessage(`Use the save_to_google_doc tool to save this content to Google Docs. Title: "${title}"\n\nContent to save:\n${content}`);
+          }}
           className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
           title="Save to Google Docs"
         >
@@ -181,7 +184,10 @@ export function ResponseActions({
       {/* Post to Tumblr */}
       {onSendMessage && (
         <button
-          onClick={() => onSendMessage("Post the previous response to Tumblr")}
+          onClick={() => {
+            const title = content.split("\n")[0]?.replace(/[#*_]/g, "").trim().slice(0, 100) || "Crate Research";
+            onSendMessage(`Use the post_to_tumblr tool to publish this to Tumblr. Title: "${title}"\n\nContent to publish:\n${content}`);
+          }}
           className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
           title="Post to Tumblr"
         >
