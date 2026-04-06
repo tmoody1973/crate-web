@@ -4,7 +4,7 @@
  * Uses Auth0 Management API to retrieve IdP access tokens from user identities.
  */
 
-type TokenVaultService = "spotify" | "slack" | "google";
+type TokenVaultService = "spotify" | "slack" | "google" | "tumblr";
 
 const SERVICE_CONFIG: Record<TokenVaultService, { connection: string; scopes: string[] }> = {
   spotify: {
@@ -32,6 +32,10 @@ const SERVICE_CONFIG: Record<TokenVaultService, { connection: string; scopes: st
       "https://www.googleapis.com/auth/documents",
       "https://www.googleapis.com/auth/drive.file",
     ],
+  },
+  tumblr: {
+    connection: "tumblr",
+    scopes: ["basic", "write", "offline_access"],
   },
 };
 
