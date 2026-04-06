@@ -326,20 +326,6 @@ export function TumblrFeed({ posts: rawPosts, source, totalCount, tag, onAction 
 
   const label = sourceLabel(source, tag);
 
-  // DEBUG: remove after confirming posts flow through
-  if (posts.length === 0) {
-    return (
-      <div className="rounded-xl border border-red-800 bg-red-900/20 p-4">
-        <p className="text-sm text-red-400 font-medium">TumblrFeed Debug</p>
-        <p className="text-xs text-red-300 mt-1">posts.length = 0</p>
-        <p className="text-xs text-zinc-400 mt-1">rawPosts type: {typeof rawPosts}</p>
-        <p className="text-xs text-zinc-400">rawPosts is array: {String(Array.isArray(rawPosts))}</p>
-        <p className="text-xs text-zinc-400">rawPosts length: {Array.isArray(rawPosts) ? rawPosts.length : "N/A"}</p>
-        <p className="text-xs text-zinc-500 mt-2 break-all">rawPosts preview: {JSON.stringify(rawPosts)?.slice(0, 500)}</p>
-      </div>
-    );
-  }
-
   function handleExportToSpotify() {
     if (onAction) {
       onAction("export_to_spotify", { posts: audioPosts });

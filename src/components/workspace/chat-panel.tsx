@@ -70,6 +70,11 @@ const COMPONENT_TYPE_LABELS: Record<string, string> = {
   ArtistProfileCard: "Artist Profile",
   ReviewSourceCard: "Review Source",
   TrackContextCard: "Track Context",
+  TumblrFeed: "Tumblr",
+  SpotifyPlaylists: "Spotify",
+  SpotifyPlaylist: "Spotify Playlist",
+  SlackMessage: "Slack Message",
+  SlackChannelPicker: "Slack",
 };
 
 /** Extract the root component name from OpenUI content. */
@@ -80,6 +85,21 @@ function extractRootComponent(content: string): string | null {
 
 /** Extract a title from OpenUI content (first string arg of root component). */
 function extractArtifactTitle(content: string): string {
+  const root = extractRootComponent(content);
+
+  // TumblrFeed: first arg is JSON blob — extract source and tag instead
+  if (root === "TumblrFeed") {
+    const tagMatch = content.match(/,\s*"tagged"\s*,\s*\d+\s*,\s*"([^"]+)"/);
+    if (tagMatch?.[1]) return `#${tagMatch[1]}`;
+    if (content.includes('"dashboard"')) return "Dashboard";
+    if (content.includes('"likes"')) return "Liked Posts";
+    return "Tumblr Feed";
+  }
+
+  // SpotifyPlaylists/SlackChannelPicker: first arg is also JSON
+  if (root === "SpotifyPlaylists") return "My Playlists";
+  if (root === "SlackChannelPicker") return "Slack Channels";
+
   const match = content.match(/^root\s*=\s*\w+\(\s*"([^"]+)"/m);
   if (match?.[1]) return match[1];
   const fallback = content.match(/^\w+\s*=\s*\w+\(\s*"([^"]+)"/m);

@@ -3641,16 +3641,6 @@ export const TumblrFeed = defineComponent({
     tag: z.string().optional().describe("Tag searched (for tagged source)"),
   }),
   component: ({ props }) => {
-    // DEBUG: log what OpenUI actually passes
-    console.log("[TumblrFeed] raw props:", {
-      postsType: typeof props.posts,
-      postsIsArray: Array.isArray(props.posts),
-      postsPreview: typeof props.posts === "string" ? props.posts.slice(0, 200) : JSON.stringify(props.posts)?.slice(0, 200),
-      source: props.source,
-      totalCount: props.totalCount,
-      tag: props.tag,
-    });
-
     // Safely coerce posts to array — handle string, array, or unexpected types
     let postsArray: Record<string, unknown>[] = [];
     try {
@@ -3666,27 +3656,8 @@ export const TumblrFeed = defineComponent({
         // Single object wrapped
         postsArray = [raw as Record<string, unknown>];
       }
-    } catch (e) {
-      console.error("[TumblrFeed] JSON parse error:", e, "raw:", typeof props.posts === "string" ? props.posts.slice(0, 500) : props.posts);
+    } catch {
       postsArray = [];
-    }
-
-    console.log("[TumblrFeed] parsed postsArray length:", postsArray.length);
-
-    // If still empty, show debug info visibly
-    if (postsArray.length === 0) {
-      return (
-        <div style={{ border: "1px solid #dc2626", borderRadius: 8, padding: 16, background: "#1a0000" }}>
-          <p style={{ color: "#f87171", fontWeight: 600, fontSize: 14 }}>TumblrFeed Debug — 0 posts parsed</p>
-          <p style={{ color: "#a1a1aa", fontSize: 12, marginTop: 4 }}>props.posts type: {typeof props.posts}</p>
-          <p style={{ color: "#a1a1aa", fontSize: 12 }}>props.posts isArray: {String(Array.isArray(props.posts))}</p>
-          <p style={{ color: "#a1a1aa", fontSize: 12 }}>props.source: {String(props.source)}</p>
-          <p style={{ color: "#a1a1aa", fontSize: 12 }}>props.totalCount: {String(props.totalCount)}</p>
-          <p style={{ color: "#71717a", fontSize: 11, marginTop: 8, wordBreak: "break-all" }}>
-            preview: {typeof props.posts === "string" ? props.posts.slice(0, 500) : JSON.stringify(props.posts)?.slice(0, 500)}
-          </p>
-        </div>
-      );
     }
 
     const mappedPosts = postsArray.map((p: Record<string, unknown>) => ({
