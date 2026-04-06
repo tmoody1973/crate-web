@@ -25,6 +25,7 @@ import {
   SpotifyPlaylist,
   SlackMessage,
   SlackChannelPicker,
+  TumblrFeed,
   StoryCard,
   TrackCard,
   ArtistProfile,
@@ -57,6 +58,7 @@ export const crateLibrary = createLibrary({
     SpotifyPlaylist,
     SlackMessage,
     SlackChannelPicker,
+    TumblrFeed,
     StoryCard,
     TrackCard,
     ArtistProfile,
@@ -64,13 +66,14 @@ export const crateLibrary = createLibrary({
   componentGroups: [
     {
       name: "Connected Services",
-      components: ["SpotifyPlaylists", "SpotifyPlaylist", "SlackMessage", "SlackChannelPicker"],
+      components: ["SpotifyPlaylists", "SpotifyPlaylist", "SlackMessage", "SlackChannelPicker", "TumblrFeed"],
       notes: [
         "ALWAYS use SpotifyPlaylists when read_spotify_library returns type=playlists. Pass the playlists array as JSON.",
         "ALWAYS use SpotifyPlaylist when read_playlist_tracks returns tracks for a single playlist. Pass the tracks array as JSON.",
         "ALWAYS use SlackChannelPicker when the user says 'send to Slack' — call list_slack_channels first, then render the picker. Never ask the user to type a channel name.",
         "Use SlackMessage to preview what will be sent to Slack before calling send_to_slack.",
         "SlackMessage sections: [{type:'header',content:'...'}, {type:'text',content:'...'}, {type:'bullets',items:['a','b']}, {type:'divider'}, {type:'quote',content:'...'}]",
+        "ALWAYS use TumblrFeed when read_tumblr_dashboard, read_tumblr_tagged, or read_tumblr_likes returns posts. Pass the posts array as a JSON string.",
       ],
     },
     {
@@ -192,6 +195,7 @@ tb1 = TalkBreakCard("transition", "Time (You and I)", "Gorilla", "From Texas bar
 sp1 = SocialPostCard("Khruangbin > Little Simz", "From Thai funk to London grime. Tonight's HYFIN set traces Khruangbin's Texas barn to Little Simz's independence.", "Thai funk > Texas barn > London grime > Mercury Prize. Tonight on HYFIN.", "Tonight on HYFIN: how Thai funk cassettes and a London rapper's refusal to sign connect across oceans.", "#HYFIN, #MKE, #Khruangbin, #LittleSimz")
 ev1 = ConcertEvent("Khruangbin", "Saturday, March 22", "8:00 PM", "Riverside Theatre", "Milwaukee", "$45-$75", "On Sale")`,
     `root = TrackCard("So What", "Miles Davis", "Kind of Blue", "1959", "Columbia", "https://example.com/kob.jpg", "9:22", "D Dorian", "", "Modal Jazz", [{name: "Miles Davis", role: "trumpet"}, {name: "John Coltrane", role: "tenor sax"}, {name: "Bill Evans", role: "piano"}], [{name: "N.Y. State of Mind", artist: "Nas", year: "1994", direction: "by"}], "", "", "847", "$25", "1959 mono: $450+", "https://discogs.com/...", "", [{name: "MusicBrainz", url: "https://musicbrainz.org"}])`,
+    `root = TumblrFeed("[{\\"type\\":\\"audio\\",\\"id\\":\\"123\\",\\"blog_name\\":\\"jazzfm\\",\\"post_url\\":\\"https://jazzfm.tumblr.com/post/123\\",\\"timestamp\\":1712400000,\\"tags\\":[\\"jazz\\",\\"miles-davis\\"],\\"note_count\\":42,\\"artist\\":\\"Miles Davis\\",\\"track_name\\":\\"So What\\",\\"album\\":\\"Kind of Blue\\"},{\\"type\\":\\"text\\",\\"id\\":\\"456\\",\\"blog_name\\":\\"musichead\\",\\"post_url\\":\\"https://musichead.tumblr.com/post/456\\",\\"timestamp\\":1712390000,\\"tags\\":[\\"jazz\\"],\\"note_count\\":15,\\"title\\":\\"Why Jazz Still Matters\\",\\"body_excerpt\\":\\"The improvisational spirit of jazz lives on in hip-hop production...\\"}]", "tagged", 20, "jazz")`,
     `root = ArtistProfile("MF DOOM", "Daniel Dumile", "London, England", "1971–2020", "", ["Hip-Hop", "Underground Hip-Hop"], "Dense internal rhymes and masked alter-ego beats", ["Stones Throw", "Metal Face"], [{name: "Madlib", role: "producer"}, {name: "Ghostface Killah"}], [{name: "KRS-One"}, {name: "Rakim"}], [{name: "Earl Sweatshirt"}, {name: "Flying Lotus"}], [{title: "Operation: Doomsday", year: "1999"}, {title: "MM..FOOD", year: "2004"}], [{name: "Doomsday", album: "Operation: Doomsday"}, {name: "Accordion", album: "Madvillainy"}], "", "", "DOOM split his persona three ways — Viktor Vaughn, King Geedorah, and MF DOOM.", "1.2M", "42M", "", "", "", [{name: "MusicBrainz", url: "https://musicbrainz.org"}])`,
     `root = StoryCard("Donuts", "J Dilla · 2006 · Stones Throw Records", "https://upload.wikimedia.org/wikipedia/en/5/54/J_Dilla_-_Donuts.jpg", "The Story Behind", "[{\\"label\\":\\"tracks\\",\\"value\\":\\"31\\"},{\\"label\\":\\"samples\\",\\"value\\":\\"34\\"},{\\"label\\":\\"minutes\\",\\"value\\":\\"43\\"},{\\"label\\":\\"RS 500\\",\\"value\\":\\"#386\\"}]", "[{\\"title\\":\\"The Health Crisis\\",\\"subtitle\\":\\"How TTP changed everything\\",\\"content\\":\\"In early 2002, J Dilla was diagnosed with TTP, a rare blood disease. His condition deteriorated over three years, eventually confining him to Cedars-Sinai Medical Center.\\"},{\\"title\\":\\"The Recording\\",\\"subtitle\\":\\"Hospital bed, Boss SP-303\\",\\"content\\":\\"Despite his declining health, Dilla recorded using a portable sampler brought to his hospital room. His mother Ma Dukes brought vinyl records and massaged his swollen hands so he could work.\\"}]", "aiqK2rFEXHc", "J Dilla — Still Shining Documentary", "[{\\"name\\":\\"Ma Dukes\\",\\"role\\":\\"Mother\\"},{\\"name\\":\\"Madlib\\",\\"role\\":\\"Collaborator\\"},{\\"name\\":\\"Questlove\\",\\"role\\":\\"Advocate\\"}]", "[{\\"name\\":\\"Wikipedia\\",\\"url\\":\\"https://en.wikipedia.org/wiki/Donuts_(album)\\"},{\\"name\\":\\"Classic Album Sundays\\",\\"url\\":\\"https://classicalbumsundays.com/j-dilla-donuts/\\"}]")`,
   ],
