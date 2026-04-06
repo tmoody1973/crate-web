@@ -497,24 +497,43 @@ export function preprocessSlashCommand(message: string): string {
     case "tumblr": {
       if (!arg) {
         return [
-          `The user wants to see their Tumblr blog posts. Follow these steps EXACTLY:`,
+          `The user wants to browse Tumblr for music. Follow these steps EXACTLY:`,
           ``,
-          `1. Call read_tumblr_blog WITHOUT blog_name to get the list of blogs`,
-          `2. If the user has multiple blogs, ask which one to show`,
-          `3. Call read_tumblr_blog with the chosen blog_name and limit=20`,
-          `4. Take the ENTIRE posts array from the result`,
-          `5. JSON.stringify the posts array`,
-          `6. Output ONLY this single line of OpenUI Lang — NOTHING ELSE:`,
+          `1. Call read_tumblr_tagged with tag="music"`,
+          `2. Take the ENTIRE posts array from the result`,
+          `3. JSON.stringify the posts array`,
+          `4. Output ONLY this single line of OpenUI Lang — NOTHING ELSE:`,
           ``,
-          `root = TumblrFeed("<posts JSON string>", "dashboard", <count>)`,
+          `root = TumblrFeed("<posts JSON string>", "tagged", <count>, "music")`,
           ``,
           `If Tumblr is not connected (tool returns error), tell the user to connect in Settings.`,
-          `If the blog has 0 posts, output: root = TumblrFeed("[]", "dashboard", 0)`,
           ``,
           `CRITICAL OUTPUT RULES:`,
           `- Your ENTIRE response must be ONLY: root = TumblrFeed(...)`,
           `- Do NOT write any text before or after the component`,
+          `- Do NOT make up or fabricate posts — only use data from the tool result`,
           `- Do NOT summarize or explain — just output the OpenUI Lang`,
+        ].join("\n");
+      }
+
+      // /tumblr blog [name] — read a specific blog's posts
+      const blogMatch = arg.match(/^blog\s+(.+)/i);
+      if (blogMatch) {
+        const blogName = blogMatch[1].trim();
+        return [
+          `The user wants to see posts from the Tumblr blog "${blogName}". Follow these steps EXACTLY:`,
+          ``,
+          `1. Call read_tumblr_blog with blog_name="${blogName}" and limit=20`,
+          `2. Take the ENTIRE posts array from the result`,
+          `3. JSON.stringify the posts array`,
+          `4. Output ONLY this single line of OpenUI Lang — NOTHING ELSE:`,
+          ``,
+          `root = TumblrFeed("<posts JSON string>", "dashboard", <count>)`,
+          ``,
+          `CRITICAL OUTPUT RULES:`,
+          `- Your ENTIRE response must be ONLY: root = TumblrFeed(...)`,
+          `- Do NOT write any text before or after the component`,
+          `- Do NOT make up or fabricate posts — only use data from the tool result`,
         ].join("\n");
       }
 
@@ -532,6 +551,7 @@ export function preprocessSlashCommand(message: string): string {
           `CRITICAL OUTPUT RULES:`,
           `- Your ENTIRE response must be ONLY: root = TumblrFeed(...)`,
           `- Do NOT write any text before or after the component`,
+          `- Do NOT make up or fabricate posts — only use data from the tool result`,
         ].join("\n");
       }
 
@@ -573,6 +593,7 @@ export function preprocessSlashCommand(message: string): string {
         `- Do NOT summarize, curate, or describe the posts`,
         `- Do NOT write markdown, bullet points, or explanations`,
         `- Do NOT say "Here are the posts" or "I found these"`,
+        `- Do NOT make up or fabricate posts — only use data from the tool result`,
         `- Pass ALL posts from the tool result — do not filter or skip any`,
         `- Just output the single line of OpenUI Lang — nothing else`,
       ].join("\n");
@@ -682,7 +703,8 @@ export function getSessionTitle(message: string): string {
       case "tumblr":
         if (arg?.toLowerCase().trim() === "likes") return "Tumblr Likes";
         if (arg?.toLowerCase().trim() === "dashboard") return "Tumblr Dashboard";
-        return arg ? `Tumblr: #${arg.replace(/^#/, "").trim()}` : "My Tumblr";
+        if (arg?.toLowerCase().startsWith("blog ")) return `Tumblr: ${arg.slice(5).trim()}`;
+        return arg ? `Tumblr: #${arg.replace(/^#/, "").trim()}` : "Tumblr: #music";
       default:
         break;
     }
