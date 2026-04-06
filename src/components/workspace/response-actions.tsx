@@ -12,6 +12,18 @@ interface ResponseActionsProps {
 
 type ActionStatus = "idle" | "sending" | "sent" | "error";
 
+/** Strip OpenUI Lang, tool call artifacts, and other non-content from a response. */
+function cleanContentForPublish(raw: string): string {
+  return raw
+    // Remove OpenUI Lang lines (root = Component(...), varName = Component(...))
+    .replace(/^[a-z]\w*\s*=\s*[A-Z]\w*\([\s\S]*?\)\s*$/gm, "")
+    // Remove tool call references
+    .replace(/\[Tool call:.*?\]/g, "")
+    // Remove empty lines left behind (collapse to max 2 newlines)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 /** Slack button is only shown for these users. */
 const SLACK_ALLOWED_EMAILS = ["tarikjmoody@gmail.com"];
 const SLACK_ALLOWED_DOMAINS = ["radiomilwaukee.org"];
@@ -171,8 +183,9 @@ export function ResponseActions({
       {onSendMessage && (
         <button
           onClick={() => {
-            const title = content.split("\n")[0]?.replace(/[#*_]/g, "").trim().slice(0, 100) || "Crate Research";
-            onSendMessage(`Use the save_to_google_doc tool to save this content to Google Docs. Title: "${title}"\n\nContent to save:\n${content}`);
+            const clean = cleanContentForPublish(content);
+            const title = clean.split("\n")[0]?.replace(/[#*_]/g, "").trim().slice(0, 100) || "Crate Research";
+            onSendMessage(`Use the save_to_google_doc tool to save this content to Google Docs. Title: "${title}"\n\nContent to save:\n${clean}`);
           }}
           className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
           title="Save to Google Docs"
@@ -185,8 +198,21 @@ export function ResponseActions({
       {onSendMessage && (
         <button
           onClick={() => {
-            const title = content.split("\n")[0]?.replace(/[#*_]/g, "").trim().slice(0, 100) || "Crate Research";
-            onSendMessage(`Use the post_to_tumblr tool to publish this to Tumblr. Title: "${title}"\n\nContent to publish:\n${content}`);
+            const clean = cleanContentForPublish(content);
+            const title = clean.split("\n")[0]?.replace(/[#*_]/g, "").trim().slice(0, 100) || "Crate Research";
+            onSendMessage([
+              `Use the post_to_tumblr tool to publish this to Tumblr.`,
+              `The content is already in markdown — pass it directly to the tool's "content" field.`,
+              `The tool converts markdown to Tumblr NPF format automatically (headings, bold, italic, links, lists, blockquotes all work).`,
+              `Title: "${title}"`,
+              ``,
+              `IMPORTANT: Preserve all markdown formatting — links, bold, headers, lists.`,
+              `Do NOT strip or reformat the content. Pass it as-is to the content field.`,
+              `First call post_to_tumblr WITHOUT blog_name to get the blog list, then ask which blog.`,
+              ``,
+              `Content to publish:`,
+              clean,
+            ].join("\n"));
           }}
           className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
           title="Post to Tumblr"
