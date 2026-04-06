@@ -3635,44 +3635,63 @@ export const TumblrFeed = defineComponent({
   description:
     "Display Tumblr posts from dashboard, tag search, or likes. Shows audio, text, photo, link, video, and quote posts with type-specific rendering. Audio posts show artist/track/album art. Includes 'Export to Spotify Playlist' action button for audio posts. Use after read_tumblr_dashboard, read_tumblr_tagged, or read_tumblr_likes.",
   props: z.object({
-    posts: z.preprocess(jsonPreprocess, z.array(z.record(z.string(), z.unknown()))).describe("Array of normalized Tumblr posts"),
-    source: z.enum(["dashboard", "tagged", "likes"]).describe("Feed source"),
-    totalCount: z.number().describe("Total posts returned"),
+    posts: z.preprocess(jsonPreprocess, z.any()).describe("Array of normalized Tumblr posts"),
+    source: z.string().describe("Feed source: dashboard, tagged, or likes"),
+    totalCount: z.preprocess((v) => typeof v === "string" ? parseInt(v, 10) || 0 : v, z.number()).describe("Total posts returned"),
     tag: z.string().optional().describe("Tag searched (for tagged source)"),
   }),
-  component: ({ props }) => (
-    <TumblrFeedComponent
-      posts={(props.posts as Record<string, unknown>[]).map((p) => ({
-        type: String(p.type ?? "text"),
-        id: String(p.id ?? ""),
-        blog_name: String(p.blog_name ?? ""),
-        blog_url: p.blog_url as string | undefined,
-        post_url: p.post_url as string | undefined,
-        timestamp: p.timestamp as number | undefined,
-        date: p.date as string | undefined,
-        tags: Array.isArray(p.tags) ? p.tags.map(String) : [],
-        note_count: p.note_count as number | undefined,
-        summary: p.summary as string | undefined,
-        artist: p.artist as string | undefined,
-        track_name: p.track_name as string | undefined,
-        album: p.album as string | undefined,
-        album_art: p.album_art as string | undefined,
-        plays: p.plays as number | undefined,
-        external_url: p.external_url as string | undefined,
-        title: p.title as string | undefined,
-        body_excerpt: p.body_excerpt as string | undefined,
-        caption: p.caption as string | undefined,
-        image_url: p.image_url as string | undefined,
-        url: p.url as string | undefined,
-        description: p.description as string | undefined,
-        video_url: p.video_url as string | undefined,
-        thumbnail_url: p.thumbnail_url as string | undefined,
-        text: p.text as string | undefined,
-        source: p.source as string | undefined,
-      }))}
-      source={props.source}
-      totalCount={props.totalCount}
-      tag={props.tag}
-    />
-  ),
+  component: ({ props }) => {
+    // Safely coerce posts to array — handle string, array, or unexpected types
+    let postsArray: Record<string, unknown>[] = [];
+    try {
+      if (Array.isArray(props.posts)) {
+        postsArray = props.posts;
+      } else if (typeof props.posts === "string") {
+        const parsed = JSON.parse(props.posts);
+        postsArray = Array.isArray(parsed) ? parsed : [];
+      }
+    } catch {
+      postsArray = [];
+    }
+
+    const mappedPosts = postsArray.map((p: Record<string, unknown>) => ({
+      type: String(p.type ?? "text"),
+      id: String(p.id ?? Math.random()),
+      blog_name: String(p.blog_name ?? ""),
+      blog_url: (p.blog_url as string) ?? undefined,
+      post_url: (p.post_url as string) ?? undefined,
+      timestamp: typeof p.timestamp === "number" ? p.timestamp : undefined,
+      date: (p.date as string) ?? undefined,
+      tags: Array.isArray(p.tags) ? p.tags.map(String) : [],
+      note_count: typeof p.note_count === "number" ? p.note_count : undefined,
+      summary: (p.summary as string) ?? undefined,
+      artist: (p.artist as string) ?? undefined,
+      track_name: (p.track_name as string) ?? undefined,
+      album: (p.album as string) ?? undefined,
+      album_art: (p.album_art as string) ?? undefined,
+      plays: typeof p.plays === "number" ? p.plays : undefined,
+      external_url: (p.external_url as string) ?? undefined,
+      title: (p.title as string) ?? undefined,
+      body_excerpt: (p.body_excerpt as string) ?? undefined,
+      caption: (p.caption as string) ?? undefined,
+      image_url: (p.image_url as string) ?? undefined,
+      url: (p.url as string) ?? undefined,
+      description: (p.description as string) ?? undefined,
+      video_url: (p.video_url as string) ?? undefined,
+      thumbnail_url: (p.thumbnail_url as string) ?? undefined,
+      text: (p.text as string) ?? undefined,
+      source: (p.source as string) ?? undefined,
+    }));
+
+    const source = (["dashboard", "tagged", "likes"].includes(props.source) ? props.source : "tagged") as "dashboard" | "tagged" | "likes";
+
+    return (
+      <TumblrFeedComponent
+        posts={mappedPosts}
+        source={source}
+        totalCount={props.totalCount ?? mappedPosts.length}
+        tag={props.tag}
+      />
+    );
+  },
 });
