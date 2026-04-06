@@ -7,6 +7,7 @@ import { marked } from "marked";
 interface ResponseActionsProps {
   content: string;
   slackEmail?: string;
+  onSendMessage?: (message: string) => void;
 }
 
 type ActionStatus = "idle" | "sending" | "sent" | "error";
@@ -18,6 +19,7 @@ const SLACK_ALLOWED_DOMAINS = ["radiomilwaukee.org"];
 export function ResponseActions({
   content,
   slackEmail = "y3v9l8q1c8s3d4n6@88nine.slack.com",
+  onSendMessage,
 }: ResponseActionsProps) {
   const { user } = useUser();
   const userEmail = user?.primaryEmailAddress?.emailAddress ?? "";
@@ -165,6 +167,28 @@ export function ResponseActions({
         )}
       </div>
 
+      {/* Save to Google Docs */}
+      {onSendMessage && (
+        <button
+          onClick={() => onSendMessage("Save the previous response to Google Docs")}
+          className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
+          title="Save to Google Docs"
+        >
+          <GoogleDocsIcon /> Docs
+        </button>
+      )}
+
+      {/* Post to Tumblr */}
+      {onSendMessage && (
+        <button
+          onClick={() => onSendMessage("Post the previous response to Tumblr")}
+          className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
+          title="Post to Tumblr"
+        >
+          <TumblrIcon /> Tumblr
+        </button>
+      )}
+
       {/* Share / Link */}
       <button
         onClick={handleCopy}
@@ -215,6 +239,26 @@ function EmailIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="4" width="20" height="16" rx="2" />
       <path d="M22 7l-8.97 5.7a1.94 1.94 0 01-2.06 0L2 7" />
+    </svg>
+  );
+}
+
+function GoogleDocsIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <polyline points="10 9 9 9 8 9" />
+    </svg>
+  );
+}
+
+function TumblrIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M14.563 24c-5.093 0-7.031-3.756-7.031-6.411V9.747H5.116V6.648c3.63-1.313 4.512-4.596 4.71-6.469C9.84.051 9.941 0 9.999 0h3.517v6.114h4.801v3.633h-4.82v7.47c.016 1.001.375 2.371 2.207 2.371h.09c.631-.02 1.486-.205 1.936-.419l1.156 3.425c-.436.636-2.4 1.374-4.304 1.406z" />
     </svg>
   );
 }

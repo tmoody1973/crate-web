@@ -258,7 +258,7 @@ function ResearchSteps() {
 }
 
 function ChatMessages() {
-  const { messages, isRunning } = useThread();
+  const { messages, isRunning, processMessage } = useThread();
   const { setArtifact } = useArtifact();
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastArtifactRef = useRef<string>("");
@@ -377,6 +377,7 @@ function ChatMessages() {
                     .filter((c): c is { type: "text"; text: string } => c.type === "text")
                     .map((c) => c.text)
                     .join("")}
+                  onSendMessage={(msg) => processMessage({ role: "user", content: [{ type: "text", text: msg }] })}
                 />
               )}
             </>
