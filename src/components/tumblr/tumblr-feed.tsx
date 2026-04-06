@@ -298,7 +298,15 @@ function PostCard({ post }: { post: TumblrPost }) {
 
 // ── Main component ────────────────────────────────────────────────
 
-export function TumblrFeed({ posts, source, totalCount, tag, onAction }: TumblrFeedProps) {
+export function TumblrFeed({ posts: rawPosts, source, totalCount, tag, onAction }: TumblrFeedProps) {
+  // Defensive: ensure posts is an array and each post has required fields
+  const posts = (Array.isArray(rawPosts) ? rawPosts : []).map((p) => ({
+    ...p,
+    type: p.type || "text",
+    id: p.id || String(Math.random()),
+    blog_name: p.blog_name || "unknown",
+    tags: Array.isArray(p.tags) ? p.tags : [],
+  }));
   const [activeFilter, setActiveFilter] = useState<PostType>("all");
 
   const typeCounts = POST_TYPES.reduce<Record<PostType, number>>(
