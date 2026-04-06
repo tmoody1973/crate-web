@@ -34,7 +34,7 @@ const SERVICE_CONFIG: Record<TokenVaultService, { connection: string; scopes: st
     ],
   },
   tumblr: {
-    connection: "tumblr",
+    connection: "tumblr-custom",
     scopes: ["basic", "write", "offline_access"],
   },
 };
