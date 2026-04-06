@@ -394,8 +394,11 @@ export function createTumblrConnectedTools(auth0UserId?: string): CrateToolDef[]
             return toolResult({ error: `Failed to publish post: ${postRes.status}`, detail });
           }
 
-          const postData = await postRes.json();
-          const postId = String(postData.response?.id ?? "unknown");
+          // Parse response as text first to preserve large post IDs
+          // (Tumblr IDs are 64-bit ints that exceed JS Number.MAX_SAFE_INTEGER)
+          const postText = await postRes.text();
+          const idMatch = postText.match(/"id"\s*:\s*(\d+)/);
+          const postId = idMatch?.[1] ?? "unknown";
           const postUrl = `https://${blogName}.tumblr.com/post/${postId}`;
 
           return toolResult({
