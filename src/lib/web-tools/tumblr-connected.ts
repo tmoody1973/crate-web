@@ -292,7 +292,7 @@ export function createTumblrConnectedTools(auth0UserId?: string): CrateToolDef[]
     {
       name: "post_to_tumblr",
       description:
-        "Publish a post to the user's Tumblr blog. Content is markdown (headings, bold, italic, links, lists, blockquotes, code) — converted to Tumblr NPF format. Auto-tags with 'crate' and 'music'. Requires Tumblr connection.",
+        "Publish a post to the user's Tumblr blog. Content is markdown — converted to Tumblr NPF format. Auto-tags with 'crate' and 'music'. If blog_name is omitted, returns the list of available blogs so you can ask the user which one to post to. Always call without blog_name first to get the list, then call again with the user's chosen blog_name.",
       inputSchema: {
         title: z.string().max(256).describe("Post title"),
         content: z.string().describe("Post content in markdown format"),
@@ -301,12 +301,14 @@ export function createTumblrConnectedTools(auth0UserId?: string): CrateToolDef[]
           .enum(["influence", "artist", "playlist", "collection", "note"])
           .optional()
           .describe("Category tag (auto-added to tags)"),
+        blog_name: z.string().optional().describe("Blog name to post to (e.g. 'tarik-crate'). If omitted, lists available blogs so the user can choose."),
       },
       handler: async (args: {
         title: string;
         content: string;
         tags?: string[];
         category?: string;
+        blog_name?: string;
       }) => {
         const token = await getTokenVaultToken("tumblr", auth0UserId);
         if (!token) {
@@ -317,7 +319,7 @@ export function createTumblrConnectedTools(auth0UserId?: string): CrateToolDef[]
         }
 
         try {
-          // Step 1: Get the user's blog name
+          // Step 1: Get the user's blogs
           const infoRes = await fetch(`${TUMBLR_API}/user/info`, {
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -328,9 +330,34 @@ export function createTumblrConnectedTools(auth0UserId?: string): CrateToolDef[]
           }
 
           const infoData = await infoRes.json();
-          const blogName: string = infoData.response?.user?.blogs?.[0]?.name;
+          const blogs: Array<{ name: string; title: string; url: string; primary: boolean }> =
+            infoData.response?.user?.blogs ?? [];
+
+          if (blogs.length === 0) {
+            return toolResult({ error: "No blogs found on this Tumblr account" });
+          }
+
+          // If no blog_name specified, list available blogs so agent can ask user
+          if (!args.blog_name) {
+            return toolResult({
+              action: "choose_blog",
+              message: "Multiple blogs available. Ask the user which blog to post to.",
+              blogs: blogs.map((b) => ({
+                name: b.name,
+                title: b.title,
+                url: b.url,
+                primary: b.primary,
+              })),
+            });
+          }
+
+          // Validate the chosen blog exists on this account
+          const blogName = blogs.find((b) => b.name === args.blog_name)?.name;
           if (!blogName) {
-            return toolResult({ error: "Could not determine Tumblr blog name from user info" });
+            return toolResult({
+              error: `Blog "${args.blog_name}" not found. Available blogs: ${blogs.map((b) => b.name).join(", ")}`,
+              blogs: blogs.map((b) => b.name),
+            });
           }
 
           // Step 2: Build NPF content
