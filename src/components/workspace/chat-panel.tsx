@@ -376,6 +376,7 @@ const SLASH_COMMANDS = [
   { command: "/radio", description: "Search and play live radio stations", usage: "/radio [station, genre, or URL]", example: "/radio KEXP" },
   { command: "/influence", description: "Map an artist's musical influences", usage: "/influence [artist name]", example: "/influence Flying Lotus" },
   { command: "/spotify", description: "Browse and play your Spotify playlists", usage: "/spotify [playlist name]", example: "/spotify HYFIN" },
+  { command: "/tumblr", description: "Discover music on Tumblr — dashboard, tags, or likes", usage: "/tumblr [#tag | likes]", example: "/tumblr #afrobeat" },
   { command: "/track", description: "Deep dive into a specific track", usage: "/track [song] [artist]", example: "/track So What Miles Davis" },
   { command: "/artist", description: "Full artist deep dive with discography and connections", usage: "/artist [name]", example: "/artist MF DOOM" },
   { command: "/story", description: "Deep narrative story with video and key people", usage: "/story [album, artist, genre, or event]", example: "/story Donuts" },
