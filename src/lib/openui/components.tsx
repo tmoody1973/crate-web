@@ -23,6 +23,19 @@ const SpotifyWebPlayer = dynamic(
   },
 );
 
+const TumblrFeedComponent = dynamic(
+  () => import("@/components/tumblr/tumblr-feed").then((m) => ({ default: m.TumblrFeed })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/80 px-4 py-6">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
+        <span className="text-xs text-zinc-500">Loading Tumblr feed...</span>
+      </div>
+    ),
+  },
+);
+
 const InfluenceGraph = dynamic(() => import("./influence-graph"), {
   ssr: false,
   loading: () => (
@@ -3613,4 +3626,53 @@ export const ArtistProfile = defineComponent({
       </div>
     );
   },
+});
+
+// ── Tumblr Connected Components ─────────────────────────────────
+
+export const TumblrFeed = defineComponent({
+  name: "TumblrFeed",
+  description:
+    "Display Tumblr posts from dashboard, tag search, or likes. Shows audio, text, photo, link, video, and quote posts with type-specific rendering. Audio posts show artist/track/album art. Includes 'Export to Spotify Playlist' action button for audio posts. Use after read_tumblr_dashboard, read_tumblr_tagged, or read_tumblr_likes.",
+  props: z.object({
+    posts: z.preprocess(jsonPreprocess, z.array(z.object({
+      type: z.string(),
+      id: z.string(),
+      blog_name: z.string(),
+      blog_url: z.string().optional(),
+      post_url: z.string().optional(),
+      timestamp: z.number().optional(),
+      date: z.string().optional(),
+      tags: z.array(z.string()).default([]),
+      note_count: z.number().optional(),
+      summary: z.string().optional(),
+      artist: z.string().optional(),
+      track_name: z.string().optional(),
+      album: z.string().optional(),
+      album_art: z.string().optional(),
+      plays: z.number().optional(),
+      external_url: z.string().optional(),
+      title: z.string().optional(),
+      body_excerpt: z.string().optional(),
+      caption: z.string().optional(),
+      image_url: z.string().optional(),
+      url: z.string().optional(),
+      description: z.string().optional(),
+      video_url: z.string().optional(),
+      thumbnail_url: z.string().optional(),
+      text: z.string().optional(),
+      source: z.string().optional(),
+    }))).describe("Array of normalized Tumblr posts"),
+    source: z.enum(["dashboard", "tagged", "likes"]).describe("Feed source"),
+    totalCount: z.number().describe("Total posts returned"),
+    tag: z.string().optional().describe("Tag searched (for tagged source)"),
+  }),
+  component: ({ props }) => (
+    <TumblrFeedComponent
+      posts={props.posts}
+      source={props.source}
+      totalCount={props.totalCount}
+      tag={props.tag}
+    />
+  ),
 });
