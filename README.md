@@ -24,7 +24,43 @@
 
 Crate is an AI music research workspace where an agent researches across Discogs, MusicBrainz, Last.fm, Genius, Bandcamp, WhoSampled, Wikipedia, Ticketmaster, Spotify, and more. Ask about any artist, track, sample, or genre and get back interactive components — not just text. Connect your Spotify, Slack, and Google accounts to act on what you find.
 
-Built for the [Auth0 "Authorized to Act" Hackathon](https://auth0.devpost.com/) (deadline April 6, 2026).
+Built for the [Auth0 "Authorized to Act" Hackathon](https://auth0.devpost.com/).
+
+## For Judges: Try It Live
+
+The fastest way to evaluate Crate is on the live app — no install needed.
+
+### Option A: Use the live app (recommended)
+
+1. Go to **[digcrate.app](https://digcrate.app)**
+2. Click **Get Started** and sign up (email or Google — free, no credit card)
+3. Try these commands in the chat:
+   - `/influence Flying Lotus` — traces influence connections across decades
+   - `/artist MF DOOM` — full artist deep dive with discography and connections
+   - `/spotify` — browse your Spotify playlists (requires connecting Spotify in Settings)
+   - `/tumblr #jazz` — discover jazz posts across Tumblr
+   - `/news` — daily music news segment
+4. To see Token Vault in action: go to **Settings** (gear icon) → **Connected Services** → connect Spotify, Tumblr, Slack, or Google
+
+### Option B: Run locally
+
+```bash
+git clone https://github.com/tmoody1973/crate-web.git
+cd crate-web
+npm install
+cp .env.local.example .env.local
+# Fill in required env vars (see Environment Variables below)
+npx convex dev     # Terminal 1
+npm run dev        # Terminal 2
+```
+
+Open [localhost:3000](http://localhost:3000). You'll need Clerk, Convex, and at minimum a `PLATFORM_ANTHROPIC_KEY` or your own Anthropic API key to use the agent.
+
+### Demo video
+
+[Watch the 3-minute demo](https://youtu.be/YOUR_VIDEO_ID) showing Crate connecting to Spotify, Tumblr, Slack, and Google Docs through Auth0 Token Vault.
+
+---
 
 ## Features
 
@@ -39,6 +75,7 @@ Built for the [Auth0 "Authorized to Act" Hackathon](https://auth0.devpost.com/) 
 
 ### Connected services (Auth0 Token Vault)
 - **Spotify** — Read your library, playlists, and top artists. Create new playlists from research. Export influence chains as playlists.
+- **Tumblr** — Publish research to your blog. Discover music by tag across all of Tumblr. Blog selection for multi-blog accounts.
 - **Slack** — Send research to any channel or DM with Block Kit formatting (headers, bullet lists, tables, dividers). Channel picker UI.
 - **Google Docs** — Save research as shareable Google Docs
 
@@ -83,7 +120,7 @@ Built for the [Auth0 "Authorized to Act" Hackathon](https://auth0.devpost.com/) 
 | Framework | Next.js 16 (App Router) | SSR, API routes, Turbopack dev |
 | Deployment | Vercel | Serverless functions |
 | Auth | Clerk | User sign-in, OAuth |
-| Connected services | Auth0 Token Vault | OAuth connections for Spotify, Slack, Google |
+| Connected services | Auth0 Token Vault | OAuth connections for Spotify, Tumblr, Slack, Google |
 | Database | Convex | Real-time sessions, messages, playlists, collections, influence graph, subscriptions, skills, shares |
 | Dynamic UI | OpenUI (`@openuidev/react-lang`) | Agent-generated interactive components |
 | Agent | Anthropic SDK + agentic loop | Tool-use loop with crate-cli MCP servers |
@@ -227,6 +264,7 @@ crate-web/
 │       │   ├── slack.ts                # List channels, send messages
 │       │   ├── slack-formatter.ts      # Block Kit rich text formatting
 │       │   ├── google-docs.ts          # Save to Google Docs
+│       │   ├── tumblr-connected.ts    # Read dashboard/tags/likes, publish posts
 │       │   ├── user-skills.ts          # Custom skill tools
 │       │   ├── prep-research.ts        # Perplexity-powered research
 │       │   └── ...                     # WhoSampled, Bandcamp, radio, etc.
@@ -257,18 +295,28 @@ crate-web/
 | SpotifyPlaylist | Track table from a Spotify playlist with action buttons |
 | SlackChannelPicker | Clickable channel grid for sending to Slack |
 | SlackMessage | Slack message preview with send status |
+| TumblrFeed | Tumblr posts by tag, dashboard, or likes with type filters |
 | AlbumGrid | Discography display with cover art |
 | SampleTree | Sample relationship visualization |
 | ConcertList | Event listings with venue, date, price |
 
 ## Auth0 Token Vault integration
 
-Crate uses Auth0 Token Vault to securely connect to third-party services on behalf of users. The architecture:
+Crate uses Auth0 Token Vault to securely connect to four third-party services on behalf of users. The architecture:
 
 1. **Clerk** handles user sign-in (existing auth)
-2. **Auth0** handles OAuth connections to Spotify, Slack, Google
+2. **Auth0** handles OAuth connections to Spotify, Tumblr, Slack, Google
 3. Token Vault stores and manages OAuth tokens — Crate never sees raw credentials
 4. The Management API retrieves IdP access tokens at runtime
+
+### Supported services
+
+| Service | OAuth Scopes | What the Agent Does |
+|---------|-------------|-------------------|
+| Spotify | `user-library-read`, `playlist-modify-public`, `streaming` | Read library, export playlists, stream tracks |
+| Tumblr | `basic`, `write`, `offline_access` | Publish research, discover music by tag |
+| Slack | `chat:write`, `chat:write.public`, `channels:read` | Send show prep to team channels |
+| Google Docs | `documents`, `drive.file` | Save research as permanent documents |
 
 ### Connection flow
 
@@ -329,6 +377,11 @@ Set all environment variables in Vercel dashboard.
 - [OpenUI](https://github.com/thesysdev/openui) — Dynamic UI generation framework
 - [Auth0 Token Vault](https://auth0.com/ai/docs/intro/token-vault) — Secure token exchange for AI agents
 - [Convex](https://convex.dev) — Real-time database
+
+## Legal
+
+- [Privacy Policy](https://digcrate.app/privacy)
+- [Terms of Service](https://digcrate.app/terms)
 
 ## License
 
