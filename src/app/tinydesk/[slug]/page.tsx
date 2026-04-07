@@ -1,0 +1,205 @@
+import { readFile } from "fs/promises";
+import { join } from "path";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { VideoInfluenceChain } from "@/components/tinydesk/video-influence-chain";
+import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
+
+interface TinyDeskNode {
+  name: string;
+  role: string;
+  era?: string;
+  connection: string;
+  strength: number;
+  source?: string;
+  sourceUrl?: string;
+  videoId: string;
+  videoTitle: string;
+}
+
+interface TinyDeskData {
+  artist: string;
+  slug: string;
+  tagline: string;
+  tinyDeskVideoId: string;
+  nodes: TinyDeskNode[];
+}
+
+async function getTinyDeskData(slug: string): Promise<TinyDeskData | null> {
+  try {
+    const filePath = join(process.cwd(), "public", "tinydesk", `${slug}.json`);
+    const raw = await readFile(filePath, "utf-8");
+    return JSON.parse(raw) as TinyDeskData;
+  } catch {
+    return null;
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const data = await getTinyDeskData(slug);
+
+  if (!data) {
+    return { title: "Not Found | Crate" };
+  }
+
+  const title = `Tiny Desk Companion: ${data.artist} — Musical DNA | Crate`;
+  const description = data.tagline;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: `https://digcrate.app/tinydesk/${slug}`,
+      images: [
+        {
+          url: `https://img.youtube.com/vi/${data.tinyDeskVideoId}/maxresdefault.jpg`,
+          width: 1280,
+          height: 720,
+          alt: `${data.artist} — Tiny Desk Companion`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [
+        `https://img.youtube.com/vi/${data.tinyDeskVideoId}/maxresdefault.jpg`,
+      ],
+    },
+  };
+}
+
+export default async function TinyDeskCompanionPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const data = await getTinyDeskData(slug);
+
+  if (!data) {
+    notFound();
+  }
+
+  return (
+    <main
+      className={`${bebasNeue.variable} ${spaceGrotesk.variable} font-[family-name:var(--font-space)] min-h-screen`}
+      style={{ backgroundColor: "#09090b", color: "#f4f4f5" }}
+    >
+      {/* Header */}
+      <header
+        className="sticky top-0 z-50 flex items-center justify-between px-6 py-4"
+        style={{ backgroundColor: "#0A1628", borderBottom: "1px solid #1d2d44" }}
+      >
+        <Link href="/" className="shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/branding/crate-logo_Light.svg"
+            alt="Crate"
+            style={{ height: "40px", width: "auto" }}
+          />
+        </Link>
+        <span
+          className="font-[family-name:var(--font-bebas)] tracking-widest text-sm md:text-base"
+          style={{ color: "#71717a" }}
+        >
+          TINY DESK COMPANION
+        </span>
+      </header>
+
+      {/* Hero */}
+      <section className="mx-auto max-w-4xl px-6 py-12 md:py-16">
+        <p
+          className="font-[family-name:var(--font-bebas)] tracking-widest mb-2"
+          style={{ color: "#22d3ee", fontSize: "14px" }}
+        >
+          TINY DESK COMPANION
+        </p>
+        <h1
+          className="font-[family-name:var(--font-bebas)] leading-none mb-4"
+          style={{ color: "#f4f4f5", fontSize: "clamp(48px,8vw,80px)" }}
+        >
+          {data.artist}
+        </h1>
+        <p
+          className="mb-8 max-w-2xl"
+          style={{ color: "#a1a1aa", fontSize: "18px", lineHeight: "1.6" }}
+        >
+          {data.tagline}
+        </p>
+
+        {/* Tiny Desk YouTube embed */}
+        <div
+          className="relative w-full overflow-hidden rounded-xl"
+          style={{ paddingTop: "56.25%", marginBottom: "64px" }}
+        >
+          <iframe
+            src={`https://www.youtube.com/embed/${data.tinyDeskVideoId}`}
+            title={`${data.artist} — NPR Tiny Desk Concert`}
+            className="absolute inset-0 h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            loading="lazy"
+          />
+        </div>
+      </section>
+
+      {/* Influence Chain */}
+      <section className="mx-auto max-w-4xl px-6 pb-16">
+        <div className="mb-10">
+          <h2
+            className="font-[family-name:var(--font-bebas)] tracking-wider mb-2"
+            style={{ color: "#f4f4f5", fontSize: "36px" }}
+          >
+            The Musical DNA
+          </h2>
+          <p style={{ color: "#71717a", fontSize: "14px" }}>
+            The influence chain behind the performance — traced through sources, samples, and sound.
+          </p>
+        </div>
+
+        <VideoInfluenceChain nodes={data.nodes} />
+      </section>
+
+      {/* Footer CTA */}
+      <footer
+        className="border-t mt-8"
+        style={{ borderColor: "#27272a", backgroundColor: "#0A1628" }}
+      >
+        <div className="mx-auto max-w-4xl px-6 py-12 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div>
+            <p
+              className="font-[family-name:var(--font-bebas)] tracking-wider mb-1"
+              style={{ color: "#f4f4f5", fontSize: "22px" }}
+            >
+              Explore More Artists
+            </p>
+            <Link
+              href="/tinydesk"
+              className="text-sm transition-opacity hover:opacity-80"
+              style={{ color: "#22d3ee" }}
+            >
+              ← Back to all companions
+            </Link>
+          </div>
+          <Link
+            href="/sign-in"
+            className="font-[family-name:var(--font-bebas)] rounded-lg px-8 py-3 tracking-widest text-base transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "#E8520E", color: "#F5F0E8" }}
+          >
+            DIG DEEPER — TRY CRATE FREE
+          </Link>
+        </div>
+      </footer>
+    </main>
+  );
+}

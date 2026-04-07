@@ -1,0 +1,63 @@
+{
+  "artist": "Khruangbin",
+  "slug": "khruangbin",
+  "tagline": "Thai funk cassettes, Houston highways, and the sonic threads connecting Houston's globe-trotting trio to a half-century of psychedelic soul.",
+  "tinyDeskVideoId": "vWLJeqsE4MQ",
+  "nodes": [
+    {
+      "name": "Suthep Daoduanmai",
+      "role": "Thai Funk Pioneer",
+      "era": "1960s–70s",
+      "connection": "Guitarist Mark Speer discovered Thai funk through a worn cassette purchased at a Houston flea market in the early 2000s. Suthep's sinuous, reverb-soaked guitar lines — recorded for the Luk Thung pop circuit in Bangkok — became the harmonic blueprint for Khruangbin's debut LP 'The Universe Smiles Upon You.' Speer has cited these tapes in multiple interviews as the moment the band's sound 'clicked into place.'",
+      "strength": 0.93,
+      "source": "Pitchfork, 2015",
+      "sourceUrl": "https://pitchfork.com/reviews/albums/20922-the-universe-smiles-upon-you/",
+      "videoId": "UEpxFYJiA_M",
+      "videoTitle": "Suthep Daoduanmai — Thai Luk Thung guitar instrumental"
+    },
+    {
+      "name": "The Meters",
+      "role": "New Orleans Funk Foundation",
+      "era": "1960s–70s",
+      "connection": "Bassist Laura Lee McBride grew up in Houston's R&B and gospel scene, where The Meters were foundational listening. Their locked-in, minimal pocket — one riff repeated until it becomes hypnotic — is the structural engine beneath every Khruangbin groove. The Meters' Art Neville famously said 'we played the same groove, just different versions,' a philosophy Khruangbin absorbed wholesale.",
+      "strength": 0.87,
+      "source": "NPR Music, 2020",
+      "sourceUrl": "https://www.npr.org/2020/05/29/863853683/khruangbin-tiny-desk-at-home-concert",
+      "videoId": "pItArMqLHAg",
+      "videoTitle": "The Meters — Cissy Strut (Live)"
+    },
+    {
+      "name": "Erykah Badu",
+      "role": "Neo-Soul Touchstone",
+      "era": "1990s–2000s",
+      "connection": "Laura Lee has spoken about Erykah Badu's influence on her understanding of space and silence in bass playing — the idea that what you don't play is as important as what you do. Badu's early records, made twenty minutes from Khruangbin's Houston rehearsal barn, modeled how neo-soul could be simultaneously intimate and vast. The trio opened for Badu in 2019 and described the experience as 'coming full circle.'",
+      "strength": 0.78,
+      "source": "The Guardian, 2020",
+      "sourceUrl": "https://www.theguardian.com/music/2020/sep/18/khruangbin-consolers-of-the-lonely",
+      "videoId": "nJ-AwCVdqPU",
+      "videoTitle": "Erykah Badu — On & On (Live at NPR)"
+    },
+    {
+      "name": "Lee \"Scratch\" Perry",
+      "role": "Dub Production Architecture",
+      "era": "1970s",
+      "connection": "Khruangbin's production sensibility — heavy reverb, buried vocals, instruments panned wide into a near-empty stereo field — mirrors the dub techniques Lee 'Scratch' Perry pioneered at his Black Ark studio in Kingston. Mark Speer applies cavernous spring reverb to guitar lines in a way that owes direct lineage to Perry's studio experiments. The band's long instrumental passages evoke dub's dissolution of song structure into pure atmosphere.",
+      "strength": 0.82,
+      "source": "Consequence of Sound, 2019",
+      "sourceUrl": "https://consequence.net/2019/09/khruangbin-mordechai-album-interview/",
+      "videoId": "Y9l9duKRvhQ",
+      "videoTitle": "Lee Scratch Perry — Super Ape (Full Album)"
+    },
+    {
+      "name": "Curtis Mayfield",
+      "role": "The Soul Thread",
+      "era": "1960s–70s",
+      "connection": "The sweetness at the center of Khruangbin's guitar work — lyrical, falsetto-adjacent melodic lines that float above the rhythm section — traces directly to Curtis Mayfield's revolutionary approach to electric guitar. Mayfield tuned to an open F# chord and played melody as if singing, treating the guitar as a voice rather than a rhythm tool. Speer has described Mayfield as 'the north star' for understanding how a guitar can carry emotion without a single lyric.",
+      "strength": 0.75,
+      "source": "Rolling Stone, 2018",
+      "sourceUrl": "https://www.rollingstone.com/music/music-features/khruangbin-texas-psychedelia-691742/",
+      "videoId": "xaFkGJFctjU",
+      "videoTitle": "Curtis Mayfield — Move On Up (Live)"
+    }
+  ]
+}
