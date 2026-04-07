@@ -125,21 +125,7 @@ export function ResponseActions({
       {/* Send to Slack via Token Vault — shows channel picker */}
       {onSendMessage && (
         <button
-          onClick={() => {
-            const clean = cleanContentForPublish(content);
-            const title = clean.split("\n")[0]?.replace(/[#*_]/g, "").trim().slice(0, 100) || "Crate Research";
-            onSendMessage([
-              `Send this to Slack. Follow these steps EXACTLY:`,
-              `1. Call list_slack_channels to get available channels`,
-              `2. Render the results as a SlackChannelPicker component so the user can click to choose`,
-              `3. Wait for the user to pick a channel`,
-              `4. Then call send_to_slack with the chosen channel`,
-              ``,
-              `Title: "${title}"`,
-              `Content to send:`,
-              clean,
-            ].join("\n"));
-          }}
+          onClick={() => onSendMessage("Send this to Slack.")}
           className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
           title="Send to Slack"
         >
@@ -188,11 +174,7 @@ export function ResponseActions({
       {/* Save to Google Docs */}
       {onSendMessage && (
         <button
-          onClick={() => {
-            const clean = cleanContentForPublish(content);
-            const title = clean.split("\n")[0]?.replace(/[#*_]/g, "").trim().slice(0, 100) || "Crate Research";
-            onSendMessage(`Use the save_to_google_doc tool to save this content to Google Docs. Title: "${title}"\n\nContent to save:\n${clean}`);
-          }}
+          onClick={() => onSendMessage("Save your last response to Google Docs.")}
           className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
           title="Save to Google Docs"
         >
@@ -203,23 +185,7 @@ export function ResponseActions({
       {/* Post to Tumblr */}
       {onSendMessage && (
         <button
-          onClick={() => {
-            const clean = cleanContentForPublish(content);
-            const title = clean.split("\n")[0]?.replace(/[#*_]/g, "").trim().slice(0, 100) || "Crate Research";
-            onSendMessage([
-              `Use the post_to_tumblr tool to publish this to Tumblr.`,
-              `The content is already in markdown — pass it directly to the tool's "content" field.`,
-              `The tool converts markdown to Tumblr NPF format automatically (headings, bold, italic, links, lists, blockquotes all work).`,
-              `Title: "${title}"`,
-              ``,
-              `IMPORTANT: Preserve all markdown formatting — links, bold, headers, lists.`,
-              `Do NOT strip or reformat the content. Pass it as-is to the content field.`,
-              `First call post_to_tumblr WITHOUT blog_name to get the blog list, then ask which blog.`,
-              ``,
-              `Content to publish:`,
-              clean,
-            ].join("\n"));
-          }}
+          onClick={() => onSendMessage("Post your last response to my Tumblr blog.")}
           className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
           title="Post to Tumblr"
         >

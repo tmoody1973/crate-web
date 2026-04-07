@@ -5,6 +5,55 @@
 /** Slash command preprocessor — transforms /commands into research prompts for the agent. */
 export function preprocessSlashCommand(message: string): string {
   const trimmed = message.trim();
+
+  // Action button messages — short user-visible text, expanded into tool instructions
+  const lower = trimmed.toLowerCase();
+  if (lower === "post your last response to my tumblr blog." || lower === "post your last response to my tumblr blog") {
+    return [
+      `The user clicked the Tumblr action button. Post your PREVIOUS response to their Tumblr blog.`,
+      ``,
+      `Steps:`,
+      `1. Take your last response from the conversation (the message right before this one)`,
+      `2. Strip any OpenUI Lang, tool call references, or non-content text — keep only the markdown research content`,
+      `3. Replace any unicode symbols (→, ●, 🎵, etc.) with plain text equivalents (arrows become "->", bullets become "-")`,
+      `4. Call post_to_tumblr WITHOUT blog_name first to get the blog list`,
+      `5. Ask the user which blog to post to`,
+      `6. Call post_to_tumblr with the chosen blog_name, a clean title, and the cleaned content`,
+      `7. Show the result with the DIRECT POST URL (not just the blog URL)`,
+      ``,
+      `IMPORTANT: Show a clean, brief confirmation. Include the clickable post URL. Do NOT show your internal reasoning.`,
+    ].join("\n");
+  }
+
+  if (lower === "save your last response to google docs." || lower === "save your last response to google docs") {
+    return [
+      `The user clicked the Google Docs action button. Save your PREVIOUS response to Google Docs.`,
+      ``,
+      `Steps:`,
+      `1. Take your last response from the conversation (the message right before this one)`,
+      `2. Strip any OpenUI Lang or tool call references — keep only the markdown research content`,
+      `3. Create a clean title from the first heading or line`,
+      `4. Call save_to_google_doc with the title and content`,
+      `5. Show a clean confirmation with the Google Doc link`,
+      ``,
+      `IMPORTANT: Show a clean, brief confirmation. Include the clickable doc URL. Do NOT show your internal reasoning.`,
+    ].join("\n");
+  }
+
+  if (lower.startsWith("send this to slack.") || lower.startsWith("send this to slack")) {
+    return [
+      `The user clicked the Slack action button. Send your PREVIOUS response to Slack.`,
+      ``,
+      `Steps:`,
+      `1. Call list_slack_channels to get available channels`,
+      `2. Show the user a SlackChannelPicker component so they can click to choose a channel`,
+      `3. After they pick, call send_to_slack with the chosen channel and the content from your previous response`,
+      `4. Show a clean confirmation with the channel name`,
+      ``,
+      `IMPORTANT: Use SlackChannelPicker — never ask the user to type a channel name.`,
+    ].join("\n");
+  }
+
   if (!trimmed.startsWith("/")) return message;
 
   const spaceIdx = trimmed.indexOf(" ");
