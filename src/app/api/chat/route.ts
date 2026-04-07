@@ -617,10 +617,11 @@ export async function POST(req: Request) {
 
   // Force Sonnet for research-heavy commands that need deep tool use + structured output
   const isSlashResearch = /^\/(?:influence|show-prep|prep|news|story|track|artist|spotify|tumblr)\b/i.test(rawMessage.trim());
-  // Natural language research: playlist creation, influence traces, deep dives
+  // Natural language research: playlist creation, influence traces, deep dives, action button tool calls
   const isNaturalResearch = /\b(create|make|build).*(playlist|mix|setlist)\b/i.test(rawMessage) ||
     /\b(influence|trace|connection).*(between|from|chain)\b/i.test(rawMessage) ||
-    /\b(deep dive|research|analyze)\b/i.test(rawMessage);
+    /\b(deep dive|research|analyze)\b/i.test(rawMessage) ||
+    /\bUse the (post_to_tumblr|save_to_google_doc|send_to_slack|export_to_spotify)\b/i.test(rawMessage);
   const isResearchCommand = isSlashResearch || isNaturalResearch;
 
   const rawModelId = isResearchCommand
