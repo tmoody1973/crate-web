@@ -28,7 +28,7 @@ const SERVICES = [
   {
     id: "google" as const,
     name: "Google",
-    description: "Save research to Google Docs",
+    description: "Save to Google Docs, search YouTube, create video playlists",
     icon: "📄",
   },
   {
@@ -56,6 +56,9 @@ const SERVICE_PERMISSIONS: Record<string, string[]> = {
   ],
   google: [
     "Create new Google Docs in your Drive",
+    "Search YouTube for music videos, performances, and documentaries",
+    "Read your YouTube playlists and liked videos",
+    "Create YouTube playlists from research",
     "Only accesses files Crate creates, not your entire Drive",
   ],
 };
