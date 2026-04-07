@@ -170,9 +170,63 @@ function parseInlineFormatting(text: string): {
   return { plainText: plain, formatting };
 }
 
+/** Sanitize content for Tumblr NPF — strip unicode symbols and normalize characters. */
+function sanitizeForTumblr(text: string): string {
+  return text
+    // Replace common unicode arrows with plain text
+    .replace(/[→⟶⇒➜➔►▶]/g, "->")
+    .replace(/[←⟵⇐◄◀]/g, "<-")
+    .replace(/[↔⟷⇔]/g, "<->")
+    // Replace filled/empty circles (strength indicators) with text
+    .replace(/●/g, "*")
+    .replace(/○/g, "-")
+    // Replace common emoji with text equivalents
+    .replace(/🎵/g, "[music]")
+    .replace(/🎧/g, "[headphones]")
+    .replace(/🎶/g, "[notes]")
+    .replace(/🌍/g, "[globe]")
+    .replace(/🎉/g, "")
+    .replace(/📝/g, "")
+    // Strip remaining emoji (basic range)
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+    .trim();
+}
+
+/** Convert a markdown table into NPF list items (since NPF has no table type). */
+function tableToNpfBlocks(lines: string[], startIdx: number): { blocks: NpfBlock[]; consumed: number } {
+  const blocks: NpfBlock[] = [];
+  let i = startIdx;
+
+  // Parse header row
+  const headerLine = lines[i]!;
+  const headers = headerLine.split("|").map((c) => c.trim()).filter(Boolean);
+
+  // Skip separator row (|---|---|---|)
+  i++;
+  if (i < lines.length && /^\|?[\s\-:|]+\|/.test(lines[i]!)) {
+    i++;
+  }
+
+  // Parse data rows as list items: "Header1: Value1, Header2: Value2"
+  while (i < lines.length && lines[i]!.includes("|") && !lines[i]!.match(/^#{1,6}\s/)) {
+    const cells = lines[i]!.split("|").map((c) => c.trim()).filter(Boolean);
+    const parts = headers
+      .map((h, idx) => cells[idx] ? `${h}: ${cells[idx]}` : "")
+      .filter(Boolean);
+    const rowText = sanitizeForTumblr(parts.join(" | "));
+    if (rowText) {
+      blocks.push({ type: "text", subtype: "unordered-list-item", text: rowText });
+    }
+    i++;
+  }
+
+  return { blocks, consumed: i - startIdx };
+}
+
 export function markdownToNpf(text: string): NpfBlock[] {
   const blocks: NpfBlock[] = [];
-  const lines = text.split("\n");
+  const sanitized = sanitizeForTumblr(text);
+  const lines = sanitized.split("\n");
   let i = 0;
 
   while (i < lines.length) {
@@ -233,6 +287,14 @@ export function markdownToNpf(text: string): NpfBlock[] {
         blocks.push(block);
         i++;
       }
+      continue;
+    }
+
+    // Markdown table (line has | characters and next line is separator)
+    if (line.includes("|") && i + 1 < lines.length && /^\|?[\s\-:|]+\|/.test(lines[i + 1] ?? "")) {
+      const { blocks: tableBlocks, consumed } = tableToNpfBlocks(lines, i);
+      blocks.push(...tableBlocks);
+      i += consumed;
       continue;
     }
 
