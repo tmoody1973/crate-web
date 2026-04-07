@@ -1,7 +1,7 @@
 export default {
   providers: [
     {
-      domain: "https://known-orca-97.clerk.accounts.dev",
+      domain: "https://clerk.digcrate.app",
       applicationID: "convex",
     },
   ],
