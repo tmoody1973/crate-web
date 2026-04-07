@@ -39,6 +39,27 @@ const SERVICES = [
   },
 ];
 
+const SERVICE_PERMISSIONS: Record<string, string[]> = {
+  spotify: [
+    "Read your saved tracks, playlists, and top artists",
+    "Create new playlists in your account",
+    "Stream tracks via Web Playback SDK",
+  ],
+  tumblr: [
+    "Read posts from blogs you follow",
+    "Search posts by tag across Tumblr",
+    "Publish research to your blog",
+  ],
+  slack: [
+    "List your workspace channels",
+    "Send messages to channels and DMs",
+  ],
+  google: [
+    "Create new Google Docs in your Drive",
+    "Only accesses files Crate creates, not your entire Drive",
+  ],
+};
+
 const STORAGE_KEY = "auth0_connected_services";
 
 function getStoredConnections(): Record<string, boolean> {
@@ -166,6 +187,18 @@ export function ConnectedServices() {
                 <div>
                   <p className="text-sm font-medium text-white">{service.name}</p>
                   <p className="text-xs text-zinc-500">{service.description}</p>
+                  {isConnected && SERVICE_PERMISSIONS[service.id] && (
+                    <div className="mt-1.5">
+                      <p className="text-[11px] text-zinc-500">🔒 What Crate can access:</p>
+                      <ul className="mt-0.5 space-y-0.5">
+                        {SERVICE_PERMISSIONS[service.id].map((permission) => (
+                          <li key={permission} className="text-[11px] text-zinc-500">
+                            • {permission}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
