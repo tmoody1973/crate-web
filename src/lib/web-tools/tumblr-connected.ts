@@ -463,9 +463,19 @@ export function createTumblrConnectedTools(auth0UserId?: string): CrateToolDef[]
           // Parse response as text first to preserve large post IDs
           // (Tumblr IDs are 64-bit ints that exceed JS Number.MAX_SAFE_INTEGER)
           const postText = await postRes.text();
-          const idMatch = postText.match(/"id"\s*:\s*(\d+)/);
-          const postId = idMatch?.[1] ?? "unknown";
-          const postUrl = `https://${blogName}.tumblr.com/post/${postId}`;
+          console.log("[tumblr] post response:", postText.slice(0, 500));
+
+          // Try multiple patterns to find the post ID
+          // Tumblr v2 NPF response: {"meta":{"status":201,"msg":"Created"},"response":{"id":"770123456789012345"}}
+          // or: {"meta":{"status":201},"response":{"id":770123456789012345}}
+          const stringIdMatch = postText.match(/"id"\s*:\s*"(\d+)"/);
+          const numIdMatch = postText.match(/"id"\s*:\s*(\d{10,})/);
+          const postId = stringIdMatch?.[1] ?? numIdMatch?.[1] ?? "unknown";
+          const postUrl = postId !== "unknown"
+            ? `https://${blogName}.tumblr.com/post/${postId}`
+            : `https://${blogName}.tumblr.com`;
+
+          console.log("[tumblr] extracted postId:", postId, "url:", postUrl);
 
           return toolResult({
             status: "published",
