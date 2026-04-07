@@ -58,7 +58,7 @@ Open [localhost:3000](http://localhost:3000). You'll need Clerk, Convex, and at 
 
 ### Demo video
 
-[Watch the 3-minute demo](https://youtu.be/YOUR_VIDEO_ID) showing Crate connecting to Spotify, Tumblr, Slack, and Google Docs through Auth0 Token Vault.
+[Watch the 3-minute demo](https://youtu.be/3hmwKvWDYJ4) showing Crate connecting to Spotify, Tumblr, Slack, and Google Docs through Auth0 Token Vault.
 
 ---
 
