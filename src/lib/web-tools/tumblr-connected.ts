@@ -471,9 +471,10 @@ export function createTumblrConnectedTools(auth0UserId?: string): CrateToolDef[]
           const stringIdMatch = postText.match(/"id"\s*:\s*"(\d+)"/);
           const numIdMatch = postText.match(/"id"\s*:\s*(\d{10,})/);
           const postId = stringIdMatch?.[1] ?? numIdMatch?.[1] ?? "unknown";
+          // Tumblr supports both URL formats — use the modern one
           const postUrl = postId !== "unknown"
-            ? `https://${blogName}.tumblr.com/post/${postId}`
-            : `https://${blogName}.tumblr.com`;
+            ? `https://www.tumblr.com/${blogName}/${postId}`
+            : `https://www.tumblr.com/${blogName}`;
 
           console.log("[tumblr] extracted postId:", postId, "url:", postUrl);
 
