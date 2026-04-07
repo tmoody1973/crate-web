@@ -18,6 +18,7 @@ import { createSpotifyConnectedTools } from "@/lib/web-tools/spotify-connected";
 import { createSlackTools } from "@/lib/web-tools/slack";
 import { createGoogleDocsTools } from "@/lib/web-tools/google-docs";
 import { createTumblrConnectedTools } from "@/lib/web-tools/tumblr-connected";
+import { createYouTubeConnectedTools } from "@/lib/web-tools/youtube-connected";
 import { isTokenVaultConfigured } from "@/lib/auth0-token-vault";
 import {
   searchMemories,
@@ -294,6 +295,9 @@ async function streamAgenticResponse(
         const webTumblrConnectedTools = isTokenVaultConfigured()
           ? createTumblrConnectedTools(auth0UserIds?.tumblr)
           : [];
+        const webYouTubeConnectedTools = isTokenVaultConfigured()
+          ? createYouTubeConnectedTools(auth0UserIds?.google)
+          : [];
 
         // Filter out crate-cli groups that use SQLite or mpv, inject web versions
         // For radio: keep crate-cli's search/browse/tags tools, replace play_radio
@@ -355,6 +359,9 @@ async function streamAgenticResponse(
             : []),
           ...(webTumblrConnectedTools.length > 0
             ? [{ serverName: "tumblr-connected", tools: webTumblrConnectedTools }]
+            : []),
+          ...(webYouTubeConnectedTools.length > 0
+            ? [{ serverName: "youtube-connected", tools: webYouTubeConnectedTools }]
             : []),
         ];
 
