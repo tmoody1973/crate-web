@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -154,6 +155,15 @@ export async function GET(req: Request) {
         httpOnly: true,
       });
     }
+
+    // Analytics: service connected
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: auth0UserId || state.clerkId,
+      event: "service_connected",
+      properties: { service: state.service },
+    });
+
     return response;
   } catch (err) {
     console.error("[auth0/callback] Error:", err);

@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
 import { checkRateLimit, BLOCKED_TEAM_DOMAINS } from "@/lib/plans";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -64,6 +65,16 @@ export async function POST(req: Request) {
       await convex.mutation(api.users.updateStripeCustomerId, {
         userId: user._id,
         stripeCustomerId,
+      });
+    }
+
+    // Analytics: checkout started
+    {
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: clerkId,
+        event: "checkout_started",
+        properties: { plan: priceId, current_tier: user.stripeCustomerId ? "paid" : "free" },
       });
     }
 

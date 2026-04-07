@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -100,6 +101,17 @@ export async function POST(req: Request) {
         currentPeriodEnd: period.currentPeriodEnd,
         teamDomain,
       });
+
+      // Analytics: subscription activated
+      {
+        const posthog = getPostHogClient();
+        const interval = stripeSub.items.data[0]?.price.recurring?.interval ?? "month";
+        posthog.capture({
+          distinctId: convexUserId,
+          event: "subscription_activated",
+          properties: { plan, interval },
+        });
+      }
       break;
     }
 
@@ -172,12 +184,24 @@ export async function POST(req: Request) {
       });
       if (!sub) break;
 
+      const canceledPlan = sub.plan;
+
       // Set to canceled + free (preserves audit trail)
       await convex.mutation(api.subscriptions.update, {
         subscriptionId: sub._id,
         status: "canceled",
         plan: "free",
       });
+
+      // Analytics: subscription canceled
+      {
+        const posthog = getPostHogClient();
+        posthog.capture({
+          distinctId: sub.userId,
+          event: "subscription_canceled",
+          properties: { plan: canceledPlan },
+        });
+      }
       break;
     }
   }

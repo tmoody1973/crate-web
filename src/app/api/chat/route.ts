@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { resolveUserKeys } from "@/lib/resolve-user-keys";
 import { preprocessSlashCommand, isChatTier, getGatedCommand } from "@/lib/chat-utils";
 import { agenticLoop } from "@/lib/agentic-loop";
+import { getPostHogClient } from "@/lib/posthog-server";
 import type { CrateEvent } from "@/lib/agentic-loop";
 import { createTelegraphTools } from "@/lib/web-tools/telegraph";
 import { createTumblrTools } from "@/lib/web-tools/tumblr";
@@ -190,6 +191,7 @@ async function streamAgenticResponse(
   hasInfluenceWrite?: boolean,
   maxSkills?: number,
   auth0UserIds?: { spotify?: string; slack?: string; google?: string; tumblr?: string },
+  analyticsContext?: { rawMessage: string; plan: string; hasBYOK: boolean; startTime: number },
 ): Promise<Response> {
   const encoder = new TextEncoder();
 
@@ -433,6 +435,26 @@ async function streamAgenticResponse(
 
         controller.enqueue(encoder.encode(sseEncode("[DONE]")));
 
+        // Analytics: research query completed
+        if (analyticsContext) {
+          const posthog = getPostHogClient();
+          posthog.capture({
+            distinctId: clerkId,
+            event: "research_query_completed",
+            properties: {
+              model: modelId,
+              is_research: isResearchCommand,
+              is_slash_command: analyticsContext.rawMessage.trim().startsWith("/"),
+              slash_command: analyticsContext.rawMessage.trim().startsWith("/")
+                ? analyticsContext.rawMessage.trim().split(/\s/)[0]
+                : undefined,
+              tier: analyticsContext.plan,
+              has_byok: analyticsContext.hasBYOK,
+              duration_ms: Date.now() - analyticsContext.startTime,
+            },
+          });
+        }
+
         // Save conversation to mem0 in the background (don't block response)
         if (mem0Key && hasMemory !== false && assistantText.length > 50) {
           addMemories(mem0Key, clerkId, [
@@ -472,6 +494,7 @@ async function streamAgenticResponse(
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
+  const startTime = Date.now();
   const { userId: clerkId } = await auth();
   if (!clerkId) {
     return new Response("Unauthorized", { status: 401 });
@@ -549,6 +572,21 @@ export async function POST(req: Request) {
       JSON.stringify({ error: "message field is required" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
+  }
+
+  // Analytics: track every message sent
+  {
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: clerkId,
+      event: "message_sent",
+      properties: {
+        is_slash_command: rawMessage.trim().startsWith("/"),
+        slash_command: rawMessage.trim().startsWith("/") ? rawMessage.trim().split(/\s/)[0] : undefined,
+        is_chat_tier: isChatTier(rawMessage),
+        tier: plan,
+      },
+    });
   }
 
   // Rate limiting (admin bypasses)
@@ -690,6 +728,12 @@ export async function POST(req: Request) {
     });
 
     if (!quota.allowed) {
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: clerkId,
+        event: "quota_exceeded",
+        properties: { tier: plan, used: quota.used, limit: quota.limit },
+      });
       return Response.json(
         {
           error: "quota_exceeded",
@@ -734,5 +778,6 @@ export async function POST(req: Request) {
     adminBypass || limits.hasInfluenceCache,
     adminBypass ? 999 : limits.maxCustomSkills,
     { spotify: auth0UserIdSpotify, slack: auth0UserIdSlack, google: auth0UserIdGoogle, tumblr: auth0UserIdTumblr },
+    { rawMessage, plan, hasBYOK, startTime },
   );
 }
