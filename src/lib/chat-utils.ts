@@ -10,18 +10,20 @@ export function preprocessSlashCommand(message: string): string {
   const lower = trimmed.toLowerCase();
   if (lower === "post your last response to my tumblr blog." || lower === "post your last response to my tumblr blog") {
     return [
-      `The user clicked the Tumblr action button. Post your PREVIOUS response to their Tumblr blog.`,
+      `MANDATORY: You MUST call the post_to_tumblr tool. Do NOT skip the tool call. Do NOT pretend to post. Actually call the tool.`,
       ``,
-      `Steps:`,
-      `1. Take your last response from the conversation (the message right before this one)`,
-      `2. Strip any OpenUI Lang, tool call references, or non-content text — keep only the markdown research content`,
-      `3. Replace any unicode symbols (→, ●, 🎵, etc.) with plain text equivalents (arrows become "->", bullets become "-")`,
-      `4. Call post_to_tumblr WITHOUT blog_name first to get the blog list`,
-      `5. Ask the user which blog to post to`,
-      `6. Call post_to_tumblr with the chosen blog_name, a clean title, and the cleaned content`,
-      `7. Show the result with the DIRECT POST URL (not just the blog URL)`,
+      `Step 1: Call post_to_tumblr with these EXACT arguments:`,
+      `  - blog_name: "tarik-crate"`,
+      `  - title: (extract a short title from your previous response, max 100 chars)`,
+      `  - content: (your previous response, cleaned up — remove any OpenUI Lang lines, remove unicode symbols like → ● 🎵, replace arrows with ->, keep markdown formatting)`,
+      `  - tags: (relevant tags from the content, e.g. ["jazz", "influence", "crate"])`,
       ``,
-      `IMPORTANT: Show a clean, brief confirmation. Include the clickable post URL. Do NOT show your internal reasoning.`,
+      `Step 2: After the tool returns, show ONLY:`,
+      `  - "Published to Tumblr!" (or the error if it failed)`,
+      `  - The direct post URL from the tool result (post_url field)`,
+      `  - Nothing else. No summary of content. No internal reasoning.`,
+      ``,
+      `CRITICAL: You MUST actually call post_to_tumblr. If you respond without calling the tool, you are hallucinating.`,
     ].join("\n");
   }
 
