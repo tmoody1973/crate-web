@@ -249,7 +249,7 @@ export function createSpotifyConnectedTools(auth0UserId?: string): CrateToolDef[
     {
       name: "export_to_spotify",
       description:
-        "Create a playlist in the user's Spotify account. Pass track queries as 'Artist Name Track Title' strings — the tool searches Spotify to find the right track. Requires Spotify connection.",
+        "Create a playlist in the user's Spotify account. Pass track queries as 'Artist Name Track Title' strings — the tool searches Spotify to find the right track. Requires Spotify connection. IMPORTANT: Before calling this tool, confirm with the user: 'About to create a playlist in your Spotify account with [N] tracks. Proceed?' Wait for confirmation before calling.",
       inputSchema: {
         name: z.string().describe("Playlist name (e.g. 'Ezra Collective: The Influence Chain')"),
         description: z.string().describe("Playlist description"),

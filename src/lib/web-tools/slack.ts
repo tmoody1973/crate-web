@@ -180,7 +180,7 @@ export function createSlackTools(auth0UserId?: string): CrateToolDef[] {
     {
       name: "send_to_slack",
       description:
-        "Send research results to a Slack channel or DM. Use '#channel-name' for channels or '@username' for DMs. Content is auto-formatted with Block Kit rich text. IMPORTANT: Always call list_slack_channels first and show SlackChannelPicker — never ask the user to type a channel name.",
+        "Send research results to a Slack channel or DM. Use '#channel-name' for channels or '@username' for DMs. Content is auto-formatted with Block Kit rich text. IMPORTANT: Always call list_slack_channels first and show SlackChannelPicker — never ask the user to type a channel name. IMPORTANT: Before calling this tool, show the user a preview of the message and confirm: 'About to send to [channel] on Slack. Proceed?' Wait for confirmation before calling.",
       inputSchema: {
         channel: z.string().describe("Slack channel (#channel-name) or user (@username) to send to"),
         content: z.string().describe("Content to send — use markdown: ## for headers, - for bullets, --- for dividers, **bold** for emphasis"),

@@ -82,7 +82,7 @@ export function createGoogleDocsTools(auth0UserId?: string): CrateToolDef[] {
     {
       name: "save_to_google_doc",
       description:
-        "Save research output as a Google Doc. Creates a new document with the given title and content, returns a shareable link. Requires Google connection in Settings.",
+        "Save research output as a Google Doc. Creates a new document with the given title and content, returns a shareable link. Requires Google connection in Settings. IMPORTANT: Before calling this tool, confirm with the user: 'About to save to Google Docs with title [title]. Proceed?' Wait for confirmation before calling.",
       inputSchema: {
         title: z.string().describe("Document title (e.g. 'Flying Lotus Influence Chain')"),
         content: z.string().describe("Document content (plain text, will be inserted into the doc)"),

@@ -358,7 +358,7 @@ export function createTumblrConnectedTools(auth0UserId?: string): CrateToolDef[]
     {
       name: "post_to_tumblr",
       description:
-        "Publish a post to the user's Tumblr blog. Content is markdown — converted to Tumblr NPF format. Auto-tags with 'crate' and 'music'. If blog_name is omitted, returns the list of available blogs so you can ask the user which one to post to. Always call without blog_name first to get the list, then call again with the user's chosen blog_name.",
+        "Publish a post to the user's Tumblr blog. Content is markdown — converted to Tumblr NPF format. Auto-tags with 'crate' and 'music'. If blog_name is omitted, returns the list of available blogs so you can ask the user which one to post to. Always call without blog_name first to get the list, then call again with the user's chosen blog_name. IMPORTANT: Before calling this tool, confirm with the user: 'About to publish to [blog_name] on Tumblr. Proceed?' Wait for confirmation before calling.",
       inputSchema: {
         title: z.string().max(256).describe("Post title"),
         content: z.string().describe("Post content in markdown format"),
