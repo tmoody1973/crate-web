@@ -38,6 +38,8 @@ const SERVICE_CONFIG: Record<TokenVaultService, { connection: string; scopes: st
     scopes: [
       "https://www.googleapis.com/auth/documents",
       "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/youtube",
     ],
   },
   tumblr: {
