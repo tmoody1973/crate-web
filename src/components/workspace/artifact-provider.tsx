@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import posthog from "posthog-js";
 import { useParams, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
@@ -112,6 +113,8 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
   const setArtifact = useCallback(
     (content: string) => {
       const label = extractLabel(content);
+      const componentType = content.match(/^root\s*=\s*(\w+)\(/m)?.[1] ?? "unknown";
+      posthog.capture("artifact_opened", { type: componentType });
       setCurrent({ id: "pending", label, content, timestamp: Date.now() });
       setShowPanel(true);
       setIsSaving(true);
@@ -155,6 +158,8 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
   const selectArtifact = useCallback((id: string) => {
     const found = history.find((a: Artifact) => a.id === id);
     if (found) {
+      const componentType = found.content.match(/^root\s*=\s*(\w+)\(/m)?.[1] ?? "unknown";
+      posthog.capture("artifact_opened", { type: componentType });
       setCurrent(found);
       setShowPanel(true);
     }

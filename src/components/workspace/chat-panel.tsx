@@ -15,7 +15,8 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
+import posthog from "posthog-js";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { usePlayer } from "@/components/player/player-provider";
@@ -619,6 +620,16 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup, customSkills 
   const { processMessage, isRunning } = useThread();
   const isLoading = isRunning;
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { user } = useUser();
+
+  useEffect(() => {
+    if (user) {
+      posthog.identify(user.id, {
+        email: user.primaryEmailAddress?.emailAddress,
+        name: user.fullName ?? undefined,
+      });
+    }
+  }, [user]);
 
   // Auto-resize textarea to fit content (1 row min, 6 rows max)
   useEffect(() => {

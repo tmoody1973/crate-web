@@ -157,6 +157,7 @@ export function QuickStartWizard({
   // Focus trap: focus the modal on mount
   useEffect(() => {
     modalRef.current?.focus();
+    posthog.capture("onboarding_started");
   }, []);
 
   // Escape key to dismiss
@@ -169,7 +170,10 @@ export function QuickStartWizard({
   }, [onComplete]);
 
   const handleNext = () => {
-    if (step < 3) setStep(step + 1);
+    if (step < 3) {
+      posthog.capture("onboarding_step_completed", { step });
+      setStep(step + 1);
+    }
   };
 
   const handleSaveAndVerify = useCallback(
@@ -236,6 +240,10 @@ export function QuickStartWizard({
   }, [keyInput, verifyState, handleSaveAndVerify]);
 
   const handleFinish = () => {
+    posthog.capture("onboarding_completed", {
+      has_api_key: verifyState === "verified",
+      step_count: step,
+    });
     onComplete();
   };
 

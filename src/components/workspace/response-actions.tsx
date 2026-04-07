@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { marked } from "marked";
+import posthog from "posthog-js";
 
 interface ResponseActionsProps {
   content: string;
@@ -51,6 +52,7 @@ export function ResponseActions({
   }, [showEmailInput]);
 
   const handleCopy = async () => {
+    posthog.capture("action_button_clicked", { action: "copy" });
     await navigator.clipboard.writeText(content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -94,10 +96,14 @@ export function ResponseActions({
     }
   };
 
-  const handleSlack = () => sendEmail(slackEmail, slackStatus, setSlackStatus);
+  const handleSlack = () => {
+    posthog.capture("action_button_clicked", { action: "slack" });
+    sendEmail(slackEmail, slackStatus, setSlackStatus);
+  };
 
   const handleEmailSubmit = () => {
     if (!customEmail.trim()) return;
+    posthog.capture("action_button_clicked", { action: "email" });
     sendEmail(customEmail.trim(), emailStatus, setEmailStatus);
     setShowEmailInput(false);
     setCustomEmail("");
@@ -125,7 +131,7 @@ export function ResponseActions({
       {/* Send to Slack via Token Vault — shows channel picker */}
       {onSendMessage && (
         <button
-          onClick={() => onSendMessage("Send this to Slack.")}
+          onClick={() => { posthog.capture("action_button_clicked", { action: "slack" }); onSendMessage("Send this to Slack."); }}
           className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
           title="Send to Slack"
         >
@@ -174,7 +180,7 @@ export function ResponseActions({
       {/* Save to Google Docs */}
       {onSendMessage && (
         <button
-          onClick={() => onSendMessage("Save your last response to Google Docs.")}
+          onClick={() => { posthog.capture("action_button_clicked", { action: "docs" }); onSendMessage("Save your last response to Google Docs."); }}
           className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
           title="Save to Google Docs"
         >
@@ -185,7 +191,7 @@ export function ResponseActions({
       {/* Post to Tumblr */}
       {onSendMessage && (
         <button
-          onClick={() => onSendMessage("Post your last response to my Tumblr blog.")}
+          onClick={() => { posthog.capture("action_button_clicked", { action: "tumblr" }); onSendMessage("Post your last response to my Tumblr blog."); }}
           className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
           title="Post to Tumblr"
         >
@@ -195,7 +201,7 @@ export function ResponseActions({
 
       {/* Share / Link */}
       <button
-        onClick={handleCopy}
+        onClick={() => { posthog.capture("action_button_clicked", { action: "share" }); handleCopy(); }}
         className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
         title="Share"
       >

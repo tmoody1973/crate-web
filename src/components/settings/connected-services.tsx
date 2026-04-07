@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import posthog from "posthog-js";
 
 interface ConnectionStatus {
   configured: boolean;
@@ -142,6 +143,7 @@ export function ConnectedServices() {
   if (!status?.configured) return null;
 
   const handleConnect = (serviceId: string) => {
+    posthog.capture("service_connect_clicked", { service: serviceId });
     setConnecting(serviceId);
     try {
       localStorage.setItem("auth0_return_url", window.location.pathname);
@@ -150,6 +152,7 @@ export function ConnectedServices() {
   };
 
   const handleDisconnect = async (serviceId: string) => {
+    posthog.capture("service_disconnected", { service: serviceId });
     setConnecting(serviceId);
     try {
       const res = await fetch("/api/auth0/disconnect", {
