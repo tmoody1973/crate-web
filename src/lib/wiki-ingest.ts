@@ -1,8 +1,9 @@
 /**
  * Wiki ingestion layer: extracts artist data from tool results for wiki persistence.
  *
- * Each qualifying tool server has a typed extractor that knows how to pull
- * artist name + substantive data from that tool's output format.
+ * Strategy: capture the FULL tool result content and extract the artist name.
+ * The Haiku synthesis step merges, deduplicates, and structures everything.
+ * Extractors only need to: (1) find the artist name, (2) pass content through.
  */
 
 // ── Types ────────────────────────────────────────────────
@@ -41,270 +42,161 @@ export function shouldIngest(serverName: string): boolean {
   return QUALIFYING_SERVERS.has(serverName);
 }
 
-// ── Per-tool extractors ──────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────
 
-function tryParseJson(content: string): unknown {
+function tryParseJson(content: string): Record<string, unknown> | null {
   try {
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    if (parsed && typeof parsed === "object") return parsed as Record<string, unknown>;
+    return null;
   } catch {
     return null;
   }
 }
 
-function extractSpotifyConnected(toolName: string, content: string): ExtractedArtistData | null {
-  const data = tryParseJson(content) as Record<string, unknown> | null;
-  if (!data || data.error) return null;
+/** Tool display names for source attribution. */
+const TOOL_DISPLAY: Record<string, string> = {
+  "spotify-connected": "Spotify",
+  "whosampled": "WhoSampled",
+  "bandcamp-web": "Bandcamp",
+  "youtube-connected": "YouTube",
+  "radio": "Radio",
+  "influencecache": "Influence Data",
+  "tinydesk": "Tiny Desk",
+  "images": "Images",
+  "prep-research": "Research",
+};
 
-  // search_spotify returns tracks/artists with name fields
-  if (toolName === "search_spotify" && data.artists) {
+/** Section headings by server. */
+const SECTION_HEADINGS: Record<string, string> = {
+  "spotify-connected": "Spotify Profile",
+  "whosampled": "Sample Connections",
+  "bandcamp-web": "Bandcamp Tags",
+  "youtube-connected": "YouTube",
+  "radio": "Radio Metadata",
+  "influencecache": "Influence Chain",
+  "tinydesk": "Tiny Desk",
+  "images": "Artist Images",
+  "prep-research": "Research Brief",
+};
+
+/**
+ * Try to extract an artist name from structured JSON data.
+ * Searches common field patterns across all tool outputs.
+ */
+function findArtistName(data: Record<string, unknown>, toolName: string): string | null {
+  // Direct artist name fields
+  for (const key of ["artist", "name", "from_artist", "to_artist", "query", "artist_name", "artistName"]) {
+    if (typeof data[key] === "string" && data[key]) {
+      return data[key] as string;
+    }
+  }
+
+  // Spotify search results
+  if (data.artists && typeof data.artists === "object") {
     const artists = data.artists as Record<string, unknown>;
     const items = artists.items as Array<Record<string, unknown>> | undefined;
-    if (!items?.length) return null;
-    const artist = items[0];
-    const name = artist.name as string;
-    if (!name) return null;
-    const genres = (artist.genres as string[]) ?? [];
-    const popularity = artist.popularity as number | undefined;
-    return {
-      artistName: name,
-      section: {
-        heading: "Spotify Profile",
-        content: [
-          `Artist: ${name}`,
-          genres.length ? `Genres: ${genres.join(", ")}` : null,
-          popularity != null ? `Popularity: ${popularity}/100` : null,
-        ].filter(Boolean).join("\n"),
-        sources: [{ tool: "Spotify", fetchedAt: Date.now() }],
-      },
-    };
+    if (items?.[0]?.name) return items[0].name as string;
   }
 
-  // get_spotify_library returns saved tracks, top artists
-  if (toolName === "get_spotify_library" && data.type === "top_artists") {
-    const items = data.items as Array<Record<string, unknown>> | undefined;
-    if (!items?.length) return null;
-    // Return the first artist for wiki purposes
-    const artist = items[0];
-    const name = artist.name as string;
-    if (!name) return null;
-    return {
-      artistName: name,
-      section: {
-        heading: "Spotify Library",
-        content: `Found in user's top artists on Spotify. Genres: ${((artist.genres as string[]) ?? []).join(", ")}`,
-        sources: [{ tool: "Spotify", fetchedAt: Date.now() }],
-      },
-    };
+  // Spotify top artists
+  if (data.type === "top_artists" && Array.isArray(data.items)) {
+    const items = data.items as Array<Record<string, unknown>>;
+    if (items[0]?.name) return items[0].name as string;
+  }
+
+  // YouTube search results
+  if (Array.isArray(data.items)) {
+    const items = data.items as Array<Record<string, unknown>>;
+    const snippet = items[0]?.snippet as Record<string, unknown> | undefined;
+    if (snippet?.channelTitle) return snippet.channelTitle as string;
+  }
+
+  // Influence cache edge — prefer from_artist (the subject being researched)
+  if (data.from_artist) return data.from_artist as string;
+
+  // Try extracting from tool name patterns
+  if (toolName.includes("search") && data.results && Array.isArray(data.results)) {
+    const first = (data.results as Array<Record<string, unknown>>)[0];
+    if (first?.artist) return first.artist as string;
+    if (first?.name) return first.name as string;
   }
 
   return null;
 }
 
-function extractWhoSampled(_toolName: string, content: string): ExtractedArtistData | null {
-  // WhoSampled returns text descriptions of sample relationships
-  // Try to extract artist name from the content
-  const data = tryParseJson(content) as Record<string, unknown> | null;
-  if (!data) {
-    // Plain text response — look for artist name patterns
-    const artistMatch = content.match(/^(?:Samples|Sample connections|Sampling info) (?:for|by) (.+?)(?:\n|$)/i);
-    if (artistMatch) {
-      return {
-        artistName: artistMatch[1].trim(),
-        section: {
-          heading: "Sample Connections",
-          content: content.slice(0, 2000),
-          sources: [{ tool: "WhoSampled", fetchedAt: Date.now() }],
-        },
-      };
-    }
-    return null;
-  }
+/**
+ * Try to extract an artist name from plain text content.
+ * Falls back to pattern matching on common output formats.
+ */
+function findArtistNameFromText(content: string): string | null {
+  // "Samples for Artist Name" or "Influence chain for Artist Name"
+  const forPattern = content.match(/(?:samples|influence|connections|info|research|profile)\s+(?:for|by|on|about)\s+(.+?)(?:\n|$|\.)/i);
+  if (forPattern) return forPattern[1].trim();
 
-  const artist = (data.artist ?? data.name) as string | undefined;
-  if (!artist) return null;
-
-  return {
-    artistName: artist,
-    section: {
-      heading: "Sample Connections",
-      content: typeof data.samples === "string" ? data.samples : JSON.stringify(data, null, 2).slice(0, 2000),
-      sources: [{ tool: "WhoSampled", fetchedAt: Date.now() }],
-    },
-  };
-}
-
-function extractBandcamp(_toolName: string, content: string): ExtractedArtistData | null {
-  const data = tryParseJson(content) as Record<string, unknown> | null;
-  if (!data || data.error) return null;
-
-  const artist = (data.artist ?? data.name) as string | undefined;
-  const tags = data.tags as string[] | undefined;
-  const relatedTags = data.related_tags as string[] | undefined;
-
-  if (!artist) return null;
-
-  return {
-    artistName: artist,
-    section: {
-      heading: "Bandcamp Tags",
-      content: [
-        `Artist: ${artist}`,
-        tags?.length ? `Tags: ${tags.join(", ")}` : null,
-        relatedTags?.length ? `Related tags: ${relatedTags.join(", ")}` : null,
-      ].filter(Boolean).join("\n"),
-      sources: [{ tool: "Bandcamp", fetchedAt: Date.now() }],
-    },
-  };
-}
-
-function extractYouTubeConnected(toolName: string, content: string): ExtractedArtistData | null {
-  const data = tryParseJson(content) as Record<string, unknown> | null;
-  if (!data || data.error) return null;
-
-  // youtube_search returns video results
-  if (toolName === "youtube_search") {
-    const items = data.items as Array<Record<string, unknown>> | undefined;
-    if (!items?.length) return null;
-    const snippet = items[0].snippet as Record<string, unknown> | undefined;
-    const channelTitle = snippet?.channelTitle as string | undefined;
-    if (!channelTitle) return null;
-    return {
-      artistName: channelTitle,
-      section: {
-        heading: "YouTube",
-        content: `Found on YouTube: ${snippet?.title ?? ""}`,
-        sources: [{ tool: "YouTube", fetchedAt: Date.now() }],
-      },
-    };
-  }
+  // "Artist: Name" at start of content
+  const artistLabel = content.match(/^artist:\s*(.+?)$/im);
+  if (artistLabel) return artistLabel[1].trim();
 
   return null;
-}
-
-function extractRadio(_toolName: string, content: string): ExtractedArtistData | null {
-  const data = tryParseJson(content) as Record<string, unknown> | null;
-  if (!data || data.error) return null;
-
-  const artist = (data.artist ?? data.name) as string | undefined;
-  if (!artist) return null;
-
-  return {
-    artistName: artist,
-    section: {
-      heading: "Radio Metadata",
-      content: JSON.stringify(data, null, 2).slice(0, 1000),
-      sources: [{ tool: "Radio", fetchedAt: Date.now() }],
-    },
-  };
-}
-
-function extractInfluenceCache(_toolName: string, content: string): ExtractedArtistData | null {
-  const data = tryParseJson(content) as Record<string, unknown> | null;
-  if (!data || data.error) return null;
-
-  const artist = (data.artist ?? data.name ?? data.query) as string | undefined;
-  if (!artist) return null;
-
-  const influences = data.influences as Array<Record<string, unknown>> | undefined;
-  const influenceText = influences?.length
-    ? influences.map((i) => `${i.name} (${i.relationship ?? "influenced by"})`).join(", ")
-    : "";
-
-  return {
-    artistName: artist,
-    section: {
-      heading: "Influence Chain",
-      content: [
-        `Artist: ${artist}`,
-        influenceText ? `Influences: ${influenceText}` : null,
-      ].filter(Boolean).join("\n"),
-      sources: [{ tool: "Influence Cache", fetchedAt: Date.now() }],
-    },
-  };
-}
-
-function extractTinyDesk(_toolName: string, content: string): ExtractedArtistData | null {
-  const data = tryParseJson(content) as Record<string, unknown> | null;
-  if (!data || data.error) return null;
-
-  const artist = (data.artist ?? data.name) as string | undefined;
-  if (!artist) return null;
-
-  return {
-    artistName: artist,
-    section: {
-      heading: "Tiny Desk",
-      content: JSON.stringify(data, null, 2).slice(0, 1000),
-      sources: [{ tool: "Tiny Desk", fetchedAt: Date.now() }],
-    },
-  };
-}
-
-function extractImages(_toolName: string, content: string): ExtractedArtistData | null {
-  const data = tryParseJson(content) as Record<string, unknown> | null;
-  if (!data || data.error) return null;
-
-  const artist = (data.artist ?? data.name) as string | undefined;
-  if (!artist) return null;
-
-  return {
-    artistName: artist,
-    section: {
-      heading: "Artist Images",
-      content: `Image data available for ${artist}`,
-      sources: [{ tool: "Images", fetchedAt: Date.now() }],
-    },
-  };
-}
-
-function extractPrepResearch(_toolName: string, content: string): ExtractedArtistData | null {
-  const data = tryParseJson(content) as Record<string, unknown> | null;
-  if (!data || data.error) return null;
-
-  const artist = (data.artist ?? data.name ?? data.query) as string | undefined;
-  if (!artist) return null;
-
-  const summary = (data.summary ?? data.research ?? data.content) as string | undefined;
-
-  return {
-    artistName: artist,
-    section: {
-      heading: "Research Brief",
-      content: (summary ?? JSON.stringify(data, null, 2)).slice(0, 2000),
-      sources: [{ tool: "Prep Research", fetchedAt: Date.now() }],
-    },
-  };
 }
 
 // ── Main extractor ───────────────────────────────────────
 
-const EXTRACTORS: Record<string, (toolName: string, content: string) => ExtractedArtistData | null> = {
-  "spotify-connected": extractSpotifyConnected,
-  "whosampled": extractWhoSampled,
-  "bandcamp-web": extractBandcamp,
-  "youtube-connected": extractYouTubeConnected,
-  "radio": extractRadio,
-  "influencecache": extractInfluenceCache,
-  "tinydesk": extractTinyDesk,
-  "images": extractImages,
-  "prep-research": extractPrepResearch,
-};
-
 /**
- * Extract artist name + substantive data from a tool result.
- * Returns null if the result doesn't contain usable artist data.
+ * Extract artist name + full content from a tool result.
+ * Captures the complete tool output — Haiku synthesis cleans it up later.
  */
 export function extractArtistData(
   serverName: string,
   toolName: string,
   resultContent: string,
 ): ExtractedArtistData | null {
-  const extractor = EXTRACTORS[serverName];
-  if (!extractor) return null;
+  if (!resultContent || resultContent.length < 10) return null;
 
-  try {
-    return extractor(toolName, resultContent);
-  } catch {
-    return null;
+  const displayName = TOOL_DISPLAY[serverName] ?? serverName;
+  const heading = SECTION_HEADINGS[serverName] ?? serverName;
+
+  // Try JSON first
+  const data = tryParseJson(resultContent);
+
+  if (data) {
+    // Skip error responses
+    if (data.error) return null;
+
+    const artistName = findArtistName(data, toolName);
+    if (!artistName) return null;
+
+    // Pass the FULL content through — Haiku synthesis will structure it
+    // Truncate at 3000 chars to keep wiki pages manageable
+    const content = resultContent.length > 3000
+      ? resultContent.slice(0, 3000) + "\n... (truncated)"
+      : resultContent;
+
+    return {
+      artistName,
+      section: {
+        heading,
+        content,
+        sources: [{ tool: displayName, fetchedAt: Date.now() }],
+      },
+    };
   }
+
+  // Plain text response (e.g., WhoSampled scrape results)
+  const artistName = findArtistNameFromText(resultContent);
+  if (!artistName) return null;
+
+  const content = resultContent.length > 3000
+    ? resultContent.slice(0, 3000) + "\n... (truncated)"
+    : resultContent;
+
+  return {
+    artistName,
+    section: {
+      heading,
+      content,
+      sources: [{ tool: displayName, fetchedAt: Date.now() }],
+    },
+  };
 }
