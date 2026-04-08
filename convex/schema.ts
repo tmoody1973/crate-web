@@ -345,7 +345,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_user_slug", ["userId", "slug"]),
+    .index("by_user_slug", ["userId", "slug"])
+    .index("by_slug", ["slug"]),
 
   wikiIndexEntries: defineTable({
     userId: v.id("users"),

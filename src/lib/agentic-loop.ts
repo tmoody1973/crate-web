@@ -60,28 +60,49 @@ async function* executeTools(
   calls: Array<{ id: string; name: string; input: Record<string, unknown> }>,
   onToolComplete?: (server: string, tool: string, content: string) => void,
 ): AsyncGenerator<CrateEvent | { _toolResult: { id: string; content: string } }> {
-  for (const call of calls) {
-    const bare = bareToolName(call.name);
-    const server = serverFromToolName(call.name);
-
+  // Emit all tool_start events immediately so the UI shows activity
+  const callMeta = calls.map((call) => ({
+    call,
+    bare: bareToolName(call.name),
+    server: serverFromToolName(call.name),
+  }));
+  for (const { bare, server, call } of callMeta) {
     yield { type: "tool_start", tool: bare, server, input: call.input };
+  }
 
-    const start = Date.now();
-    const result = await executeTool(handlers, call.name, call.input);
-    const durationMs = Date.now() - start;
+  // Execute ALL tools in parallel
+  const startTime = Date.now();
+  const results = await Promise.all(
+    callMeta.map(async ({ call, bare }) => {
+      const start = Date.now();
+      try {
+        const result = await executeTool(handlers, call.name, call.input);
+        return { call, bare, result, durationMs: Date.now() - start, error: null };
+      } catch (err) {
+        return {
+          call, bare,
+          result: { content: `Error: ${err instanceof Error ? err.message : "tool failed"}`, serverName: "error" },
+          durationMs: Date.now() - start,
+          error: err,
+        };
+      }
+    }),
+  );
 
+  // Yield all results in order
+  for (const { call, bare, result, durationMs } of results) {
     const resultSummary = result.content.length > 200
       ? result.content.slice(0, 200) + "..."
       : result.content;
 
     yield { type: "tool_end", tool: bare, server: result.serverName, durationMs, resultSummary };
 
-    // Wiki ingestion callback — fire-and-forget with full result content
+    // Wiki ingestion callback
     if (onToolComplete) {
       try { onToolComplete(result.serverName, bare, result.content); } catch { /* silent */ }
     }
 
-    // Emit play_radio event so the frontend can start the radio player
+    // Emit play_radio event
     if (bare === "play_radio") {
       try {
         const parsed = JSON.parse(result.content);

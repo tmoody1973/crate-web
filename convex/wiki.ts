@@ -83,6 +83,25 @@ export const getBySlug = query({
   },
 });
 
+/** Shared wiki lookup: find the richest wiki page for an artist across ALL users.
+ *  Returns the page with the most sections (most research). Used by wiki-first response. */
+export const getSharedBySlug = query({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    const pages = await ctx.db
+      .query("wikiPages")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .collect();
+
+    // Filter archived, pick the richest (most sections)
+    const active = pages.filter((p) => !p.archivedAt);
+    if (active.length === 0) return null;
+
+    active.sort((a, b) => b.sections.length - a.sections.length);
+    return active[0];
+  },
+});
+
 /** List all non-archived wiki pages for a user via the index table. */
 export const listUserPages = query({
   args: { userId: v.id("users") },

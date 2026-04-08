@@ -387,6 +387,33 @@ async function streamAgenticResponse(
           ? allToolGroups.filter((g: { serverName: string }) => RESEARCH_SERVERS.has(g.serverName))
           : allToolGroups;
 
+        // Wiki-first response: if wiki data exists for this artist, inject it as context
+        // This makes repeated research instant instead of re-querying all tools
+        let wikiContext = "";
+        if (isResearchCommand) {
+          try {
+            const artistMatch = message.match(/^\/(?:influence|story|prep)\s+(.+)$/i);
+            if (artistMatch) {
+              const artistSlug = artistMatch[1].trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+              const wikiPage = await convex.query(api.wiki.getSharedBySlug, { slug: artistSlug });
+              if (wikiPage && wikiPage.sections.length > 0) {
+                const sectionSummaries = wikiPage.sections
+                  .filter((s: { content: string }) => s.content && !s.content.startsWith("{"))
+                  .map((s: { heading: string; content: string }) => `### ${s.heading}\n${s.content.slice(0, 500)}`)
+                  .join("\n\n");
+                if (sectionSummaries) {
+                  wikiContext = `\n\n## Existing Wiki Knowledge for ${wikiPage.entityName}\nThe following was gathered from previous research sessions. Use this as a starting point — verify, expand, and add new information rather than re-researching what's already known.\n\n${sectionSummaries}`;
+                  if (wikiPage.description) {
+                    wikiContext = `\n\n## Existing Wiki Knowledge for ${wikiPage.entityName}\n${wikiPage.description}\n\n${sectionSummaries}`;
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.error("[chat/wiki-first] lookup failed:", err);
+          }
+        }
+
         // Build system prompt with soul + OpenUI prompt + user memory context
         const { CRATE_SOUL } = await import("@/lib/soul");
         const { getCrateOpenUIPrompt } = await import("@/lib/openui/prompt");
@@ -412,6 +439,7 @@ async function streamAgenticResponse(
           CRATE_SOUL,
           getCrateOpenUIPrompt(),
           memoryContext,
+          wikiContext,
         ].filter(Boolean).join("\n\n");
 
         // Wiki ingestion: collect mutation promises for session-end synthesis
