@@ -73,6 +73,15 @@ Open [localhost:3000](http://localhost:3000). You'll need Clerk, Convex, and at 
 - **Track deep dive** — `/track [song] [artist]` shows full credits (MusicBrainz + Discogs), samples (WhoSampled), lyrics (Genius), and vinyl pressings (Discogs) in a tabbed view. Crate's SongDNA competitor.
 - **Artist profile** — `/artist [name]` renders a full artist deep dive with tabbed discography (playable albums), influence connections (tappable chips), media (YouTube + external links), and top tracks
 
+### Tiny Desk DNA
+- **626 Tiny Desk concerts** — Browse NPR Tiny Desk performances (2021-2025) with genre filtering, timeline view, and random discovery
+- **Before/after hero** — Split-screen showing what NPR gives you (a video) vs. what Crate reveals (cited influence chain with sources)
+- **Influence chain companion pages** — Full musical DNA pages with YouTube videos, pull quotes, sonic DNA tags, and cited journalism for each influence connection
+- **Save as companion** — Run `/influence [artist]` in Crate, click "Save as Tiny Desk Companion" to generate a companion page with server-side YouTube + genre enrichment
+- **`/tinydesk` command** — Searchable artist picker inside the workspace with genre filters and surprise button
+- **Community catalog** — Companion pages created by users automatically appear in the public catalog with "EXPLORE DNA" badges
+- **Live at [digcrate.app/tinydesk](https://digcrate.app/tinydesk)**
+
 ### Connected services (Auth0 Token Vault)
 - **Spotify** — Read your library, playlists, and top artists. Create new playlists from research. Export influence chains as playlists.
 - **Tumblr** — Publish research to your blog. Discover music by tag across all of Tumblr. Blog selection for multi-blog accounts.
@@ -230,16 +239,29 @@ crate-web/
 │   │   ├── api/
 │   │   │   ├── chat/route.ts            # SSE streaming — agentic loop
 │   │   │   ├── auth0/                   # OAuth connect, callback, status, debug
+│   │   │   ├── tinydesk/                # Tiny Desk DNA APIs
+│   │   │   │   ├── save/route.ts       # Server-side companion save + enrichment
+│   │   │   │   └── enrich/route.ts     # YouTube ID + genre resolution
 │   │   │   ├── cuts/publish/            # Deep Cut publishing
 │   │   │   ├── stripe/                  # Checkout, portal, webhooks
 │   │   │   ├── skills/                  # Custom skill management
 │   │   │   ├── keys/route.ts            # API key management
 │   │   │   └── artwork/route.ts         # Spotify artwork proxy
+│   │   ├── tinydesk/                    # Tiny Desk DNA pages
+│   │   │   ├── page.tsx                # Landing page (626 artists, before/after hero)
+│   │   │   └── [slug]/page.tsx         # Companion page (influence chain scroll)
 │   │   ├── cuts/[shareId]/              # Public share page
 │   │   ├── w/[sessionId]/              # Workspace (authenticated)
 │   │   ├── pricing/                     # Pricing page
 │   │   └── help/                        # Help guide
 │   ├── components/
+│   │   ├── tinydesk/                    # Tiny Desk DNA components
+│   │   │   ├── catalog-client.tsx      # Genre filter, grid/timeline toggle, surprise me
+│   │   │   ├── artist-card.tsx         # Concert card with thumbnail + badges
+│   │   │   ├── genre-filter.tsx        # Scrollable genre pills
+│   │   │   ├── timeline-view.tsx       # Chronological timeline grouped by year
+│   │   │   ├── surprise-modal.tsx      # Random artist overlay
+│   │   │   └── video-influence-chain.tsx # Companion page influence scroll
 │   │   ├── chat/                        # Mobile header, mic, inline cards
 │   │   ├── workspace/
 │   │   │   ├── chat-panel.tsx           # Chat with OpenUI rendering
@@ -268,6 +290,7 @@ crate-web/
 │       │   ├── user-skills.ts          # Custom skill tools
 │       │   ├── prep-research.ts        # Perplexity-powered research
 │       │   └── ...                     # WhoSampled, Bandcamp, radio, etc.
+│       ├── tinydesk-enrichment.ts       # Shared YouTube + genre resolution
 │       ├── auth0-token-vault.ts        # OAuth token exchange via Management API
 │       ├── agentic-loop.ts             # Agentic loop (Anthropic + OpenRouter)
 │       ├── plans.ts                    # Subscription tiers, rate limiting
