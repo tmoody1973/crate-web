@@ -295,4 +295,16 @@ export default defineSchema({
     .index("by_share_id", ["shareId"])
     .index("by_user", ["userId"])
     .index("by_artifact", ["artifactId"]),
+
+  tinydeskCompanions: defineTable({
+    slug: v.string(),
+    artist: v.string(),
+    tagline: v.string(),
+    tinyDeskVideoId: v.string(),
+    nodes: v.string(),
+    userId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_user", ["userId"]),
 });
