@@ -16,133 +16,117 @@ interface VideoInfluenceChainProps {
   nodes: TinyDeskNode[];
 }
 
-function getDotColor(strength: number): string {
-  if (strength > 0.8) return "#22C55E";
-  if (strength > 0.5) return "#EAB308";
-  return "#F97316";
+function getStrengthLabel(strength: number): string {
+  if (strength > 0.85) return "Direct influence";
+  if (strength > 0.7) return "Strong connection";
+  if (strength > 0.55) return "Notable thread";
+  return "Cultural echo";
+}
+
+function getStrengthColor(strength: number): string {
+  if (strength > 0.85) return "#22C55E";
+  if (strength > 0.7) return "#06B6D4";
+  if (strength > 0.55) return "#EAB308";
+  return "#A78BFA";
 }
 
 export function VideoInfluenceChain({ nodes }: VideoInfluenceChainProps) {
   return (
-    <div className="relative w-full">
+    <div className="w-full">
       {nodes.map((node, index) => {
-        const dotColor = getDotColor(node.strength);
-        const isLast = index === nodes.length - 1;
+        const strengthColor = getStrengthColor(node.strength);
+        const strengthLabel = getStrengthLabel(node.strength);
 
         return (
-          <div key={`${node.name}-${index}`} className="relative flex gap-6 md:gap-8">
-            {/* Left timeline column */}
-            <div className="relative flex flex-col items-center" style={{ minWidth: "24px" }}>
-              {/* Vertical line above dot (not for first node) */}
-              {index > 0 && (
+          <div key={`${node.name}-${index}`}>
+            {/* Divider between sections */}
+            {index > 0 && (
+              <div className="flex flex-col items-center py-8 md:py-12">
                 <div
-                  className="w-0.5 flex-shrink-0"
-                  style={{
-                    backgroundColor: "#3f3f46",
-                    height: "48px",
-                    marginBottom: "-4px",
-                  }}
+                  className="w-px"
+                  style={{ height: "40px", backgroundColor: "#27272a" }}
                 />
-              )}
-              {index === 0 && <div style={{ height: "8px" }} />}
-
-              {/* Dot */}
-              <div
-                className="relative z-10 flex-shrink-0 rounded-full"
-                style={{
-                  width: "16px",
-                  height: "16px",
-                  backgroundColor: dotColor,
-                  boxShadow: `0 0 0 3px rgba(9,9,11,1), 0 0 0 5px ${dotColor}40`,
-                  marginTop: index > 0 ? "0" : "0",
-                }}
-              />
-
-              {/* Vertical line below dot */}
-              {!isLast && (
                 <div
-                  className="w-0.5 flex-grow"
+                  className="my-3 rounded-full px-4 py-1.5 text-[11px] font-medium tracking-widest uppercase"
                   style={{
-                    backgroundColor: "#3f3f46",
-                    minHeight: "48px",
+                    backgroundColor: "#18181b",
+                    border: "1px solid #27272a",
+                    color: "#52525b",
                   }}
+                >
+                  influenced
+                </div>
+                <div
+                  className="w-px"
+                  style={{ height: "40px", backgroundColor: "#27272a" }}
                 />
-              )}
-            </div>
+                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" style={{ marginTop: "-1px" }}>
+                  <path d="M6 8L0 0H12L6 8Z" fill="#27272a" />
+                </svg>
+              </div>
+            )}
 
-            {/* Right content column */}
-            <div
-              className="flex-1 rounded-xl p-5 md:p-6"
-              style={{
-                backgroundColor: "#18181b",
-                border: "1px solid #27272a",
-                marginBottom: isLast ? "0" : "0",
-                marginTop: index > 0 ? "48px" : "0",
-              }}
-            >
-              {/* Artist name + era badge */}
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <h3
-                  className="font-bold"
-                  style={{ color: "#ffffff", fontSize: "18px" }}
+            {/* Full-width artist section */}
+            <section className="px-4 md:px-0">
+              {/* Section number + artist name */}
+              <div className="mb-6 md:mb-8">
+                <div className="flex items-center gap-3 mb-3">
+                  <span
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+                    style={{
+                      backgroundColor: `${strengthColor}20`,
+                      color: strengthColor,
+                      border: `1px solid ${strengthColor}40`,
+                    }}
+                  >
+                    {index + 1}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className="rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider"
+                      style={{
+                        backgroundColor: `${strengthColor}15`,
+                        color: strengthColor,
+                        border: `1px solid ${strengthColor}30`,
+                      }}
+                    >
+                      {strengthLabel}
+                    </span>
+                    {node.era && (
+                      <span
+                        className="rounded-full px-2.5 py-0.5 text-[10px] font-medium"
+                        style={{ backgroundColor: "#27272a", color: "#71717a" }}
+                      >
+                        {node.era}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <h2
+                  className="text-3xl md:text-4xl font-bold tracking-tight"
+                  style={{ color: "#ffffff" }}
                 >
                   {node.name}
-                </h3>
-                {node.era && (
-                  <span
-                    className="rounded-full px-2 py-0.5 text-xs font-medium"
-                    style={{ backgroundColor: "#3f3f46", color: "#a1a1aa" }}
-                  >
-                    {node.era}
-                  </span>
-                )}
-              </div>
-
-              {/* Role tag */}
-              <div className="mb-3">
-                <span
-                  className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                  style={{ backgroundColor: "rgba(8,145,178,0.2)", color: "#22d3ee" }}
+                </h2>
+                <p
+                  className="mt-1 text-sm md:text-base font-medium"
+                  style={{ color: "#06B6D4" }}
                 >
                   {node.role}
-                </span>
+                </p>
               </div>
 
-              {/* Connection text */}
-              <p
-                className="mb-3 leading-relaxed"
-                style={{ color: "#d4d4d8", fontSize: "14px" }}
-              >
-                {node.connection}
-              </p>
-
-              {/* Source citation */}
-              {node.source && (
-                <p className="mb-4" style={{ color: "#71717a", fontSize: "11px" }}>
-                  Source:{" "}
-                  {node.sourceUrl ? (
-                    <a
-                      href={node.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline hover:opacity-80 transition-opacity"
-                      style={{ color: "#71717a" }}
-                    >
-                      {node.source}
-                    </a>
-                  ) : (
-                    node.source
-                  )}
-                </p>
-              )}
-
-              {/* YouTube embed - 16:9 aspect ratio */}
+              {/* Video embed - large, cinematic */}
               <div
-                className="relative w-full overflow-hidden rounded-lg"
-                style={{ paddingTop: "56.25%" }}
+                className="relative w-full overflow-hidden rounded-xl md:rounded-2xl"
+                style={{
+                  paddingTop: "56.25%",
+                  boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+                }}
               >
                 <iframe
-                  src={`https://www.youtube.com/embed/${node.videoId}`}
+                  src={`https://www.youtube.com/embed/${node.videoId}?rel=0&modestbranding=1`}
                   title={node.videoTitle}
                   className="absolute inset-0 h-full w-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -151,12 +135,41 @@ export function VideoInfluenceChain({ nodes }: VideoInfluenceChainProps) {
                 />
               </div>
               <p
-                className="mt-2 text-center"
-                style={{ color: "#52525b", fontSize: "11px" }}
+                className="mt-3 text-center"
+                style={{ color: "#3f3f46", fontSize: "12px" }}
               >
                 {node.videoTitle}
               </p>
-            </div>
+
+              {/* Connection story - magazine-style paragraph */}
+              <div className="mt-8 md:mt-10 max-w-2xl mx-auto">
+                <p
+                  className="text-base md:text-lg leading-relaxed md:leading-loose"
+                  style={{ color: "#d4d4d8" }}
+                >
+                  {node.connection}
+                </p>
+
+                {/* Source as footnote */}
+                {node.source && (
+                  <p className="mt-4" style={{ color: "#52525b", fontSize: "12px" }}>
+                    {node.sourceUrl ? (
+                      <a
+                        href={node.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-zinc-700 underline-offset-2 hover:decoration-zinc-500 transition-colors"
+                        style={{ color: "#52525b" }}
+                      >
+                        {node.source} ↗
+                      </a>
+                    ) : (
+                      node.source
+                    )}
+                  </p>
+                )}
+              </div>
+            </section>
           </div>
         );
       })}

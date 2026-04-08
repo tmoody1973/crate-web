@@ -153,20 +153,29 @@ export default async function TinyDeskCompanionPage({
         </div>
       </section>
 
-      {/* Influence Chain */}
-      <section className="mx-auto max-w-4xl px-6 pb-16">
-        <div className="mb-10">
-          <h2
-            className="font-[family-name:var(--font-bebas)] tracking-wider mb-2"
-            style={{ color: "#f4f4f5", fontSize: "36px" }}
-          >
-            The Musical DNA
-          </h2>
-          <p style={{ color: "#71717a", fontSize: "14px" }}>
-            The influence chain behind the performance — traced through sources, samples, and sound.
-          </p>
-        </div>
+      {/* Story intro */}
+      <section className="mx-auto max-w-2xl px-6 pb-16 text-center">
+        <div
+          className="w-px mx-auto"
+          style={{ height: "48px", backgroundColor: "#27272a" }}
+        />
+        <p
+          className="my-8 text-lg md:text-xl leading-relaxed"
+          style={{ color: "#a1a1aa" }}
+        >
+          Every sound has a story. Scroll to trace the musical DNA behind this performance — {data.nodes.length} connections, each one cited from real music journalism and criticism.
+        </p>
+        <div
+          className="w-px mx-auto"
+          style={{ height: "48px", backgroundColor: "#27272a" }}
+        />
+        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" className="mx-auto mt-[-1px]">
+          <path d="M6 8L0 0H12L6 8Z" fill="#27272a" />
+        </svg>
+      </section>
 
+      {/* Influence Chain — storytelling scroll */}
+      <section className="mx-auto max-w-4xl px-6 pb-24">
         <VideoInfluenceChain nodes={data.nodes} />
       </section>
 
