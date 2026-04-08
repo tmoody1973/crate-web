@@ -25,6 +25,7 @@ interface CompanionInfo {
   slug: string;
   artist: string;
   genre?: string[];
+  tinyDeskVideoId: string;
   isCommunitySubmitted?: boolean;
 }
 
@@ -53,7 +54,7 @@ export default async function TinyDeskCatalogPage() {
       genre: c.genre ?? [],
       concertType: c.isCommunitySubmitted ? "Community" : "Tiny Desk Concert",
       sourceUrl: "",
-      youtubeId: null,
+      youtubeId: c.tinyDeskVideoId || null,
     }));
   const concerts = [...staticConcerts, ...communityConcerts];
 

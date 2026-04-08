@@ -29,6 +29,7 @@ export const listSlugs = query({
       slug: c.slug,
       artist: c.artist,
       genre: c.genre,
+      tinyDeskVideoId: c.tinyDeskVideoId,
       isCommunitySubmitted: c.isCommunitySubmitted,
     }));
   },
