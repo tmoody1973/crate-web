@@ -303,6 +303,9 @@ export default defineSchema({
     tinyDeskVideoId: v.string(),
     nodes: v.string(),
     userId: v.id("users"),
+    genre: v.optional(v.array(v.string())),
+    sourceUrl: v.optional(v.string()),
+    isCommunitySubmitted: v.optional(v.boolean()),
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])

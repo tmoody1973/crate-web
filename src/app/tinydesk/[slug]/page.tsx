@@ -6,6 +6,9 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 import { notFound } from "next/navigation";
 import { VideoInfluenceChain } from "@/components/tinydesk/video-influence-chain";
 import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
+import type { CatalogConcert } from "@/components/tinydesk/catalog-types";
+import { GENRE_COLORS } from "@/components/tinydesk/catalog-types";
+import catalogData from "../../../../public/tinydesk/catalog.json";
 
 interface TinyDeskNode {
   name: string;
@@ -111,6 +114,17 @@ export default async function TinyDeskCompanionPage({
     notFound();
   }
 
+  // Find same-genre artists from catalog
+  const catalog = catalogData as CatalogConcert[];
+  const thisConcert = catalog.find((c) => c.slug === slug);
+  const thisGenres: string[] = thisConcert?.genre ?? [];
+  const sameGenre = thisGenres.length > 0
+    ? catalog
+        .filter((c) => c.slug !== slug && c.genre.some((g) => thisGenres.includes(g)))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 6)
+    : [];
+
   return (
     <main
       className={`${bebasNeue.variable} ${spaceGrotesk.variable} font-[family-name:var(--font-space)] min-h-screen`}
@@ -129,12 +143,13 @@ export default async function TinyDeskCompanionPage({
             style={{ height: "40px", width: "auto" }}
           />
         </Link>
-        <span
-          className="font-[family-name:var(--font-bebas)] tracking-widest text-sm md:text-base"
+        <Link
+          href="/tinydesk"
+          className="font-[family-name:var(--font-bebas)] tracking-widest text-sm md:text-base transition-colors hover:text-cyan-400"
           style={{ color: "#71717a" }}
         >
-          TINY DESK COMPANION
-        </span>
+          ← BACK TO CATALOG
+        </Link>
       </header>
 
       {/* Hero */}
@@ -199,6 +214,71 @@ export default async function TinyDeskCompanionPage({
       <section className="mx-auto max-w-4xl px-6 pb-24">
         <VideoInfluenceChain nodes={data.nodes} />
       </section>
+
+      {/* More in [genre] */}
+      {sameGenre.length > 0 && (
+        <section className="mx-auto max-w-4xl px-6 pb-16">
+          <h2
+            className="font-[family-name:var(--font-bebas)] tracking-wide mb-6"
+            style={{ color: "#f4f4f5", fontSize: "28px" }}
+          >
+            More in{" "}
+            {thisGenres.map((g, i) => (
+              <span key={g}>
+                {i > 0 && " & "}
+                <span style={{ color: GENRE_COLORS[g] ?? "#a1a1aa" }}>{g}</span>
+              </span>
+            ))}
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {sameGenre.map((c) => (
+              <Link
+                key={c.slug}
+                href={`/tinydesk?genre=${encodeURIComponent(c.genre[0])}`}
+                className="group rounded-xl overflow-hidden transition-all hover:-translate-y-1"
+                style={{ backgroundColor: "#18181b", border: "1px solid #27272a" }}
+              >
+                <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
+                  {c.youtubeId ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`https://img.youtube.com/vi/${c.youtubeId}/mqdefault.jpg`}
+                      alt={c.artist}
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-zinc-800" />
+                  )}
+                  <div
+                    className="absolute inset-0"
+                    style={{ background: "linear-gradient(to top, rgba(9,9,11,0.85) 0%, transparent 60%)" }}
+                  />
+                </div>
+                <div className="p-3">
+                  <p
+                    className="font-[family-name:var(--font-bebas)] tracking-wide group-hover:text-cyan-400 transition-colors truncate"
+                    style={{ color: "#f4f4f5", fontSize: "18px" }}
+                  >
+                    {c.artist}
+                  </p>
+                  <div className="flex gap-1">
+                    {c.genre.slice(0, 2).map((g) => (
+                      <span
+                        key={g}
+                        className="text-[9px]"
+                        style={{ color: GENRE_COLORS[g] ?? "#71717a" }}
+                      >
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Footer CTA */}
       <footer

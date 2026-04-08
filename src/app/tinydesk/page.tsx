@@ -1,68 +1,61 @@
 import Link from "next/link";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../convex/_generated/api";
+import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
+import { CatalogClient } from "@/components/tinydesk/catalog-client";
+import type { CatalogConcert } from "@/components/tinydesk/catalog-types";
+import catalogData from "../../../public/tinydesk/catalog.json";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
-
-interface TinyDeskData {
-  artist: string;
-  slug: string;
-  tagline: string;
-  tinyDeskVideoId: string;
-}
 
 export const metadata = {
-  title: "Tiny Desk Companion — Musical DNA | Crate",
+  title: "Tiny Desk Catalog — 626 Concerts, One Musical Universe | Crate",
   description:
-    "Explore the influence chains behind NPR Tiny Desk performances. Dig into the musical DNA of your favorite artists.",
+    "Browse 626 NPR Tiny Desk concerts (2021-2025). Filter by genre, explore timelines, and discover the musical DNA behind each performance.",
   openGraph: {
-    title: "Tiny Desk Companion — Musical DNA | Crate",
+    title: "Tiny Desk Catalog — 626 Concerts | Crate",
     description:
-      "Explore the influence chains behind NPR Tiny Desk performances.",
+      "Browse 626 NPR Tiny Desk concerts. Filter by genre, explore timelines, discover musical DNA.",
     type: "website",
     url: "https://digcrate.app/tinydesk",
   },
 };
 
-async function getAllArtists(): Promise<TinyDeskData[]> {
-  try {
-    const companions = await convex.query(api.tinydeskCompanions.listAll, {});
-    const fromConvex: TinyDeskData[] = companions.map((c) => ({
-      artist: c.artist,
-      slug: c.slug,
-      tagline: c.tagline,
-      tinyDeskVideoId: c.tinyDeskVideoId,
-    }));
+interface CompanionInfo {
+  slug: string;
+  artist: string;
+  genre?: string[];
+  isCommunitySubmitted?: boolean;
+}
 
-    // Also check static files for backward compat
-    try {
-      const { readdir, readFile } = await import("fs/promises");
-      const { join } = await import("path");
-      const dir = join(process.cwd(), "public", "tinydesk");
-      const files = await readdir(dir);
-      const jsonFiles = files.filter((f) => f.endsWith(".json"));
-      const fromStatic = await Promise.all(
-        jsonFiles.map(async (file) => {
-          try {
-            const raw = await readFile(join(dir, file), "utf-8");
-            return JSON.parse(raw) as TinyDeskData;
-          } catch { return null; }
-        }),
-      );
-      const staticArtists = fromStatic.filter((a): a is TinyDeskData => a !== null);
-      const convexSlugs = new Set(fromConvex.map((a) => a.slug));
-      return [...fromConvex, ...staticArtists.filter((a) => !convexSlugs.has(a.slug))];
-    } catch {
-      return fromConvex;
-    }
+async function getCompanions(): Promise<CompanionInfo[]> {
+  try {
+    return await convex.query(api.tinydeskCompanions.listSlugs, {});
   } catch {
     return [];
   }
 }
 
-export default async function TinyDeskIndexPage() {
-  const artists = await getAllArtists();
+export default async function TinyDeskCatalogPage() {
+  const companions = await getCompanions();
+  const companionSlugs = companions.map((c) => c.slug);
+
+  // Merge: static catalog + community-submitted companions not in the JSON
+  const staticConcerts = catalogData as CatalogConcert[];
+  const staticSlugs = new Set(staticConcerts.map((c) => c.slug));
+  const communityConcerts: CatalogConcert[] = companions
+    .filter((c) => !staticSlugs.has(c.slug))
+    .map((c) => ({
+      artist: c.artist,
+      slug: c.slug,
+      date: "",
+      year: 0,
+      genre: c.genre ?? [],
+      concertType: c.isCommunitySubmitted ? "Community" : "Tiny Desk Concert",
+      sourceUrl: "",
+      youtubeId: null,
+    }));
+  const concerts = [...staticConcerts, ...communityConcerts];
 
   return (
     <main
@@ -87,12 +80,12 @@ export default async function TinyDeskIndexPage() {
           className="font-[family-name:var(--font-bebas)] rounded px-5 py-2 text-sm tracking-widest transition-opacity hover:opacity-90"
           style={{ backgroundColor: "#E8520E", color: "#F5F0E8" }}
         >
-          GET STARTED FREE
+          TRY CRATE FREE
         </Link>
       </header>
 
       {/* Hero */}
-      <section className="mx-auto max-w-6xl px-6 py-16 md:py-20 text-center">
+      <section className="mx-auto max-w-6xl px-6 py-12 md:py-16 text-center">
         <p
           className="font-[family-name:var(--font-bebas)] tracking-widest mb-3"
           style={{ color: "#22d3ee", fontSize: "14px" }}
@@ -101,79 +94,69 @@ export default async function TinyDeskIndexPage() {
         </p>
         <h1
           className="font-[family-name:var(--font-bebas)] leading-none mb-4"
-          style={{ color: "#f4f4f5", fontSize: "clamp(48px,8vw,88px)" }}
+          style={{ color: "#f4f4f5", fontSize: "clamp(40px,7vw,80px)" }}
         >
-          Tiny Desk Companion
+          Tiny Desk Catalog
         </h1>
         <p
-          className="mx-auto max-w-2xl"
-          style={{ color: "#a1a1aa", fontSize: "20px", lineHeight: "1.6" }}
+          className="mx-auto max-w-2xl mb-2"
+          style={{ color: "#a1a1aa", fontSize: "18px", lineHeight: "1.6" }}
         >
-          Explore the musical DNA behind the performance. Every Tiny Desk Concert has a story — we traced it.
+          626 NPR Tiny Desk concerts from 2021–2025. Browse by genre, scroll the timeline, or let us surprise you.
+        </p>
+        <p style={{ color: "#52525b", fontSize: "14px" }}>
+          {companionSlugs.length > 0 && (
+            <>
+              <span style={{ color: "#22c55e" }}>●</span>{" "}
+              {companionSlugs.length} artist{companionSlugs.length !== 1 ? "s" : ""} with Musical DNA companion pages
+            </>
+          )}
         </p>
       </section>
 
-      {/* Artist Grid */}
-      <section className="mx-auto max-w-6xl px-6 pb-20">
-        {artists.length === 0 ? (
-          <p className="text-center" style={{ color: "#52525b" }}>
-            No companions available yet. Check back soon.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {artists.map((artist) => (
-              <Link
-                key={artist.slug}
-                href={`/tinydesk/${artist.slug}`}
-                className="group block rounded-xl overflow-hidden transition-transform hover:-translate-y-1"
-                style={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #27272a",
-                }}
-              >
-                {/* YouTube thumbnail */}
-                <div className="relative w-full overflow-hidden" style={{ paddingTop: "56.25%" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`https://img.youtube.com/vi/${artist.tinyDeskVideoId}/mqdefault.jpg`}
-                    alt={`${artist.artist} — NPR Tiny Desk`}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        "linear-gradient(to top, rgba(9,9,11,0.8) 0%, transparent 60%)",
-                    }}
-                  />
-                </div>
-
-                {/* Card content */}
-                <div className="p-5">
-                  <h2
-                    className="font-[family-name:var(--font-bebas)] tracking-wide mb-1 group-hover:text-cyan-400 transition-colors"
-                    style={{ color: "#f4f4f5", fontSize: "26px" }}
-                  >
-                    {artist.artist}
-                  </h2>
-                  <p
-                    className="line-clamp-2"
-                    style={{ color: "#71717a", fontSize: "13px", lineHeight: "1.5" }}
-                  >
-                    {artist.tagline}
-                  </p>
-                  <p
-                    className="mt-3 font-[family-name:var(--font-bebas)] tracking-widest text-xs"
-                    style={{ color: "#22d3ee" }}
-                  >
-                    EXPLORE INFLUENCE CHAIN →
-                  </p>
-                </div>
-              </Link>
-            ))}
+      {/* What is this / What Crate does */}
+      <section className="mx-auto max-w-4xl px-6 pb-12">
+        <div
+          className="rounded-xl p-6 md:p-8 grid md:grid-cols-2 gap-6"
+          style={{ backgroundColor: "#0A1628", border: "1px solid #1d2d44" }}
+        >
+          <div>
+            <h2
+              className="font-[family-name:var(--font-bebas)] tracking-wide mb-3"
+              style={{ color: "#f4f4f5", fontSize: "24px" }}
+            >
+              Why This Exists
+            </h2>
+            <p style={{ color: "#a1a1aa", fontSize: "14px", lineHeight: "1.7" }}>
+              Every Tiny Desk performance has a story that goes deeper than the set list.
+              Who influenced the artist? What genres collide in their sound? Where does their
+              music come from? This catalog lets you explore five years of Tiny Desk concerts
+              and trace those connections.
+            </p>
           </div>
-        )}
+          <div>
+            <h2
+              className="font-[family-name:var(--font-bebas)] tracking-wide mb-3"
+              style={{ color: "#f4f4f5", fontSize: "24px" }}
+            >
+              What Crate Does
+            </h2>
+            <p style={{ color: "#a1a1aa", fontSize: "14px", lineHeight: "1.7" }}>
+              Crate is an AI-powered music research agent. It searches 20+ sources — interviews,
+              liner notes, music journalism, databases — to build influence chains, find sample
+              origins, and map the musical DNA of any artist. Pick any artist below and generate
+              their companion page in seconds.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Catalog */}
+      <section className="mx-auto max-w-6xl px-6 pb-20">
+        <CatalogClient
+          concerts={concerts}
+          companionSlugs={companionSlugs}
+        />
       </section>
 
       {/* CTA Section */}

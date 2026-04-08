@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
 
 export default function WorkspacePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userId: clerkId } = useAuth();
   const { user: clerkUser } = useUser();
   const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
@@ -31,7 +32,9 @@ export default function WorkspacePage() {
     if (!user || creating.current) return;
     creating.current = true;
     createSession({ userId: user._id }).then((id) => {
-      router.replace(`/w/${id}`);
+      const prompt = searchParams.get("prompt");
+      const qs = prompt ? `?prompt=${encodeURIComponent(prompt)}` : "";
+      router.replace(`/w/${id}${qs}`);
     });
   }, [user, createSession, router]);
 

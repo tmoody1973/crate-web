@@ -21,6 +21,19 @@ export const listAll = query({
   },
 });
 
+export const listSlugs = query({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("tinydeskCompanions").collect();
+    return all.map((c) => ({
+      slug: c.slug,
+      artist: c.artist,
+      genre: c.genre,
+      isCommunitySubmitted: c.isCommunitySubmitted,
+    }));
+  },
+});
+
 export const create = mutation({
   args: {
     slug: v.string(),
@@ -29,6 +42,9 @@ export const create = mutation({
     tinyDeskVideoId: v.string(),
     nodes: v.string(),
     userId: v.id("users"),
+    genre: v.optional(v.array(v.string())),
+    sourceUrl: v.optional(v.string()),
+    isCommunitySubmitted: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -42,6 +58,8 @@ export const create = mutation({
         tagline: args.tagline,
         tinyDeskVideoId: args.tinyDeskVideoId,
         nodes: args.nodes,
+        genre: args.genre,
+        sourceUrl: args.sourceUrl,
       });
       return existing._id;
     }

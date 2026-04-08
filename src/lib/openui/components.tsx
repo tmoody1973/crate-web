@@ -9,6 +9,7 @@ import { useAuth } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
 import { usePlayerSafe } from "@/components/player/player-provider";
 import { useIsMobile } from "@/hooks/use-is-mobile";
+import { toSlug } from "@/components/tinydesk/catalog-types";
 
 const SpotifyWebPlayer = dynamic(
   () => import("@/components/spotify/spotify-player").then((m) => ({ default: m.SpotifyWebPlayer })),
@@ -124,6 +125,116 @@ function SlackSendButton({ label }: { label: string }) {
         <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.52-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.52V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.124a2.528 2.528 0 0 1 2.523 2.52A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.52h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
       </svg>
       Slack
+    </button>
+  );
+}
+
+// ── Save as Tiny Desk Companion button ──────────────────────────
+
+interface SaveTinyDeskConnection {
+  name: string;
+  weight: number;
+  relationship: string;
+  context: string;
+  sources?: Array<{ name: string; url: string; snippet?: string }>;
+  imageUrl?: string;
+  pullQuote?: string;
+  pullQuoteAttribution?: string;
+  sonicElements?: string[];
+  keyWorks?: string;
+}
+
+function SaveTinyDeskButton({ artist, connections, tagline }: { artist: string; connections: readonly Record<string, unknown>[]; tagline: string }) {
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const { userId: clerkId } = useAuth();
+  const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
+  const createCompanion = useMutation(api.tinydeskCompanions.create);
+
+  const handleSave = async () => {
+    if (!user) return;
+    setStatus("saving");
+    try {
+      const slug = toSlug(artist);
+
+      // Enrich: resolve YouTube ID + genre in parallel on the server
+      let videoId = "";
+      let genre: string[] = [];
+      try {
+        const res = await fetch("/api/tinydesk/enrich", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ artist }),
+        });
+        if (res.ok) {
+          const enriched = await res.json();
+          videoId = enriched.youtubeId ?? "";
+          genre = enriched.genre ?? [];
+        }
+      } catch { /* proceed without enrichment */ }
+
+      // Build nodes for the companion page format
+      const nodes = connections.map((c) => {
+        const sources = Array.isArray(c.sources) ? c.sources as Array<{ name?: string; url?: string }> : [];
+        return {
+          name: String(c.name ?? ""),
+          role: String(c.relationship ?? ""),
+          connection: String(c.context ?? ""),
+          strength: typeof c.weight === "number" ? c.weight : 0.5,
+          source: sources[0]?.name ?? "",
+          sourceUrl: sources[0]?.url ?? "",
+          videoId: "",
+          videoTitle: "",
+        };
+      });
+
+      await createCompanion({
+        slug,
+        artist,
+        tagline: tagline.slice(0, 200),
+        tinyDeskVideoId: videoId,
+        nodes: JSON.stringify(nodes),
+        userId: user._id,
+        genre: genre.length > 0 ? genre : undefined,
+        isCommunitySubmitted: true,
+      });
+      setStatus("saved");
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  if (!user) return null;
+
+  if (status === "saved") {
+    const slug = toSlug(artist);
+    return (
+      <a
+        href={`/tinydesk/${slug}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 rounded-md border border-emerald-700 bg-emerald-900/30 px-2.5 py-1 text-[11px] text-emerald-400 hover:bg-emerald-900/50 transition-colors"
+      >
+        ✓ View Companion Page
+      </a>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleSave}
+      disabled={status === "saving"}
+      className="inline-flex items-center gap-1.5 rounded-md border border-cyan-800 bg-cyan-900/30 px-2.5 py-1 text-[11px] text-cyan-400 hover:bg-cyan-900/50 hover:border-cyan-600 transition-colors disabled:opacity-50"
+    >
+      {status === "saving" ? (
+        <>
+          <span className="h-3 w-3 animate-spin rounded-full border border-cyan-400 border-t-transparent" />
+          Saving...
+        </>
+      ) : status === "error" ? (
+        "Retry Save"
+      ) : (
+        <>🎵 Save as Tiny Desk Companion</>
+      )}
     </button>
   );
 }
@@ -1868,7 +1979,7 @@ export const InfluenceChain = defineComponent({
             </div>
 
             {/* Action buttons */}
-            <div className="flex gap-2 border-t border-zinc-800 pt-3 mt-3">
+            <div className="flex flex-wrap gap-2 border-t border-zinc-800 pt-3 mt-3">
               <SlackSendButton label={`${props.artist} influence chain`} />
               <button
                 onClick={() => injectChatMessage(`Save the ${props.artist} influence chain as a Spotify playlist`)}
@@ -1876,6 +1987,11 @@ export const InfluenceChain = defineComponent({
               >
                 <span>▶</span> Export Playlist
               </button>
+              <SaveTinyDeskButton
+                artist={props.artist}
+                connections={rawConnections}
+                tagline={summary}
+              />
             </div>
           </>
         ) : (
