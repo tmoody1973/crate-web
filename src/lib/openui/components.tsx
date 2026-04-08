@@ -172,20 +172,53 @@ function SaveTinyDeskButton({ artist, connections, tagline }: { artist: string; 
         }
       } catch { /* proceed without enrichment */ }
 
-      // Build nodes for the companion page format
-      const nodes = connections.map((c) => {
+      // Build nodes — resolve YouTube videos for each connection artist
+      const nodePromises = connections.map(async (c) => {
         const sources = Array.isArray(c.sources) ? c.sources as Array<{ name?: string; url?: string }> : [];
+        const connName = String(c.name ?? "");
+        const sonicElements = Array.isArray(c.sonicElements)
+          ? (c.sonicElements as string[])
+          : [];
+        const keyWorksStr = typeof c.keyWorks === "string" ? c.keyWorks : "";
+
+        // Try to find a YouTube video for this artist
+        let nodeVideoId = "";
+        let nodeVideoTitle = "";
+        if (connName) {
+          try {
+            const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${connName} music`)}`;
+            const res = await fetch(searchUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+            if (res.ok) {
+              const html = await res.text();
+              const match = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
+              if (match) {
+                nodeVideoId = match[1];
+                nodeVideoTitle = `${connName}`;
+              }
+            }
+          } catch { /* skip */ }
+        }
+
         return {
-          name: String(c.name ?? ""),
+          name: connName,
           role: String(c.relationship ?? ""),
           connection: String(c.context ?? ""),
           strength: typeof c.weight === "number" ? c.weight : 0.5,
           source: sources[0]?.name ?? "",
           sourceUrl: sources[0]?.url ?? "",
-          videoId: "",
-          videoTitle: "",
+          sourceQuote: typeof c.pullQuote === "string" ? c.pullQuote : "",
+          sonicDna: sonicElements,
+          keyWorks: keyWorksStr
+            ? keyWorksStr.split("→").map((w) => {
+                const match = w.trim().match(/^(.+?)\s*\((\d{4})\)$/);
+                return match ? { title: match[1].trim(), year: match[2] } : { title: w.trim(), year: "" };
+              })
+            : [],
+          videoId: nodeVideoId,
+          videoTitle: nodeVideoTitle,
         };
       });
+      const nodes = await Promise.all(nodePromises);
 
       await createCompanion({
         slug,

@@ -120,29 +120,35 @@ export function VideoInfluenceChain({ nodes }: VideoInfluenceChainProps) {
                 </p>
               </div>
 
-              {/* Video embed - large, cinematic */}
-              <div
-                className="relative w-full overflow-hidden rounded-xl md:rounded-2xl"
-                style={{
-                  paddingTop: "56.25%",
-                  boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
-                }}
-              >
-                <iframe
-                  src={`https://www.youtube.com/embed/${node.videoId}?rel=0&modestbranding=1`}
-                  title={node.videoTitle}
-                  className="absolute inset-0 h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  loading="lazy"
-                />
-              </div>
-              <p
-                className="mt-3 text-center"
-                style={{ color: "#3f3f46", fontSize: "12px" }}
-              >
-                {node.videoTitle}
-              </p>
+              {/* Video embed - large, cinematic (skip if no video) */}
+              {node.videoId ? (
+                <>
+                  <div
+                    className="relative w-full overflow-hidden rounded-xl md:rounded-2xl"
+                    style={{
+                      paddingTop: "56.25%",
+                      boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+                    }}
+                  >
+                    <iframe
+                      src={`https://www.youtube.com/embed/${node.videoId}?rel=0&modestbranding=1`}
+                      title={node.videoTitle}
+                      className="absolute inset-0 h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      loading="lazy"
+                    />
+                  </div>
+                  {node.videoTitle && (
+                    <p
+                      className="mt-3 text-center"
+                      style={{ color: "#3f3f46", fontSize: "12px" }}
+                    >
+                      {node.videoTitle}
+                    </p>
+                  )}
+                </>
+              ) : null}
 
               {/* Connection story + enrichments */}
               <div className="mt-8 md:mt-10 max-w-2xl mx-auto">
