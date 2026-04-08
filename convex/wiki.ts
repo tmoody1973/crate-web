@@ -380,32 +380,50 @@ Synthesize this into a clean wiki page. Output valid JSON only.`;
     }
 
     const now = Date.now();
-    const rawSections = synthesized.sections as Array<{
-      heading: string;
-      content: string;
-      sources: Array<{ tool: string; url?: string; fetchedAt: number }>;
-    }> | undefined;
 
-    const sections = (rawSections ?? []).map((s) => ({
-      ...s,
+    // Sanitize Haiku output to match Convex validators exactly.
+    // Haiku may add extra fields that the strict validators reject.
+    const rawSections = Array.isArray(synthesized.sections) ? synthesized.sections : [];
+    const sections = rawSections.map((s: Record<string, unknown>) => ({
+      heading: String(s.heading ?? ""),
+      content: String(s.content ?? ""),
+      sources: Array.isArray(s.sources)
+        ? (s.sources as Array<Record<string, unknown>>).map((src) => ({
+            tool: String(src.tool ?? src.name ?? "Unknown"),
+            url: typeof src.url === "string" ? src.url : undefined,
+            fetchedAt: typeof src.fetchedAt === "number" ? src.fetchedAt : now,
+          }))
+        : [],
       lastSynthesizedAt: now,
     }));
 
+    const rawContradictions = Array.isArray(synthesized.contradictions) ? synthesized.contradictions : [];
+    const contradictions = rawContradictions.map((c: Record<string, unknown>) => ({
+      claim1: {
+        source: String((c.claim1 as Record<string, unknown>)?.source ?? ""),
+        value: String((c.claim1 as Record<string, unknown>)?.value ?? ""),
+      },
+      claim2: {
+        source: String((c.claim2 as Record<string, unknown>)?.source ?? ""),
+        value: String((c.claim2 as Record<string, unknown>)?.value ?? ""),
+      },
+      field: String(c.field ?? ""),
+    }));
+
+    const meta = (synthesized.metadata ?? {}) as Record<string, unknown>;
+    const metadata = {
+      origin: typeof meta.origin === "string" ? meta.origin : undefined,
+      yearsActive: typeof meta.yearsActive === "string" ? meta.yearsActive : undefined,
+      members: Array.isArray(meta.members) ? meta.members.map(String) : undefined,
+      genreDNA: Array.isArray(meta.genreDNA) ? meta.genreDNA.map(String) : undefined,
+    };
+
     await ctx.runMutation(internal.wiki.updateSynthesized, {
       pageId,
-      description: (synthesized.description as string) ?? "",
+      description: String(synthesized.description ?? ""),
       sections,
-      contradictions: (synthesized.contradictions as Array<{
-        claim1: { source: string; value: string };
-        claim2: { source: string; value: string };
-        field: string;
-      }>) ?? [],
-      metadata: {
-        origin: (synthesized.metadata as Record<string, unknown>)?.origin as string | undefined,
-        yearsActive: (synthesized.metadata as Record<string, unknown>)?.yearsActive as string | undefined,
-        members: (synthesized.metadata as Record<string, unknown>)?.members as string[] | undefined,
-        genreDNA: (synthesized.metadata as Record<string, unknown>)?.genreDNA as string[] | undefined,
-      },
+      contradictions,
+      metadata,
     });
   },
 });

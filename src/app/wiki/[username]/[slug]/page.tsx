@@ -9,6 +9,57 @@ import type { Metadata } from "next";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
+/** Format section content for display. Raw JSON gets summarized, not dumped. */
+function formatSectionContent(content: string): string {
+  // If it's not JSON, show as-is
+  if (!content.startsWith("{") && !content.startsWith("[")) {
+    return content;
+  }
+
+  try {
+    const data = JSON.parse(content);
+
+    // Influence chain data — extract the good parts
+    if (data.connections && Array.isArray(data.connections)) {
+      const lines: string[] = [];
+      if (data.artist) lines.push(`Artist: ${data.artist}`);
+      for (const conn of data.connections) {
+        const ctx = conn.context ? ` — ${conn.context}` : "";
+        lines.push(`${conn.relationship ?? "connected to"}: ${conn.artist}${ctx}`);
+        if (conn.sources?.[0]?.snippet) {
+          lines.push(`  "${conn.sources[0].snippet}" (${conn.sources[0].name ?? conn.sources[0].source ?? ""})`);
+        }
+      }
+      return lines.join("\n\n");
+    }
+
+    // Review data — extract snippets
+    if (data.reviews && Array.isArray(data.reviews)) {
+      const lines: string[] = [];
+      if (data.artist) lines.push(`${data.artist} — ${data.album ?? ""}`);
+      for (const review of data.reviews.slice(0, 3)) {
+        const snippet = review.snippet?.slice(0, 500) ?? "";
+        lines.push(`${review.source ?? review.title ?? ""}: ${snippet}`);
+      }
+      return lines.join("\n\n");
+    }
+
+    // Generic: extract readable string fields
+    const readable: string[] = [];
+    for (const [key, val] of Object.entries(data)) {
+      if (typeof val === "string" && val.length > 10 && key !== "full_text") {
+        readable.push(`${key}: ${(val as string).slice(0, 500)}`);
+      }
+    }
+    if (readable.length > 0) return readable.join("\n\n");
+
+    // Fallback: truncated JSON
+    return content.slice(0, 500) + (content.length > 500 ? "..." : "");
+  } catch {
+    return content.slice(0, 500) + (content.length > 500 ? "..." : "");
+  }
+}
+
 interface WikiSource {
   tool: string;
   url?: string;
@@ -222,7 +273,7 @@ export default async function WikiDetailPage({ params }: WikiPageProps) {
                     {section.heading}
                   </h3>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#d4d4d8" }}>
-                    {section.content}
+                    {formatSectionContent(section.content)}
                   </p>
                   <div className="flex gap-2 mt-2">
                     {section.sources.map((src, j) => (
@@ -257,7 +308,7 @@ export default async function WikiDetailPage({ params }: WikiPageProps) {
                         {section.heading}
                       </h3>
                       <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#d4d4d8" }}>
-                        {section.content}
+                        {formatSectionContent(section.content)}
                       </p>
                     </div>
                   ))}
