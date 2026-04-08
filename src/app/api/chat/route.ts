@@ -397,15 +397,23 @@ async function streamAgenticResponse(
               const artistSlug = artistMatch[1].trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
               const wikiPage = await convex.query(api.wiki.getSharedBySlug, { slug: artistSlug });
               if (wikiPage && wikiPage.sections.length > 0) {
-                const sectionSummaries = wikiPage.sections
-                  .filter((s: { content: string }) => s.content && !s.content.startsWith("{"))
-                  .map((s: { heading: string; content: string }) => `### ${s.heading}\n${s.content.slice(0, 500)}`)
-                  .join("\n\n");
+                // Cap at 3000 chars total to avoid context window bloat
+                const MAX_WIKI_CONTEXT = 3000;
+                let remaining = MAX_WIKI_CONTEXT;
+                const sectionParts: string[] = [];
+
+                for (const s of wikiPage.sections as Array<{ heading: string; content: string }>) {
+                  if (remaining <= 0) break;
+                  if (!s.content || s.content.startsWith("{")) continue;
+                  const part = `### ${s.heading}\n${s.content.slice(0, Math.min(400, remaining))}`;
+                  sectionParts.push(part);
+                  remaining -= part.length;
+                }
+
+                const sectionSummaries = sectionParts.join("\n\n");
                 if (sectionSummaries) {
-                  wikiContext = `\n\n## Existing Wiki Knowledge for ${wikiPage.entityName}\nThe following was gathered from previous research sessions. Use this as a starting point — verify, expand, and add new information rather than re-researching what's already known.\n\n${sectionSummaries}`;
-                  if (wikiPage.description) {
-                    wikiContext = `\n\n## Existing Wiki Knowledge for ${wikiPage.entityName}\n${wikiPage.description}\n\n${sectionSummaries}`;
-                  }
+                  const desc = wikiPage.description ? `${wikiPage.description}\n\n` : "";
+                  wikiContext = `\n\n## Existing Wiki Knowledge for ${wikiPage.entityName}\n${desc}Use this as a starting point — verify, expand, and add new information.\n\n${sectionSummaries}`;
                 }
               }
             }

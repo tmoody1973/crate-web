@@ -194,7 +194,6 @@ export default async function WikiDetailPage({ params }: WikiPageProps) {
           {isOwner ? (
             <VisibilityToggle
               pageId={page._id}
-              userId={page.userId}
               initialVisibility={page.visibility}
             />
           ) : (

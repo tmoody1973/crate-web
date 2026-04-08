@@ -83,8 +83,9 @@ export const getBySlug = query({
   },
 });
 
-/** Shared wiki lookup: find the richest wiki page for an artist across ALL users.
- *  Returns the page with the most sections (most research). Used by wiki-first response. */
+/** Shared wiki lookup: find the richest NON-PRIVATE wiki page for an artist across all users.
+ *  Only returns public/unlisted pages to prevent leaking private research.
+ *  Used by wiki-first response to give the LLM a head start. */
 export const getSharedBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
@@ -93,12 +94,12 @@ export const getSharedBySlug = query({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .collect();
 
-    // Filter archived, pick the richest (most sections)
-    const active = pages.filter((p) => !p.archivedAt);
-    if (active.length === 0) return null;
+    // Only non-archived, non-private pages (security: never leak private research)
+    const shared = pages.filter((p) => !p.archivedAt && p.visibility !== "private");
+    if (shared.length === 0) return null;
 
-    active.sort((a, b) => b.sections.length - a.sections.length);
-    return active[0];
+    shared.sort((a, b) => b.sections.length - a.sections.length);
+    return shared[0];
   },
 });
 
@@ -224,29 +225,40 @@ export const appendWikiData = mutation({
   },
 });
 
-/** Toggle visibility (private/unlisted/public). Owner only. */
+/** Toggle visibility (private/unlisted/public). Owner only, verified via Convex auth. */
 export const toggleVisibility = mutation({
   args: {
     pageId: v.id("wikiPages"),
-    userId: v.id("users"),
     visibility: v.union(
       v.literal("private"),
       v.literal("unlisted"),
       v.literal("public"),
     ),
   },
-  handler: async (ctx, { pageId, userId, visibility }) => {
+  handler: async (ctx, { pageId, visibility }) => {
+    // Verify ownership via Clerk JWT, not client-supplied userId
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
     const page = await ctx.db.get(pageId);
-    if (!page || page.userId !== userId) {
+    if (!page) throw new Error("Page not found");
+
+    // Look up the Convex user from Clerk identity
+    const owner = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!owner || page.userId !== owner._id) {
       throw new Error("Not authorized");
     }
+
     await ctx.db.patch(pageId, { visibility, updatedAt: Date.now() });
 
     // Keep index entry visibility in sync
     const indexEntry = await ctx.db
       .query("wikiIndexEntries")
       .withIndex("by_user_slug", (q) =>
-        q.eq("userId", userId).eq("slug", page.slug),
+        q.eq("userId", owner._id).eq("slug", page.slug),
       )
       .first();
     if (indexEntry) {
@@ -255,17 +267,26 @@ export const toggleVisibility = mutation({
   },
 });
 
-/** Soft-delete a wiki page. Owner only. */
+/** Soft-delete a wiki page. Owner only, verified via Convex auth. */
 export const archivePage = mutation({
   args: {
     pageId: v.id("wikiPages"),
-    userId: v.id("users"),
   },
-  handler: async (ctx, { pageId, userId }) => {
+  handler: async (ctx, { pageId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
     const page = await ctx.db.get(pageId);
-    if (!page || page.userId !== userId) {
+    if (!page) throw new Error("Page not found");
+
+    const owner = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!owner || page.userId !== owner._id) {
       throw new Error("Not authorized");
     }
+    const userId = owner._id;
     await ctx.db.patch(pageId, {
       archivedAt: Date.now(),
       updatedAt: Date.now(),

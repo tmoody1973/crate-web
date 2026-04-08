@@ -15,11 +15,10 @@ const VISIBILITY_STYLES: Record<Visibility, { bg: string; text: string; activeBg
 
 interface VisibilityToggleProps {
   pageId: string;
-  userId: string;
   initialVisibility: Visibility;
 }
 
-export function VisibilityToggle({ pageId, userId, initialVisibility }: VisibilityToggleProps) {
+export function VisibilityToggle({ pageId, initialVisibility }: VisibilityToggleProps) {
   const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
   const [saving, setSaving] = useState(false);
   const toggleVisibility = useMutation(api.wiki.toggleVisibility);
@@ -30,7 +29,6 @@ export function VisibilityToggle({ pageId, userId, initialVisibility }: Visibili
     try {
       await toggleVisibility({
         pageId: pageId as Id<"wikiPages">,
-        userId: userId as Id<"users">,
         visibility: newVisibility,
       });
       setVisibility(newVisibility);
