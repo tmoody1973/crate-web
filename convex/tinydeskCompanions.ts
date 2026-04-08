@@ -82,3 +82,18 @@ export const create = mutation({
     });
   },
 });
+
+export const deleteBySlug = mutation({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    const existing = await ctx.db
+      .query("tinydeskCompanions")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .first();
+    if (existing) {
+      await ctx.db.delete(existing._id);
+      return true;
+    }
+    return false;
+  },
+});

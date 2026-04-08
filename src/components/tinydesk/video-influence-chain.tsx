@@ -17,6 +17,7 @@ interface TinyDeskNode {
 
 interface VideoInfluenceChainProps {
   nodes: TinyDeskNode[];
+  artist?: string;
 }
 
 function getStrengthLabel(strength: number): string {
@@ -33,7 +34,27 @@ function getStrengthColor(strength: number): string {
   return "#A78BFA";
 }
 
-export function VideoInfluenceChain({ nodes }: VideoInfluenceChainProps) {
+export function VideoInfluenceChain({ nodes, artist }: VideoInfluenceChainProps) {
+  if (nodes.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-zinc-500 mb-4">
+          This influence chain hasn&apos;t been generated yet.
+        </p>
+        <a
+          href={`/w?prompt=${encodeURIComponent(`/influence ${artist ?? "this artist"}`)}`}
+          className="inline-block rounded-lg px-6 py-3 text-sm font-medium tracking-wide transition-opacity hover:opacity-90"
+          style={{ backgroundColor: "#22d3ee", color: "#09090b" }}
+        >
+          Generate Musical DNA in Crate
+        </a>
+        <p className="text-zinc-600 text-xs mt-3">
+          Then click &quot;Save as Tiny Desk Companion&quot; on the result
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full">
       {nodes.map((node, index) => {

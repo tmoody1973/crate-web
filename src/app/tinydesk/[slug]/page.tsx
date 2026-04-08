@@ -212,7 +212,7 @@ export default async function TinyDeskCompanionPage({
 
       {/* Influence Chain — storytelling scroll */}
       <section className="mx-auto max-w-4xl px-6 pb-24">
-        <VideoInfluenceChain nodes={data.nodes} />
+        <VideoInfluenceChain nodes={data.nodes} artist={data.artist} />
       </section>
 
       {/* More in [genre] */}
