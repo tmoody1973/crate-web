@@ -117,7 +117,7 @@ export default async function TinyDeskDNAPage() {
             src="/branding/tinydeskdna.svg"
             alt="Tiny Desk DNA"
             className="mx-auto mb-4"
-            style={{ height: "120px", width: "auto" }}
+            style={{ height: "300px", width: "auto" }}
           />
           <h1 className="sr-only">Tiny Desk DNA</h1>
           <p style={{ color: "#a1a1aa", fontSize: "16px" }}>
