@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { api } from "../../../convex/_generated/api";
 
-export default function WorkspacePage() {
+function WorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { userId: clerkId } = useAuth();
@@ -36,11 +36,25 @@ export default function WorkspacePage() {
       const qs = prompt ? `?prompt=${encodeURIComponent(prompt)}` : "";
       router.replace(`/w/${id}${qs}`);
     });
-  }, [user, createSession, router]);
+  }, [user, createSession, router, searchParams]);
 
   return (
     <div className="flex h-full items-center justify-center">
       <p className="text-zinc-500">Creating new session...</p>
     </div>
+  );
+}
+
+export default function WorkspacePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center">
+          <p className="text-zinc-500">Loading...</p>
+        </div>
+      }
+    >
+      <WorkspaceInner />
+    </Suspense>
   );
 }
