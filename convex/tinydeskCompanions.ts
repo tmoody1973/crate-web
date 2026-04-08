@@ -48,6 +48,17 @@ export const create = mutation({
     isCommunitySubmitted: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    // Validate nodes are not empty
+    let parsedNodes: unknown[];
+    try {
+      parsedNodes = JSON.parse(args.nodes);
+    } catch {
+      throw new Error("Invalid nodes JSON");
+    }
+    if (!Array.isArray(parsedNodes) || parsedNodes.length === 0) {
+      throw new Error("Companion must have at least one influence connection");
+    }
+
     const existing = await ctx.db
       .query("tinydeskCompanions")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))

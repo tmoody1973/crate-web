@@ -148,8 +148,6 @@ function SaveTinyDeskButton({ artist, connections, tagline }: { artist: string; 
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const { userId: clerkId } = useAuth();
   const user = useQuery(api.users.getByClerkId, clerkId ? { clerkId } : "skip");
-  const createCompanion = useMutation(api.tinydeskCompanions.create);
-
   const handleSave = async () => {
     if (!user) return;
     if (connections.length === 0) {
@@ -158,70 +156,35 @@ function SaveTinyDeskButton({ artist, connections, tagline }: { artist: string; 
     }
     setStatus("saving");
     try {
-      const slug = toSlug(artist);
-
-      // Build node data from connections
-      const connectionNames = connections
-        .map((c) => String(c.name ?? ""))
-        .filter(Boolean);
-
-      // Enrich: resolve YouTube IDs + genre + connection videos on the server
-      let videoId = "";
-      let genre: string[] = [];
-      let connectionVideos: Record<string, string> = {};
-      try {
-        const res = await fetch("/api/tinydesk/enrich", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ artist, connectionNames }),
-        });
-        if (res.ok) {
-          const enriched = await res.json();
-          videoId = enriched.youtubeId ?? "";
-          genre = enriched.genre ?? [];
-          connectionVideos = enriched.connectionVideos ?? {};
-        }
-      } catch { /* proceed without enrichment */ }
-
-      // Build nodes with server-resolved video IDs
-      const nodes = connections.map((c) => {
-        const sources = Array.isArray(c.sources) ? c.sources as Array<{ name?: string; url?: string }> : [];
-        const connName = String(c.name ?? "");
-        const sonicElements = Array.isArray(c.sonicElements)
-          ? (c.sonicElements as string[])
-          : [];
-        const keyWorksStr = typeof c.keyWorks === "string" ? c.keyWorks : "";
-
-        return {
-          name: connName,
-          role: String(c.relationship ?? ""),
-          connection: String(c.context ?? ""),
-          strength: typeof c.weight === "number" ? c.weight : 0.5,
-          source: sources[0]?.name ?? "",
-          sourceUrl: sources[0]?.url ?? "",
-          sourceQuote: typeof c.pullQuote === "string" ? c.pullQuote : "",
-          sonicDna: sonicElements,
-          keyWorks: keyWorksStr
-            ? keyWorksStr.split("→").map((w) => {
-                const m = w.trim().match(/^(.+?)\s*\((\d{4})\)$/);
-                return m ? { title: m[1].trim(), year: m[2] } : { title: w.trim(), year: "" };
-              })
-            : [],
-          videoId: connectionVideos[connName] ?? "",
-          videoTitle: connectionVideos[connName] ? connName : "",
-        };
+      const res = await fetch("/api/tinydesk/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          artist,
+          tagline: tagline.slice(0, 200),
+          userId: user._id,
+          connections: connections.map((c) => ({
+            name: String(c.name ?? ""),
+            weight: typeof c.weight === "number" ? c.weight : 0.5,
+            relationship: String(c.relationship ?? ""),
+            context: String(c.context ?? ""),
+            sources: Array.isArray(c.sources)
+              ? (c.sources as Array<{ name?: string; url?: string }>)
+              : [],
+            pullQuote: typeof c.pullQuote === "string" ? c.pullQuote : undefined,
+            sonicElements: Array.isArray(c.sonicElements)
+              ? (c.sonicElements as string[])
+              : undefined,
+            keyWorks: typeof c.keyWorks === "string" ? c.keyWorks : undefined,
+          })),
+        }),
       });
 
-      await createCompanion({
-        slug,
-        artist,
-        tagline: tagline.slice(0, 200),
-        tinyDeskVideoId: videoId,
-        nodes: JSON.stringify(nodes),
-        userId: user._id,
-        genre: genre.length > 0 ? genre : undefined,
-        isCommunitySubmitted: true,
-      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Save failed" }));
+        throw new Error(err.error ?? "Save failed");
+      }
+
       setStatus("saved");
     } catch {
       setStatus("error");
