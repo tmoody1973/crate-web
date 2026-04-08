@@ -152,6 +152,10 @@ function SaveTinyDeskButton({ artist, connections, tagline }: { artist: string; 
 
   const handleSave = async () => {
     if (!user) return;
+    if (connections.length === 0) {
+      setStatus("error");
+      return;
+    }
     setStatus("saving");
     try {
       const slug = toSlug(artist);

@@ -9,6 +9,9 @@ interface CatalogEntry {
   youtubeId: string | null;
 }
 
+// Allow up to 30 seconds for video resolution
+export const maxDuration = 30;
+
 /**
  * POST /api/tinydesk/enrich
  * Body: { artist: string, connectionNames?: string[] }
@@ -104,6 +107,7 @@ async function resolveYoutubeId(query: string): Promise<string | null> {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
+      signal: AbortSignal.timeout(5000),
     });
     if (res.ok) {
       const html = await res.text();
