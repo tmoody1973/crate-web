@@ -105,7 +105,7 @@ export function Hero() {
           className="font-[family-name:var(--font-bebas)] text-[28px] max-md:text-xl tracking-[2px]"
           style={{ color: "#E8520E" }}
         >
-          Crate is Spotify for The Curious
+          Every Record Has a Story.
         </p>
       </div>
 
