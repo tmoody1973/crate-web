@@ -82,14 +82,23 @@ export default async function TinyDeskDNAPage() {
         className="sticky top-0 z-50 flex items-center justify-between px-6 py-4"
         style={{ backgroundColor: "#0A1628", borderBottom: "1px solid #1d2d44" }}
       >
-        <Link href="/" className="shrink-0">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/branding/crate-logo_Light.svg"
+              alt="Crate"
+              style={{ height: "32px", width: "auto" }}
+            />
+          </Link>
+          <span style={{ color: "#27272a", fontSize: "20px" }}>×</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/branding/crate-logo_Light.svg"
-            alt="Crate"
-            style={{ height: "40px", width: "auto" }}
+            src="/branding/tinydeskdna.svg"
+            alt="Tiny Desk DNA"
+            style={{ height: "28px", width: "auto" }}
           />
-        </Link>
+        </div>
         <Link
           href="/sign-in"
           className="font-[family-name:var(--font-bebas)] rounded px-5 py-2 text-sm tracking-widest transition-opacity hover:opacity-90"
@@ -103,12 +112,14 @@ export default async function TinyDeskDNAPage() {
       <section className="mx-auto max-w-6xl px-6 py-10 md:py-16">
         {/* Label + subheading (NOT the dominant element) */}
         <div className="text-center mb-8">
-          <h1
-            className="font-[family-name:var(--font-bebas)] tracking-[0.2em] mb-2"
-            style={{ color: "#22d3ee", fontSize: "24px" }}
-          >
-            TINY DESK DNA
-          </h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/branding/tinydeskdna.svg"
+            alt="Tiny Desk DNA"
+            className="mx-auto mb-4"
+            style={{ height: "48px", width: "auto" }}
+          />
+          <h1 className="sr-only">Tiny Desk DNA</h1>
           <p style={{ color: "#a1a1aa", fontSize: "16px" }}>
             Every Tiny Desk has a story NPR doesn&apos;t tell. We traced it.
           </p>
