@@ -21,6 +21,7 @@ import type * as sessions from "../sessions.js";
 import type * as shares from "../shares.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as telegraph from "../telegraph.js";
+import type * as tinydeskCompanions from "../tinydeskCompanions.js";
 import type * as toolCalls from "../toolCalls.js";
 import type * as tumblr from "../tumblr.js";
 import type * as usage from "../usage.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   shares: typeof shares;
   subscriptions: typeof subscriptions;
   telegraph: typeof telegraph;
+  tinydeskCompanions: typeof tinydeskCompanions;
   toolCalls: typeof toolCalls;
   tumblr: typeof tumblr;
   usage: typeof usage;
