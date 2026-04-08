@@ -1,4 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import catalogData from "../../../../../public/tinydesk/catalog.json";
+import { toSlug } from "@/components/tinydesk/catalog-types";
+
+interface CatalogEntry {
+  artist: string;
+  slug: string;
+  genre: string[];
+  youtubeId: string | null;
+}
 
 /**
  * POST /api/tinydesk/enrich
@@ -6,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
  * Returns: { youtubeId: string | null, genre: string[] }
  *
  * Resolves YouTube video ID and genre for a Tiny Desk companion save.
+ * Checks the static catalog first for a known-good YouTube ID and genre.
  */
 export async function POST(req: NextRequest) {
   const { artist } = (await req.json()) as { artist: string };
@@ -13,9 +23,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "artist required" }, { status: 400 });
   }
 
+  // Check catalog first — it has verified YouTube IDs
+  const catalog = catalogData as CatalogEntry[];
+  const slug = toSlug(artist);
+  const catalogEntry = catalog.find((c) => c.slug === slug);
+
+  const catalogYoutubeId = catalogEntry?.youtubeId ?? null;
+  const catalogGenre = catalogEntry?.genre ?? [];
+
   const [youtubeId, genre] = await Promise.all([
-    resolveYoutubeId(artist),
-    resolveGenre(artist),
+    catalogYoutubeId ? Promise.resolve(catalogYoutubeId) : resolveYoutubeId(artist),
+    catalogGenre.length > 0 ? Promise.resolve(catalogGenre) : resolveGenre(artist),
   ]);
 
   return NextResponse.json({ youtubeId, genre });
