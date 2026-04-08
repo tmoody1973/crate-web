@@ -164,6 +164,11 @@ export function extractArtistData(
     // Skip error responses
     if (data.error) return null;
 
+    // Skip empty results (no useful data to ingest)
+    if (Array.isArray(data.connections) && data.connections.length === 0 && data.cached === false) return null;
+    if (Array.isArray(data.items) && data.items.length === 0) return null;
+    if (data.message && typeof data.message === "string" && /no\s+(results|data|matches)/i.test(data.message)) return null;
+
     const artistName = findArtistName(data, toolName);
     if (!artistName) return null;
 
