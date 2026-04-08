@@ -148,3 +148,58 @@ export function getToolLabel(
       return `Using ${server}: ${tool}`;
   }
 }
+
+/** Contextual label shown between tool calls instead of generic "Thinking..." */
+export function getThinkingLabel(doneSteps: ToolStep[]): string {
+  if (doneSteps.length === 0) return "Thinking...";
+  const lastTool = doneSteps[doneSteps.length - 1].tool;
+  switch (lastTool) {
+    case "lookup_influences":
+    case "build_influence_network":
+      return "Analyzing influence connections...";
+    case "search_web":
+    case "web_search":
+      return "Processing research results...";
+    case "search_reviews":
+      return "Reading reviews and citations...";
+    case "enrich_connections":
+      return "Enriching with quotes and sources...";
+    case "search_artist":
+    case "get_artist":
+    case "get_artist_info":
+      return "Building artist profile...";
+    case "search_release":
+    case "get_release":
+    case "get_artist_releases":
+      return "Analyzing discography...";
+    case "search_songs":
+    case "get_song":
+      return "Analyzing track details...";
+    case "get_similar_artists":
+      return "Mapping similar artists...";
+    case "search_whosampled":
+    case "get_track_samples":
+    case "get_artist_connections":
+      return "Tracing sample connections...";
+    case "search_tracks":
+    case "play_track":
+      return "Preparing playback...";
+    case "browse_url":
+      return "Reading source material...";
+    case "create_spotify_playlist":
+    case "add_tracks_to_playlist":
+      return "Building playlist...";
+    case "read_spotify_library":
+    case "read_playlist_tracks":
+      return "Loading Spotify data...";
+    case "send_to_slack":
+      return "Formatting message...";
+    case "read_tumblr_dashboard":
+    case "read_tumblr_tagged":
+      return "Loading Tumblr posts...";
+    case "search_events":
+      return "Finding upcoming shows...";
+    default:
+      return "Composing response...";
+  }
+}
