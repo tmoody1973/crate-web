@@ -23,6 +23,7 @@ import { createYouTubeConnectedTools } from "@/lib/web-tools/youtube-connected";
 import { createTinyDeskTools } from "@/lib/web-tools/tinydesk";
 import { isTokenVaultConfigured } from "@/lib/auth0-token-vault";
 import { shouldIngest, extractArtistData } from "@/lib/wiki-ingest";
+import { slugify } from "@/lib/slug";
 import {
   searchMemories,
   addMemories,
@@ -413,7 +414,8 @@ async function streamAgenticResponse(
           memoryContext,
         ].filter(Boolean).join("\n\n");
 
-        // Wiki ingestion: track touched artist slugs + page IDs for session-end synthesis
+        // Wiki ingestion: collect mutation promises for session-end synthesis
+        const wikiMutationPromises: Array<Promise<void>> = [];
         const wikiTouchedPages = new Map<string, string>(); // slug → pageId
         const wikiTouchedArtists: string[] = [];
 
@@ -434,8 +436,8 @@ async function streamAgenticResponse(
             const extracted = extractArtistData(server, tool, content);
             if (!extracted) return;
 
-            // Fire-and-forget: append wiki data via Convex mutation
-            convex
+            // Track the mutation promise so we can await all before synthesis
+            const promise = convex
               .mutation(api.wiki.appendWikiData, {
                 userId: convexUserId as Id<"users">,
                 entityName: extracted.artistName,
@@ -443,7 +445,7 @@ async function streamAgenticResponse(
               })
               .then((pageId) => {
                 if (pageId) {
-                  const slug = extracted.artistName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+                  const slug = slugify(extracted.artistName);
                   wikiTouchedPages.set(slug, pageId as string);
                   if (!wikiTouchedArtists.includes(extracted.artistName)) {
                     wikiTouchedArtists.push(extracted.artistName);
@@ -451,6 +453,7 @@ async function streamAgenticResponse(
                 }
               })
               .catch((err) => console.error("[chat/wiki] append failed:", err));
+            wikiMutationPromises.push(promise);
           },
         });
 
@@ -465,9 +468,13 @@ async function streamAgenticResponse(
           }
         }
 
-        // Wiki: trigger session-end synthesis for all touched artist pages
+        // Wait for all wiki mutations to complete before synthesis
+        if (wikiMutationPromises.length > 0) {
+          await Promise.allSettled(wikiMutationPromises);
+        }
+
+        // Wiki: emit nudge BEFORE done, then trigger synthesis
         if (wikiTouchedPages.size > 0) {
-          // Emit wiki nudge event to frontend
           controller.enqueue(
             encoder.encode(
               sseEncode({
@@ -478,7 +485,7 @@ async function streamAgenticResponse(
             ),
           );
 
-          // Trigger synthesis for each touched page (fire-and-forget)
+          // Trigger synthesis for each touched page (fire-and-forget, OK after mutations settled)
           for (const [, pageId] of wikiTouchedPages) {
             convex
               .action(api.wiki.synthesizeWikiPage, {

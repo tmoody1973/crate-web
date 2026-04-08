@@ -310,4 +310,67 @@ export default defineSchema({
   })
     .index("by_slug", ["slug"])
     .index("by_user", ["userId"]),
+
+  // Music Wiki: persistent, compounding artist knowledge base
+  wikiPages: defineTable({
+    userId: v.id("users"),
+    slug: v.string(),
+    entityType: v.literal("artist"),
+    entityName: v.string(),
+    description: v.optional(v.string()),
+    sections: v.array(v.object({
+      heading: v.string(),
+      content: v.string(),
+      sources: v.array(v.object({
+        tool: v.string(),
+        url: v.optional(v.string()),
+        fetchedAt: v.number(),
+      })),
+      lastSynthesizedAt: v.optional(v.number()),
+    })),
+    contradictions: v.array(v.object({
+      claim1: v.object({ source: v.string(), value: v.string() }),
+      claim2: v.object({ source: v.string(), value: v.string() }),
+      field: v.string(),
+    })),
+    metadata: v.object({
+      origin: v.optional(v.string()),
+      yearsActive: v.optional(v.string()),
+      members: v.optional(v.array(v.string())),
+      genreDNA: v.optional(v.array(v.string())),
+    }),
+    visibility: v.union(v.literal("private"), v.literal("unlisted"), v.literal("public")),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_slug", ["userId", "slug"]),
+
+  wikiIndexEntries: defineTable({
+    userId: v.id("users"),
+    pageId: v.id("wikiPages"),
+    slug: v.string(),
+    entityName: v.string(),
+    entityType: v.string(),
+    summary: v.optional(v.string()),
+    visibility: v.optional(v.string()),
+    sourceCount: v.number(),
+    lastUpdated: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_slug", ["userId", "slug"]),
+
+  wikiLogEntries: defineTable({
+    userId: v.id("users"),
+    timestamp: v.number(),
+    operation: v.union(
+      v.literal("ingest"), v.literal("query"),
+      v.literal("lint"), v.literal("synthesize"),
+    ),
+    entitySlug: v.optional(v.string()),
+    description: v.string(),
+    toolsUsed: v.optional(v.array(v.string())),
+  })
+    .index("by_user_time", ["userId", "timestamp"]),
 });

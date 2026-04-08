@@ -19,6 +19,7 @@ import { ArtifactsSection } from "@/components/sidebar/artifacts-section";
 import { PlaylistsSection } from "@/components/sidebar/playlists-section";
 import { CollectionSection } from "@/components/sidebar/collection-section";
 import { PublishedSection } from "@/components/sidebar/published-section";
+import { WikiSection } from "@/components/sidebar/wiki-section";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { api } from "../../../convex/_generated/api";
@@ -73,6 +74,7 @@ function SidebarContent() {
         <CratesSection />
         <PlaylistsSection />
         <CollectionSection />
+        <WikiSection />
         <PublishedSection />
         <StarredSection />
         <RecentsSection />

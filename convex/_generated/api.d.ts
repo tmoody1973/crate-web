@@ -27,6 +27,7 @@ import type * as tumblr from "../tumblr.js";
 import type * as usage from "../usage.js";
 import type * as userSkills from "../userSkills.js";
 import type * as users from "../users.js";
+import type * as wiki from "../wiki.js";
 
 import type {
   ApiFromModules,
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   usage: typeof usage;
   userSkills: typeof userSkills;
   users: typeof users;
+  wiki: typeof wiki;
 }>;
 
 /**
