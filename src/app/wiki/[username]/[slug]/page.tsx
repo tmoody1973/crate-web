@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
 import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
+import { VisibilityToggle } from "@/components/wiki/visibility-toggle";
 import type { Metadata } from "next";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
@@ -98,6 +99,12 @@ export default async function WikiDetailPage({ params }: WikiPageProps) {
     notFound();
   }
 
+  // Check if viewer is the page owner (for showing visibility toggle)
+  const ownerUser = clerkId
+    ? await convex.query(api.users.getByClerkId, { clerkId })
+    : null;
+  const isOwner = ownerUser && page.userId === ownerUser._id;
+
   // Collect unique source tools
   const allSources = new Set<string>();
   for (const section of page.sections) {
@@ -119,24 +126,37 @@ export default async function WikiDetailPage({ params }: WikiPageProps) {
       style={{ backgroundColor: "#09090b", color: "#f4f4f5" }}
       role="main"
     >
-      {/* Header */}
+      {/* Header — matches /tinydesk pattern */}
       <header
-        className="flex items-center justify-between px-6 py-4"
-        style={{ borderBottom: "1px solid #27272a" }}
+        className="sticky top-0 z-50 flex items-center justify-between px-6 py-4"
+        style={{ backgroundColor: "#0A1628", borderBottom: "1px solid #1d2d44" }}
       >
-        <Link href="/" className="text-sm tracking-widest opacity-60 hover:opacity-100">
-          crate
+        <Link href="/" className="shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/branding/crate-logo_Light.svg"
+            alt="Crate"
+            style={{ height: "40px", width: "auto" }}
+          />
         </Link>
         <div className="flex items-center gap-3">
-          <span
-            className="text-xs px-3 py-1 rounded-full"
-            style={{
-              backgroundColor: page.visibility === "public" ? "#166534" : "#3f3f46",
-              color: page.visibility === "public" ? "#bbf7d0" : "#a1a1aa",
-            }}
-          >
-            {page.visibility}
-          </span>
+          {isOwner ? (
+            <VisibilityToggle
+              pageId={page._id}
+              userId={page.userId}
+              initialVisibility={page.visibility}
+            />
+          ) : (
+            <span
+              className="text-xs px-3 py-1 rounded-full capitalize"
+              style={{
+                backgroundColor: page.visibility === "public" ? "#166534" : "#3f3f46",
+                color: page.visibility === "public" ? "#bbf7d0" : "#a1a1aa",
+              }}
+            >
+              {page.visibility}
+            </span>
+          )}
         </div>
       </header>
 

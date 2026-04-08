@@ -10,7 +10,7 @@ import { slugify } from "@/lib/slug";
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export const metadata = {
-  title: "Your Music Wiki | Crate",
+  title: "Music Wiki | Crate",
   description: "Your personal music encyclopedia. Every research session makes it smarter.",
 };
 
@@ -20,7 +20,6 @@ export default async function WikiIndexPage() {
     redirect("/sign-in");
   }
 
-  // Look up Convex user
   const user = await convex.query(api.users.getByClerkId, { clerkId });
   if (!user) {
     redirect("/sign-in");
@@ -31,19 +30,32 @@ export default async function WikiIndexPage() {
   });
 
   const username = slugify(user.name ?? user.email.split("@")[0]);
+  const firstName = (user.name ?? user.email.split("@")[0]).split(" ")[0];
 
   return (
     <main
       className={`${bebasNeue.variable} ${spaceGrotesk.variable} font-[family-name:var(--font-space)] min-h-screen`}
       style={{ backgroundColor: "#09090b", color: "#f4f4f5" }}
     >
-      {/* Header */}
+      {/* Header — matches /tinydesk pattern */}
       <header
-        className="flex items-center justify-between px-6 py-4"
-        style={{ borderBottom: "1px solid #27272a" }}
+        className="sticky top-0 z-50 flex items-center justify-between px-6 py-4"
+        style={{ backgroundColor: "#0A1628", borderBottom: "1px solid #1d2d44" }}
       >
-        <Link href="/" className="text-sm tracking-widest opacity-60 hover:opacity-100">
-          crate
+        <Link href="/" className="shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/branding/crate-logo_Light.svg"
+            alt="Crate"
+            style={{ height: "40px", width: "auto" }}
+          />
+        </Link>
+        <Link
+          href="/w"
+          className="text-sm tracking-widest transition-opacity hover:opacity-90"
+          style={{ color: "#a1a1aa" }}
+        >
+          Back to Chat
         </Link>
       </header>
 
@@ -52,16 +64,14 @@ export default async function WikiIndexPage() {
           className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl tracking-tight text-center mb-2"
           style={{ color: "#fafaf9" }}
         >
-          YOUR MUSIC WIKI
+          {firstName.toUpperCase()}&apos;S MUSIC WIKI
         </h1>
         <p className="text-center text-sm mb-10" style={{ color: "#71717a" }}>
           {entries.length} {entries.length === 1 ? "entry" : "entries"}
         </p>
 
         {entries.length === 0 ? (
-          /* Empty state: example at 30% opacity with CTA */
           <div className="relative rounded-lg overflow-hidden" style={{ minHeight: "300px" }}>
-            {/* Faded example */}
             <div className="opacity-30 pointer-events-none px-6 py-8" style={{ backgroundColor: "#18181b" }}>
               <div className="font-[family-name:var(--font-bebas)] text-3xl tracking-tight mb-2">
                 KHRUANGBIN
@@ -78,8 +88,6 @@ export default async function WikiIndexPage() {
                 An American musical trio known for blending global influences...
               </div>
             </div>
-
-            {/* Overlay CTA */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <p className="text-lg font-medium mb-2" style={{ color: "#fafaf9" }}>
                 Your wiki grows automatically as you research music
@@ -90,17 +98,13 @@ export default async function WikiIndexPage() {
               <Link
                 href="/w"
                 className="px-6 py-3 rounded-lg text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: "#fafaf9",
-                  color: "#09090b",
-                }}
+                style={{ backgroundColor: "#fafaf9", color: "#09090b" }}
               >
                 Start researching
               </Link>
             </div>
           </div>
         ) : (
-          /* Artist list: Variant B bold editorial */
           <div className="space-y-0">
             {entries.map((entry) => (
               <Link
@@ -117,7 +121,6 @@ export default async function WikiIndexPage() {
                     >
                       {entry.entityName.toUpperCase()}
                     </div>
-                    {/* Genre tags would come from the page metadata, but index entries don't have them yet */}
                   </div>
                   <div className="flex items-center gap-4 text-xs shrink-0" style={{ color: "#71717a" }}>
                     <span>{entry.sourceCount} source{entry.sourceCount !== 1 ? "s" : ""}</span>
@@ -125,11 +128,11 @@ export default async function WikiIndexPage() {
                     <span
                       className="px-2 py-0.5 rounded-full capitalize"
                       style={{
-                        backgroundColor: "#27272a",
-                        color: "#a1a1aa",
+                        backgroundColor: entry.visibility === "public" ? "#166534" : "#27272a",
+                        color: entry.visibility === "public" ? "#bbf7d0" : "#a1a1aa",
                       }}
                     >
-                      {entry.visibility ?? "Private"}
+                      {entry.visibility ?? "private"}
                     </span>
                   </div>
                 </div>
