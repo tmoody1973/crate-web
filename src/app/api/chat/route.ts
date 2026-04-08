@@ -22,6 +22,7 @@ import { createTumblrConnectedTools } from "@/lib/web-tools/tumblr-connected";
 import { createYouTubeConnectedTools } from "@/lib/web-tools/youtube-connected";
 import { createTinyDeskTools } from "@/lib/web-tools/tinydesk";
 import { isTokenVaultConfigured } from "@/lib/auth0-token-vault";
+import { shouldIngest, extractArtistData } from "@/lib/wiki-ingest";
 import {
   searchMemories,
   addMemories,
@@ -412,6 +413,10 @@ async function streamAgenticResponse(
           memoryContext,
         ].filter(Boolean).join("\n\n");
 
+        // Wiki ingestion: track touched artist slugs + page IDs for session-end synthesis
+        const wikiTouchedPages = new Map<string, string>(); // slug → pageId
+        const wikiTouchedArtists: string[] = [];
+
         // Run the agentic loop
         // Research commands get more turns since they need tool calls + final output
         const events = agenticLoop({
@@ -424,6 +429,29 @@ async function streamAgenticResponse(
           toolGroups,
           maxTurns: isResearchCommand ? 35 : 25,
           isResearchCommand,
+          onToolComplete: (server, tool, content) => {
+            if (!shouldIngest(server)) return;
+            const extracted = extractArtistData(server, tool, content);
+            if (!extracted) return;
+
+            // Fire-and-forget: append wiki data via Convex mutation
+            convex
+              .mutation(api.wiki.appendWikiData, {
+                userId: convexUserId as Id<"users">,
+                entityName: extracted.artistName,
+                section: extracted.section,
+              })
+              .then((pageId) => {
+                if (pageId) {
+                  const slug = extracted.artistName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+                  wikiTouchedPages.set(slug, pageId as string);
+                  if (!wikiTouchedArtists.includes(extracted.artistName)) {
+                    wikiTouchedArtists.push(extracted.artistName);
+                  }
+                }
+              })
+              .catch((err) => console.error("[chat/wiki] append failed:", err));
+          },
         });
 
         // Collect assistant text for mem0 conversation saving
@@ -434,6 +462,29 @@ async function streamAgenticResponse(
             if (event.type === "answer_token" && "token" in event) {
               assistantText += (event as { token: string }).token;
             }
+          }
+        }
+
+        // Wiki: trigger session-end synthesis for all touched artist pages
+        if (wikiTouchedPages.size > 0) {
+          // Emit wiki nudge event to frontend
+          controller.enqueue(
+            encoder.encode(
+              sseEncode({
+                type: "wiki_update" as const,
+                artists: wikiTouchedArtists,
+                count: wikiTouchedPages.size,
+              }),
+            ),
+          );
+
+          // Trigger synthesis for each touched page (fire-and-forget)
+          for (const [, pageId] of wikiTouchedPages) {
+            convex
+              .action(api.wiki.synthesizeWikiPage, {
+                pageId: pageId as Id<"wikiPages">,
+              })
+              .catch((err) => console.error("[chat/wiki] synthesis failed:", err));
           }
         }
 

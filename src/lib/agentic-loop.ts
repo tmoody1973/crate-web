@@ -29,7 +29,8 @@ export type CrateEvent =
   | { type: "done"; totalMs: number; toolsUsed: string[]; toolCallCount: number; costUsd: number }
   | { type: "error"; message: string }
   | { type: "plan"; tasks: Array<{ id: number; description: string; done: boolean }> }
-  | { type: "play_radio"; station: string; streamUrl: string; tags?: string; country?: string; favicon?: string };
+  | { type: "play_radio"; station: string; streamUrl: string; tags?: string; country?: string; favicon?: string }
+  | { type: "wiki_update"; artists: string[]; count: number };
 
 export interface AgenticLoopOptions {
   message: string;
@@ -48,6 +49,8 @@ export interface AgenticLoopOptions {
   posthogTraceId?: string;
   /** Research-heavy command — gets higher tool call cap */
   isResearchCommand?: boolean;
+  /** Called after each tool completes with full result content (for wiki ingestion). */
+  onToolComplete?: (server: string, tool: string, content: string) => void;
 }
 
 // ── Shared helpers ────────────────────────────────────────────────
@@ -55,6 +58,7 @@ export interface AgenticLoopOptions {
 async function* executeTools(
   handlers: Map<string, HandlerEntry>,
   calls: Array<{ id: string; name: string; input: Record<string, unknown> }>,
+  onToolComplete?: (server: string, tool: string, content: string) => void,
 ): AsyncGenerator<CrateEvent | { _toolResult: { id: string; content: string } }> {
   for (const call of calls) {
     const bare = bareToolName(call.name);
@@ -71,6 +75,11 @@ async function* executeTools(
       : result.content;
 
     yield { type: "tool_end", tool: bare, server: result.serverName, durationMs, resultSummary };
+
+    // Wiki ingestion callback — fire-and-forget with full result content
+    if (onToolComplete) {
+      try { onToolComplete(result.serverName, bare, result.content); } catch { /* silent */ }
+    }
 
     // Emit play_radio event so the frontend can start the radio player
     if (bare === "play_radio") {
@@ -177,7 +186,7 @@ async function* anthropicLoop(
 
     // Execute tools
     const toolResults: ToolResultBlockParam[] = [];
-    for await (const ev of executeTools(handlers, toolCalls)) {
+    for await (const ev of executeTools(handlers, toolCalls, options.onToolComplete)) {
       if ("_toolResult" in ev) {
         toolResults.push({ type: "tool_result", tool_use_id: ev._toolResult.id, content: ev._toolResult.content });
       } else {
@@ -284,7 +293,7 @@ async function* openRouterLoop(
       break;
     }
 
-    for await (const ev of executeTools(handlers, parsedCalls)) {
+    for await (const ev of executeTools(handlers, parsedCalls, options.onToolComplete)) {
       if ("_toolResult" in ev) {
         messages.push({
           role: "tool",
