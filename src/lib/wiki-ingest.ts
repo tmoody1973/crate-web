@@ -1,9 +1,8 @@
 /**
  * Wiki ingestion layer: extracts artist data from tool results for wiki persistence.
  *
- * Strategy: capture the FULL tool result content and extract the artist name.
- * The Haiku synthesis step merges, deduplicates, and structures everything.
- * Extractors only need to: (1) find the artist name, (2) pass content through.
+ * Strategy: extract artist name AND convert to readable text at ingestion time.
+ * The content field should NEVER contain raw JSON — always human-readable text.
  */
 
 // ── Types ────────────────────────────────────────────────
@@ -26,7 +25,6 @@ export interface ExtractedArtistData {
 // ── Qualifying servers ───────────────────────────────────
 
 const QUALIFYING_SERVERS = new Set([
-  // Web tool servers
   "spotify-connected",
   "whosampled",
   "bandcamp-web",
@@ -36,7 +34,6 @@ const QUALIFYING_SERVERS = new Set([
   "tinydesk",
   "images",
   "prep-research",
-  // crate-cli servers (used by /influence and general research)
   "influence",
   "websearch",
   "genius",
@@ -46,7 +43,6 @@ const QUALIFYING_SERVERS = new Set([
   "itunes",
 ]);
 
-/** Check if a tool server's output should trigger wiki ingestion. */
 export function shouldIngest(serverName: string): boolean {
   return QUALIFYING_SERVERS.has(serverName);
 }
@@ -63,113 +59,165 @@ function tryParseJson(content: string): Record<string, unknown> | null {
   }
 }
 
-/** Tool display names for source attribution. */
 const TOOL_DISPLAY: Record<string, string> = {
-  "spotify-connected": "Spotify",
-  "whosampled": "WhoSampled",
-  "bandcamp-web": "Bandcamp",
-  "youtube-connected": "YouTube",
-  "radio": "Radio",
-  "influencecache": "Influence Data",
-  "tinydesk": "Tiny Desk",
-  "images": "Images",
-  "prep-research": "Research",
-  "influence": "Influence Research",
-  "websearch": "Web Search",
-  "genius": "Genius",
-  "lastfm": "Last.fm",
-  "discogs": "Discogs",
-  "musicbrainz": "MusicBrainz",
-  "itunes": "iTunes",
+  "spotify-connected": "Spotify", "whosampled": "WhoSampled", "bandcamp-web": "Bandcamp",
+  "youtube-connected": "YouTube", "radio": "Radio", "influencecache": "Influence Data",
+  "tinydesk": "Tiny Desk", "images": "Images", "prep-research": "Research",
+  "influence": "Influence Research", "websearch": "Web Search", "genius": "Genius",
+  "lastfm": "Last.fm", "discogs": "Discogs", "musicbrainz": "MusicBrainz", "itunes": "iTunes",
 };
 
-/** Section headings by server. */
 const SECTION_HEADINGS: Record<string, string> = {
-  "spotify-connected": "Spotify Profile",
-  "whosampled": "Sample Connections",
-  "bandcamp-web": "Bandcamp Tags",
-  "youtube-connected": "YouTube",
-  "radio": "Radio Metadata",
-  "influencecache": "Influence Chain",
-  "tinydesk": "Tiny Desk",
-  "images": "Artist Images",
-  "prep-research": "Research Brief",
-  "influence": "Influence Research",
-  "websearch": "Web Research",
-  "genius": "Genius Lyrics & Bio",
-  "lastfm": "Last.fm Profile",
-  "discogs": "Discography",
-  "musicbrainz": "MusicBrainz",
-  "itunes": "iTunes Catalog",
+  "spotify-connected": "Spotify Profile", "whosampled": "Sample Connections",
+  "bandcamp-web": "Bandcamp Tags", "youtube-connected": "YouTube",
+  "radio": "Radio Metadata", "influencecache": "Influence Chain",
+  "tinydesk": "Tiny Desk", "images": "Artist Images", "prep-research": "Research Brief",
+  "influence": "Influence Research", "websearch": "Web Research",
+  "genius": "Genius Lyrics & Bio", "lastfm": "Last.fm Profile",
+  "discogs": "Discography", "musicbrainz": "MusicBrainz", "itunes": "iTunes Catalog",
 };
 
-/**
- * Try to extract an artist name from structured JSON data.
- * Searches common field patterns across all tool outputs.
- */
-function findArtistName(data: Record<string, unknown>, toolName: string): string | null {
-  // Direct artist name fields
-  for (const key of ["artist", "name", "from_artist", "to_artist", "query", "artist_name", "artistName"]) {
-    if (typeof data[key] === "string" && data[key]) {
-      return data[key] as string;
-    }
-  }
+// ── Artist name extraction ───────────────────────────────
 
-  // Spotify search results
+function findArtistName(data: Record<string, unknown>): string | null {
+  for (const key of ["artist", "name", "from_artist", "to_artist", "query", "artist_name", "artistName"]) {
+    if (typeof data[key] === "string" && data[key]) return data[key] as string;
+  }
   if (data.artists && typeof data.artists === "object") {
-    const artists = data.artists as Record<string, unknown>;
-    const items = artists.items as Array<Record<string, unknown>> | undefined;
+    const items = (data.artists as Record<string, unknown>).items as Array<Record<string, unknown>> | undefined;
     if (items?.[0]?.name) return items[0].name as string;
   }
-
-  // Spotify top artists
   if (data.type === "top_artists" && Array.isArray(data.items)) {
     const items = data.items as Array<Record<string, unknown>>;
     if (items[0]?.name) return items[0].name as string;
   }
-
-  // YouTube search results
   if (Array.isArray(data.items)) {
-    const items = data.items as Array<Record<string, unknown>>;
-    const snippet = items[0]?.snippet as Record<string, unknown> | undefined;
+    const snippet = (data.items as Array<Record<string, unknown>>)[0]?.snippet as Record<string, unknown> | undefined;
     if (snippet?.channelTitle) return snippet.channelTitle as string;
   }
-
-  // Influence cache edge — prefer from_artist (the subject being researched)
-  if (data.from_artist) return data.from_artist as string;
-
-  // Try extracting from tool name patterns
-  if (toolName.includes("search") && data.results && Array.isArray(data.results)) {
-    const first = (data.results as Array<Record<string, unknown>>)[0];
-    if (first?.artist) return first.artist as string;
-    if (first?.name) return first.name as string;
-  }
-
   return null;
 }
 
-/**
- * Try to extract an artist name from plain text content.
- * Falls back to pattern matching on common output formats.
- */
 function findArtistNameFromText(content: string): string | null {
-  // "Samples for Artist Name" or "Influence chain for Artist Name"
   const forPattern = content.match(/(?:samples|influence|connections|info|research|profile)\s+(?:for|by|on|about)\s+(.+?)(?:\n|$|\.)/i);
   if (forPattern) return forPattern[1].trim();
-
-  // "Artist: Name" at start of content
   const artistLabel = content.match(/^artist:\s*(.+?)$/im);
   if (artistLabel) return artistLabel[1].trim();
-
   return null;
+}
+
+// ── JSON → readable text conversion ──────────────────────
+// The content field must NEVER contain raw JSON. Convert at ingestion time.
+
+function jsonToReadable(data: Record<string, unknown>): string {
+  const lines: string[] = [];
+
+  // Influence chain with connections
+  if (Array.isArray(data.connections) && data.connections.length > 0) {
+    for (const conn of data.connections as Array<Record<string, unknown>>) {
+      const artist = conn.artist ?? conn.name ?? "Unknown";
+      const rel = conn.relationship ?? "connected to";
+      const ctx = conn.context ? String(conn.context) : "";
+      lines.push(`${rel}: ${artist}`);
+      if (ctx) lines.push(ctx);
+      const sources = conn.sources as Array<Record<string, unknown>> | undefined;
+      if (sources?.[0]) {
+        const src = sources[0];
+        const snippet = src.snippet ? `"${String(src.snippet).slice(0, 200)}"` : "";
+        const name = src.name ?? src.source ?? "";
+        if (snippet || name) lines.push(`— ${name}${snippet ? `: ${snippet}` : ""}`);
+      }
+      lines.push("");
+    }
+    return lines.join("\n").trim();
+  }
+
+  // Reviews
+  if (Array.isArray(data.reviews) && data.reviews.length > 0) {
+    if (data.album) lines.push(`Album: ${data.album}`);
+    for (const review of (data.reviews as Array<Record<string, unknown>>).slice(0, 4)) {
+      const source = review.source ?? review.title ?? "";
+      const snippet = String(review.snippet ?? "").slice(0, 400);
+      if (source) lines.push(`${source}:`);
+      if (snippet) lines.push(snippet);
+      lines.push("");
+    }
+    return lines.join("\n").trim();
+  }
+
+  // Spotify search/library data
+  if (data.artists && typeof data.artists === "object") {
+    const items = (data.artists as Record<string, unknown>).items as Array<Record<string, unknown>> | undefined;
+    if (items?.length) {
+      const a = items[0];
+      if (a.name) lines.push(`Artist: ${a.name}`);
+      if (Array.isArray(a.genres) && a.genres.length) lines.push(`Genres: ${(a.genres as string[]).join(", ")}`);
+      if (a.popularity != null) lines.push(`Spotify popularity: ${a.popularity}/100`);
+      if (a.followers && typeof a.followers === "object") {
+        const total = (a.followers as Record<string, unknown>).total;
+        if (total) lines.push(`Followers: ${Number(total).toLocaleString()}`);
+      }
+      return lines.join("\n");
+    }
+  }
+
+  // Bandcamp tags
+  if (Array.isArray(data.tags) || Array.isArray(data.related_tags)) {
+    const tags = (data.tags as string[]) ?? [];
+    const related = (data.related_tags as string[]) ?? [];
+    if (tags.length) lines.push(`Tags: ${tags.join(", ")}`);
+    if (related.length) lines.push(`Related tags: ${related.join(", ")}`);
+    return lines.join("\n");
+  }
+
+  // Genius bio/lyrics
+  if (typeof data.bio === "string") {
+    lines.push(data.bio.slice(0, 1500));
+    return lines.join("\n");
+  }
+  if (typeof data.description === "string") {
+    lines.push(data.description.slice(0, 1500));
+    return lines.join("\n");
+  }
+
+  // Last.fm profile
+  if (data.listeners || data.playcount || typeof data.bio === "object") {
+    if (data.listeners) lines.push(`Listeners: ${Number(data.listeners).toLocaleString()}`);
+    if (data.playcount) lines.push(`Play count: ${Number(data.playcount).toLocaleString()}`);
+    const bio = data.bio as Record<string, unknown> | undefined;
+    if (bio?.summary) lines.push(String(bio.summary).slice(0, 800));
+    if (Array.isArray(data.tags)) {
+      const tagNames = (data.tags as Array<Record<string, unknown>>).map(t => t.name).filter(Boolean);
+      if (tagNames.length) lines.push(`Tags: ${tagNames.join(", ")}`);
+    }
+    if (lines.length) return lines.join("\n");
+  }
+
+  // Discogs
+  if (data.releases || data.tracklist || data.labels) {
+    if (data.title) lines.push(`${data.title}`);
+    if (data.year) lines.push(`Year: ${data.year}`);
+    if (Array.isArray(data.genres)) lines.push(`Genres: ${(data.genres as string[]).join(", ")}`);
+    if (Array.isArray(data.styles)) lines.push(`Styles: ${(data.styles as string[]).join(", ")}`);
+    if (typeof data.profile === "string") lines.push(data.profile.slice(0, 800));
+    if (lines.length) return lines.join("\n");
+  }
+
+  // Generic: extract all meaningful string fields
+  for (const [key, val] of Object.entries(data)) {
+    if (key === "full_text" || key === "artistId" || key === "cached") continue;
+    if (typeof val === "string" && val.length > 15) {
+      lines.push(`${key}: ${val.slice(0, 500)}`);
+    } else if (Array.isArray(val) && val.length > 0 && typeof val[0] === "string") {
+      lines.push(`${key}: ${val.join(", ")}`);
+    }
+  }
+
+  return lines.length > 0 ? lines.join("\n") : "[No readable content extracted]";
 }
 
 // ── Main extractor ───────────────────────────────────────
 
-/**
- * Extract artist name + full content from a tool result.
- * Captures the complete tool output — Haiku synthesis cleans it up later.
- */
 export function extractArtistData(
   serverName: string,
   toolName: string,
@@ -180,50 +228,40 @@ export function extractArtistData(
   const displayName = TOOL_DISPLAY[serverName] ?? serverName;
   const heading = SECTION_HEADINGS[serverName] ?? serverName;
 
-  // Try JSON first
   const data = tryParseJson(resultContent);
 
   if (data) {
-    // Skip error responses
     if (data.error) return null;
-
-    // Skip empty results (no useful data to ingest)
     if (Array.isArray(data.connections) && data.connections.length === 0 && data.cached === false) return null;
     if (Array.isArray(data.items) && data.items.length === 0) return null;
     if (data.message && typeof data.message === "string" && /no\s+(results|data|matches)/i.test(data.message)) return null;
 
-    const artistName = findArtistName(data, toolName);
+    const artistName = findArtistName(data);
     if (!artistName) return null;
 
-    // Pass the FULL content through — Haiku synthesis will structure it
-    // Truncate at 3000 chars to keep wiki pages manageable
-    const content = resultContent.length > 3000
-      ? resultContent.slice(0, 3000) + "\n... (truncated)"
-      : resultContent;
+    // Convert JSON to readable text — NEVER store raw JSON
+    const content = jsonToReadable(data);
+    if (content === "[No readable content extracted]") return null;
 
     return {
       artistName,
       section: {
         heading,
-        content,
+        content: content.slice(0, 3000),
         sources: [{ tool: displayName, fetchedAt: Date.now() }],
       },
     };
   }
 
-  // Plain text response (e.g., WhoSampled scrape results)
+  // Plain text — pass through directly
   const artistName = findArtistNameFromText(resultContent);
   if (!artistName) return null;
-
-  const content = resultContent.length > 3000
-    ? resultContent.slice(0, 3000) + "\n... (truncated)"
-    : resultContent;
 
   return {
     artistName,
     section: {
       heading,
-      content,
+      content: resultContent.slice(0, 3000),
       sources: [{ tool: displayName, fetchedAt: Date.now() }],
     },
   };
