@@ -186,33 +186,24 @@ export function ConnectedServices() {
           return (
             <div
               key={service.id}
-              className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3"
+              className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3"
             >
-              <div className="flex items-center gap-3">
-                <span className="text-lg">{service.icon}</span>
-                <div>
-                  <p className="text-sm font-medium text-white">{service.name}</p>
-                  <p className="text-xs text-zinc-500">{service.description}</p>
-                  {isConnected && SERVICE_PERMISSIONS[service.id] && (
-                    <div className="mt-1.5">
-                      <p className="text-[11px] text-zinc-500">🔒 What Crate can access:</p>
-                      <ul className="mt-0.5 space-y-0.5">
-                        {SERVICE_PERMISSIONS[service.id].map((permission) => (
-                          <li key={permission} className="text-[11px] text-zinc-500">
-                            • {permission}
-                          </li>
-                        ))}
-                      </ul>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-lg shrink-0">{service.icon}</span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-white">{service.name}</p>
+                      {isConnected && (
+                        <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-[10px] text-green-400 shrink-0">
+                          Connected
+                        </span>
+                      )}
                     </div>
-                  )}
+                    <p className="text-xs text-zinc-500 truncate">{service.description}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {isConnected && (
-                  <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-green-400">
-                    Connected
-                  </span>
-                )}
+                <div className="flex items-center gap-2 shrink-0 ml-3">
                 {isConnected && (
                   <button
                     onClick={() => handleDisconnect(service.id)}
@@ -237,7 +228,18 @@ export function ConnectedServices() {
                       ? "Reconnect"
                       : "Connect"}
                 </button>
+                </div>
               </div>
+              {/* Permissions — subtle, below the main row */}
+              {isConnected && SERVICE_PERMISSIONS[service.id] && (
+                <div className="mt-2 pt-2 border-t border-zinc-700/50 flex flex-wrap gap-x-4 gap-y-1 pl-9">
+                  {SERVICE_PERMISSIONS[service.id].map((permission) => (
+                    <span key={permission} className="text-[10px] text-zinc-600">
+                      {permission}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
