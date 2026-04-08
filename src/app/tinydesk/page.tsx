@@ -8,6 +8,9 @@ import catalogData from "../../../public/tinydesk/catalog.json";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
+// Re-fetch companion data on every request so new saves appear immediately
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Tiny Desk Catalog — 626 Concerts, One Musical Universe | Crate",
   description:
