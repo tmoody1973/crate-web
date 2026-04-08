@@ -6,12 +6,15 @@ export default defineSchema({
     clerkId: v.string(),
     email: v.string(),
     name: v.optional(v.string()),
+    usernameSlug: v.optional(v.string()),
     encryptedKeys: v.optional(v.bytes()),
     onboardingCompleted: v.optional(v.boolean()),
     helpPersona: v.optional(v.string()),
     stripeCustomerId: v.optional(v.string()),
     createdAt: v.number(),
-  }).index("by_clerk_id", ["clerkId"]),
+  })
+    .index("by_clerk_id", ["clerkId"])
+    .index("by_username_slug", ["usernameSlug"]),
 
   crates: defineTable({
     userId: v.id("users"),

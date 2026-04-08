@@ -80,26 +80,39 @@ const SECTION_HEADINGS: Record<string, string> = {
 // ── Artist name extraction ───────────────────────────────
 
 function findArtistName(data: Record<string, unknown>): string | null {
+  // Direct artist name fields (most common)
   for (const key of ["artist", "name", "from_artist", "to_artist", "query", "artist_name", "artistName"]) {
     if (typeof data[key] === "string" && data[key]) return data[key] as string;
   }
+
+  // Spotify nested artists.items
   if (data.artists && typeof data.artists === "object") {
     const items = (data.artists as Record<string, unknown>).items as Array<Record<string, unknown>> | undefined;
     if (items?.[0]?.name) return items[0].name as string;
   }
+
+  // Spotify top_artists / library (check BEFORE generic items)
   if (data.type === "top_artists" && Array.isArray(data.items)) {
     const items = data.items as Array<Record<string, unknown>>;
     if (items[0]?.name) return items[0].name as string;
   }
-  if (Array.isArray(data.items)) {
-    const snippet = (data.items as Array<Record<string, unknown>>)[0]?.snippet as Record<string, unknown> | undefined;
+
+  // Generic items array (YouTube, search results)
+  if (Array.isArray(data.items) && (data.items as Array<Record<string, unknown>>).length > 0) {
+    const first = (data.items as Array<Record<string, unknown>>)[0];
+    // YouTube snippet pattern
+    const snippet = first?.snippet as Record<string, unknown> | undefined;
     if (snippet?.channelTitle) return snippet.channelTitle as string;
+    // Generic item with name
+    if (first?.name && typeof first.name === "string") return first.name as string;
   }
+
   return null;
 }
 
 function findArtistNameFromText(content: string): string | null {
-  const forPattern = content.match(/(?:samples|influence|connections|info|research|profile)\s+(?:for|by|on|about)\s+(.+?)(?:\n|$|\.)/i);
+  // "Influence chain for Sampa The Great" or "Samples for Khruangbin"
+  const forPattern = content.match(/(?:samples?|influence\s*(?:chain)?|connections|info|research|profile)\s+(?:for|by|on|about)\s+(.+?)(?:\n|$|\.)/i);
   if (forPattern) return forPattern[1].trim();
   const artistLabel = content.match(/^artist:\s*(.+?)$/im);
   if (artistLabel) return artistLabel[1].trim();
@@ -161,9 +174,9 @@ function jsonToReadable(data: Record<string, unknown>): string {
     }
   }
 
-  // Bandcamp tags
-  if (Array.isArray(data.tags) || Array.isArray(data.related_tags)) {
-    const tags = (data.tags as string[]) ?? [];
+  // Bandcamp tags (strings) — check before Last.fm tags (objects)
+  if (Array.isArray(data.tags) && data.tags.length > 0 && typeof data.tags[0] === "string") {
+    const tags = data.tags as string[];
     const related = (data.related_tags as string[]) ?? [];
     if (tags.length) lines.push(`Tags: ${tags.join(", ")}`);
     if (related.length) lines.push(`Related tags: ${related.join(", ")}`);
@@ -187,14 +200,16 @@ function jsonToReadable(data: Record<string, unknown>): string {
     const bio = data.bio as Record<string, unknown> | undefined;
     if (bio?.summary) lines.push(String(bio.summary).slice(0, 800));
     if (Array.isArray(data.tags)) {
-      const tagNames = (data.tags as Array<Record<string, unknown>>).map(t => t.name).filter(Boolean);
+      const tagNames = (data.tags as Array<Record<string, unknown> | string>)
+        .map(t => typeof t === "string" ? t : (t as Record<string, unknown>).name)
+        .filter(Boolean);
       if (tagNames.length) lines.push(`Tags: ${tagNames.join(", ")}`);
     }
     if (lines.length) return lines.join("\n");
   }
 
   // Discogs
-  if (data.releases || data.tracklist || data.labels) {
+  if (data.releases || data.tracklist || data.labels || (data.genres && data.styles)) {
     if (data.title) lines.push(`${data.title}`);
     if (data.year) lines.push(`Year: ${data.year}`);
     if (Array.isArray(data.genres)) lines.push(`Genres: ${(data.genres as string[]).join(", ")}`);
@@ -203,11 +218,25 @@ function jsonToReadable(data: Record<string, unknown>): string {
     if (lines.length) return lines.join("\n");
   }
 
-  // Generic: extract all meaningful string fields
+  // Items array (Spotify library, search results)
+  if (Array.isArray(data.items) && data.items.length > 0) {
+    for (const item of (data.items as Array<Record<string, unknown>>).slice(0, 5)) {
+      const parts: string[] = [];
+      if (item.name) parts.push(String(item.name));
+      if (Array.isArray(item.genres)) parts.push(`(${(item.genres as string[]).join(", ")})`);
+      if (item.popularity != null) parts.push(`popularity: ${item.popularity}`);
+      if (parts.length) lines.push(parts.join(" "));
+    }
+    if (lines.length) return lines.join("\n");
+  }
+
+  // Generic: extract all meaningful string/number fields
   for (const [key, val] of Object.entries(data)) {
     if (key === "full_text" || key === "artistId" || key === "cached") continue;
-    if (typeof val === "string" && val.length > 15) {
+    if (typeof val === "string" && val.length > 5) {
       lines.push(`${key}: ${val.slice(0, 500)}`);
+    } else if (typeof val === "number" && key !== "fetchedAt" && key !== "createdAt") {
+      lines.push(`${key}: ${val}`);
     } else if (Array.isArray(val) && val.length > 0 && typeof val[0] === "string") {
       lines.push(`${key}: ${val.join(", ")}`);
     }

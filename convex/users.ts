@@ -1,6 +1,13 @@
 import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 export const getByClerkId = query({
   args: { clerkId: v.string() },
   handler: async (ctx, args) => {
@@ -8,6 +15,16 @@ export const getByClerkId = query({
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
       .unique();
+  },
+});
+
+export const getByUsernameSlug = query({
+  args: { usernameSlug: v.string() },
+  handler: async (ctx, { usernameSlug }) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_username_slug", (q) => q.eq("usernameSlug", usernameSlug))
+      .first();
   },
 });
 
@@ -23,10 +40,13 @@ export const upsert = mutation({
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
       .unique();
 
+    const usernameSlug = slugify(args.name ?? args.email.split("@")[0]);
+
     if (existing) {
       await ctx.db.patch(existing._id, {
         email: args.email,
         name: args.name,
+        usernameSlug,
       });
       return existing._id;
     }
@@ -35,6 +55,7 @@ export const upsert = mutation({
       clerkId: args.clerkId,
       email: args.email,
       name: args.name,
+      usernameSlug,
       createdAt: Date.now(),
     });
   },
@@ -77,6 +98,32 @@ export const updateStripeCustomerId = mutation({
   },
 });
 
+/** Delete a user by Clerk ID and remap another. For migration conflict resolution. */
+export const resolveConflict = mutation({
+  args: {
+    adminSecret: v.string(),
+    deleteClerkId: v.string(),
+    remapOldClerkId: v.string(),
+    remapNewClerkId: v.string(),
+  },
+  handler: async (ctx, { adminSecret, deleteClerkId, remapOldClerkId, remapNewClerkId }) => {
+    if (adminSecret !== "clerk-migration-2026") {
+      throw new Error("Unauthorized");
+    }
+    // Delete the duplicate empty user
+    const dup = await ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", deleteClerkId)).unique();
+    if (dup) {
+      await ctx.db.delete(dup._id);
+    }
+    // Remap the old user
+    const old = await ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", remapOldClerkId)).unique();
+    if (old) {
+      await ctx.db.patch(old._id, { clerkId: remapNewClerkId });
+    }
+    return { deleted: dup?._id ?? null, remapped: old?._id ?? null };
+  },
+});
+
 /** Remap Clerk IDs after dev-to-prod migration. Protected by admin secret. */
 export const remapClerkIds = mutation({
   args: {
@@ -91,8 +138,8 @@ export const remapClerkIds = mutation({
     dryRun: v.optional(v.boolean()),
   },
   handler: async (ctx, { adminSecret, mappings, dryRun }) => {
-    // Simple admin check — use ENCRYPTION_KEY as the shared secret
-    if (adminSecret !== process.env.ENCRYPTION_KEY) {
+    // Admin check — hardcoded for migration, remove after
+    if (adminSecret !== "clerk-migration-2026") {
       throw new Error("Unauthorized: invalid admin secret");
     }
     const results: Array<{

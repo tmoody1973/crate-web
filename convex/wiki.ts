@@ -1,4 +1,4 @@
-import { query, mutation, action, internalQuery, internalMutation } from "./_generated/server";
+import { query, mutation, action, internalQuery, internalMutation, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
@@ -53,12 +53,11 @@ export const getBySlug = query({
     viewerClerkId: v.optional(v.string()),
   },
   handler: async (ctx, { userSlug, slug, viewerClerkId }) => {
-    // Find page owner by name slug
-    // TODO Phase 2: Add usernameSlug field with unique index to users table
-    const allUsers = await ctx.db.query("users").collect();
-    const owner = allUsers.find(
-      (u) => slugify(u.name ?? u.email.split("@")[0]) === userSlug,
-    );
+    // Look up owner by indexed usernameSlug field (no full table scan)
+    const owner = await ctx.db
+      .query("users")
+      .withIndex("by_username_slug", (q) => q.eq("usernameSlug", userSlug))
+      .first();
     if (!owner) return null;
 
     const page = await ctx.db
@@ -304,6 +303,16 @@ export const archivePage = mutation({
   },
 });
 
+/** Schedule synthesis for a wiki page. Uses Convex scheduler so it survives
+ *  serverless function termination (unlike fire-and-forget from route.ts). */
+export const scheduleSynthesis = mutation({
+  args: { pageId: v.id("wikiPages") },
+  handler: async (ctx, { pageId }) => {
+    // Schedule the action to run immediately (0ms delay)
+    await ctx.scheduler.runAfter(0, internal.wiki.synthesizeWikiPageInternal, { pageId });
+  },
+});
+
 // ── Actions (external API calls) ─────────────────────────
 
 const SYNTHESIS_PROMPT = `You are a music encyclopedia editor. Given an artist's wiki page data from multiple sources, produce a clean, synthesized version.
@@ -382,8 +391,9 @@ async function callHaikuSynthesis(
   return parsed;
 }
 
-/** Synthesize a wiki page using Haiku. Retries once on failure. */
-export const synthesizeWikiPage = action({
+/** Synthesize a wiki page using Haiku. Retries once on failure.
+ *  Internal action — called via ctx.scheduler from scheduleSynthesis mutation. */
+export const synthesizeWikiPageInternal = internalAction({
   args: { pageId: v.id("wikiPages") },
   handler: async (ctx, { pageId }) => {
     const page = await ctx.runQuery(internal.wiki.getPageInternal, { pageId });

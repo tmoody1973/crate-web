@@ -521,13 +521,13 @@ async function streamAgenticResponse(
             ),
           );
 
-          // Trigger synthesis for each touched page (fire-and-forget, OK after mutations settled)
+          // Schedule synthesis via Convex scheduler (survives serverless termination)
           for (const [, pageId] of wikiTouchedPages) {
             convex
-              .action(api.wiki.synthesizeWikiPage, {
+              .mutation(api.wiki.scheduleSynthesis, {
                 pageId: pageId as Id<"wikiPages">,
               })
-              .catch((err) => console.error("[chat/wiki] synthesis failed:", err));
+              .catch((err) => console.error("[chat/wiki] schedule synthesis failed:", err));
           }
         }
 
