@@ -88,15 +88,15 @@ export default async function TinyDeskDNAPage() {
             <img
               src="/branding/crate-logo_Light.svg"
               alt="Crate"
-              style={{ height: "32px", width: "auto" }}
+              style={{ height: "40px", width: "auto" }}
             />
           </Link>
-          <span style={{ color: "#27272a", fontSize: "20px" }}>×</span>
+          <span style={{ color: "#3f3f46", fontSize: "24px", fontWeight: 300 }}>×</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/branding/tinydeskdna.svg"
             alt="Tiny Desk DNA"
-            style={{ height: "28px", width: "auto" }}
+            style={{ height: "70px", width: "auto" }}
           />
         </div>
         <Link
@@ -117,7 +117,7 @@ export default async function TinyDeskDNAPage() {
             src="/branding/tinydeskdna.svg"
             alt="Tiny Desk DNA"
             className="mx-auto mb-4"
-            style={{ height: "48px", width: "auto" }}
+            style={{ height: "120px", width: "auto" }}
           />
           <h1 className="sr-only">Tiny Desk DNA</h1>
           <p style={{ color: "#a1a1aa", fontSize: "16px" }}>

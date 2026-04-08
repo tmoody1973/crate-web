@@ -167,11 +167,27 @@ export default async function TinyDeskCompanionPage({
           {data.artist}
         </h1>
         <p
-          className="mb-8 max-w-2xl"
+          className="mb-5 max-w-2xl"
           style={{ color: "#a1a1aa", fontSize: "18px", lineHeight: "1.6" }}
         >
           {data.tagline}
         </p>
+
+        {/* NPR Tiny Desk link */}
+        {thisConcert?.sourceUrl && (
+          <a
+            href={thisConcert.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 mb-8 text-sm font-medium transition-opacity hover:opacity-80"
+            style={{ backgroundColor: "#1a1a2e", border: "1px solid #27272a", color: "#a1a1aa" }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+            Watch on NPR
+          </a>
+        )}
 
         {/* Tiny Desk YouTube embed */}
         <div
