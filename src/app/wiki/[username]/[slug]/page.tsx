@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
 import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
@@ -48,9 +49,11 @@ interface WikiPageProps {
 
 export async function generateMetadata({ params }: WikiPageProps): Promise<Metadata> {
   const { username, slug } = await params;
+  const { userId: clerkId } = await auth();
   const page = await convex.query(api.wiki.getBySlug, {
     userSlug: username,
     slug,
+    viewerClerkId: clerkId ?? undefined,
   });
 
   if (!page) {
@@ -84,9 +87,11 @@ const SOURCE_DISPLAY: Record<string, string> = {
 
 export default async function WikiDetailPage({ params }: WikiPageProps) {
   const { username, slug } = await params;
+  const { userId: clerkId } = await auth();
   const page = await convex.query(api.wiki.getBySlug, {
     userSlug: username,
     slug,
+    viewerClerkId: clerkId ?? undefined,
   });
 
   if (!page) {

@@ -43,17 +43,16 @@ const metadataValidator = v.object({
 
 // ── Queries ──────────────────────────────────────────────
 
-/** Get a wiki page by user slug + entity slug, with server-side access control. */
+/** Get a wiki page by user slug + entity slug, with access control.
+ *  Called from Next.js server components via ConvexHttpClient (no Clerk JWT).
+ *  viewerClerkId is passed from the server component after calling Clerk auth(). */
 export const getBySlug = query({
   args: {
     userSlug: v.string(),
     slug: v.string(),
+    viewerClerkId: v.optional(v.string()),
   },
-  handler: async (ctx, { userSlug, slug }) => {
-    // Derive viewer identity from Convex auth (Clerk JWT), not client args
-    const identity = await ctx.auth.getUserIdentity();
-    const viewerClerkId = identity?.subject ?? null;
-
+  handler: async (ctx, { userSlug, slug, viewerClerkId }) => {
     // Find page owner by name slug
     // TODO Phase 2: Add usernameSlug field with unique index to users table
     const allUsers = await ctx.db.query("users").collect();
@@ -72,7 +71,8 @@ export const getBySlug = query({
     if (!page) return null;
     if (page.archivedAt) return null;
 
-    // Access control: private pages only visible to owner (verified via auth)
+    // Access control: private pages only visible to owner
+    // viewerClerkId comes from Clerk auth() in the server component, not from the browser
     if (page.visibility === "private") {
       if (!viewerClerkId || owner.clerkId !== viewerClerkId) {
         return null;
