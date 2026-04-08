@@ -238,6 +238,36 @@ export default async function TinyDeskDNAPage() {
         </div>
       </section>
 
+      {/* What is Crate */}
+      <section className="mx-auto max-w-4xl px-6 pb-12">
+        <div
+          className="rounded-xl p-6 md:p-8 text-center"
+          style={{ backgroundColor: "#0A1628", border: "1px solid #1d2d44" }}
+        >
+          <div className="flex items-center justify-center gap-3 mb-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/branding/crate-logo_Light.svg"
+              alt="Crate"
+              style={{ height: "28px", width: "auto" }}
+            />
+          </div>
+          <p style={{ color: "#a1a1aa", fontSize: "15px", lineHeight: "1.7" }}>
+            Crate is an AI music research agent. It traces influence chains, finds sample origins,
+            and maps musical DNA across 20+ sources — interviews, liner notes, music journalism,
+            and databases. Tiny Desk DNA is what happens when you point it at NPR&apos;s most
+            beloved concert series.
+          </p>
+          <Link
+            href="/"
+            className="inline-block mt-4 text-sm transition-colors hover:text-cyan-300"
+            style={{ color: "#22d3ee" }}
+          >
+            Learn more about Crate →
+          </Link>
+        </div>
+      </section>
+
       {/* How It Works */}
       <section className="mx-auto max-w-5xl px-6 pb-12">
         <div className="grid gap-4 md:grid-cols-3">
