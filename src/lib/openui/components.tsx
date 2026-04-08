@@ -156,48 +156,37 @@ function SaveTinyDeskButton({ artist, connections, tagline }: { artist: string; 
     try {
       const slug = toSlug(artist);
 
-      // Enrich: resolve YouTube ID + genre in parallel on the server
+      // Build node data from connections
+      const connectionNames = connections
+        .map((c) => String(c.name ?? ""))
+        .filter(Boolean);
+
+      // Enrich: resolve YouTube IDs + genre + connection videos on the server
       let videoId = "";
       let genre: string[] = [];
+      let connectionVideos: Record<string, string> = {};
       try {
         const res = await fetch("/api/tinydesk/enrich", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ artist }),
+          body: JSON.stringify({ artist, connectionNames }),
         });
         if (res.ok) {
           const enriched = await res.json();
           videoId = enriched.youtubeId ?? "";
           genre = enriched.genre ?? [];
+          connectionVideos = enriched.connectionVideos ?? {};
         }
       } catch { /* proceed without enrichment */ }
 
-      // Build nodes — resolve YouTube videos for each connection artist
-      const nodePromises = connections.map(async (c) => {
+      // Build nodes with server-resolved video IDs
+      const nodes = connections.map((c) => {
         const sources = Array.isArray(c.sources) ? c.sources as Array<{ name?: string; url?: string }> : [];
         const connName = String(c.name ?? "");
         const sonicElements = Array.isArray(c.sonicElements)
           ? (c.sonicElements as string[])
           : [];
         const keyWorksStr = typeof c.keyWorks === "string" ? c.keyWorks : "";
-
-        // Try to find a YouTube video for this artist
-        let nodeVideoId = "";
-        let nodeVideoTitle = "";
-        if (connName) {
-          try {
-            const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${connName} music`)}`;
-            const res = await fetch(searchUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
-            if (res.ok) {
-              const html = await res.text();
-              const match = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-              if (match) {
-                nodeVideoId = match[1];
-                nodeVideoTitle = `${connName}`;
-              }
-            }
-          } catch { /* skip */ }
-        }
 
         return {
           name: connName,
@@ -210,15 +199,14 @@ function SaveTinyDeskButton({ artist, connections, tagline }: { artist: string; 
           sonicDna: sonicElements,
           keyWorks: keyWorksStr
             ? keyWorksStr.split("→").map((w) => {
-                const match = w.trim().match(/^(.+?)\s*\((\d{4})\)$/);
-                return match ? { title: match[1].trim(), year: match[2] } : { title: w.trim(), year: "" };
+                const m = w.trim().match(/^(.+?)\s*\((\d{4})\)$/);
+                return m ? { title: m[1].trim(), year: m[2] } : { title: w.trim(), year: "" };
               })
             : [],
-          videoId: nodeVideoId,
-          videoTitle: nodeVideoTitle,
+          videoId: connectionVideos[connName] ?? "",
+          videoTitle: connectionVideos[connName] ? connName : "",
         };
       });
-      const nodes = await Promise.all(nodePromises);
 
       await createCompanion({
         slug,

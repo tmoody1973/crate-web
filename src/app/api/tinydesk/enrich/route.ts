@@ -11,14 +11,19 @@ interface CatalogEntry {
 
 /**
  * POST /api/tinydesk/enrich
- * Body: { artist: string }
- * Returns: { youtubeId: string | null, genre: string[] }
+ * Body: { artist: string, connectionNames?: string[] }
+ * Returns: { youtubeId: string | null, genre: string[], connectionVideos: Record<string, string> }
  *
- * Resolves YouTube video ID and genre for a Tiny Desk companion save.
- * Checks the static catalog first for a known-good YouTube ID and genre.
+ * Resolves YouTube video ID and genre for the main artist,
+ * plus YouTube videos for each influence connection (server-side).
  */
 export async function POST(req: NextRequest) {
-  const { artist } = (await req.json()) as { artist: string };
+  const body = (await req.json()) as {
+    artist: string;
+    connectionNames?: string[];
+  };
+  const { artist, connectionNames } = body;
+
   if (!artist) {
     return NextResponse.json({ error: "artist required" }, { status: 400 });
   }
@@ -31,17 +36,47 @@ export async function POST(req: NextRequest) {
   const catalogYoutubeId = catalogEntry?.youtubeId ?? null;
   const catalogGenre = catalogEntry?.genre ?? [];
 
-  const [youtubeId, genre] = await Promise.all([
-    catalogYoutubeId ? Promise.resolve(catalogYoutubeId) : resolveYoutubeId(artist),
-    catalogGenre.length > 0 ? Promise.resolve(catalogGenre) : resolveGenre(artist),
+  // Resolve main artist video + genre + connection videos in parallel
+  const [youtubeId, genre, connectionVideos] = await Promise.all([
+    catalogYoutubeId
+      ? Promise.resolve(catalogYoutubeId)
+      : resolveYoutubeId(`${artist} tiny desk concert NPR`),
+    catalogGenre.length > 0
+      ? Promise.resolve(catalogGenre)
+      : resolveGenre(artist),
+    resolveConnectionVideos(connectionNames ?? []),
   ]);
 
-  return NextResponse.json({ youtubeId, genre });
+  return NextResponse.json({ youtubeId, genre, connectionVideos });
 }
 
-async function resolveYoutubeId(artist: string): Promise<string | null> {
+async function resolveConnectionVideos(
+  names: string[],
+): Promise<Record<string, string>> {
+  if (names.length === 0) return {};
+
+  const results: Record<string, string> = {};
+
+  // Resolve in parallel, max 10 at a time
+  const batches: string[][] = [];
+  for (let i = 0; i < names.length; i += 10) {
+    batches.push(names.slice(i, i + 10));
+  }
+
+  for (const batch of batches) {
+    await Promise.allSettled(
+      batch.map(async (name) => {
+        const videoId = await resolveYoutubeId(`${name} music`);
+        if (videoId) results[name] = videoId;
+      }),
+    );
+  }
+
+  return results;
+}
+
+async function resolveYoutubeId(query: string): Promise<string | null> {
   const apiKey = process.env.YOUTUBE_API_KEY;
-  const query = `${artist} tiny desk concert NPR`;
 
   // Try YouTube Data API if key is available
   if (apiKey) {
@@ -65,7 +100,10 @@ async function resolveYoutubeId(artist: string): Promise<string | null> {
   try {
     const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
     const res = await fetch(searchUrl, {
-      headers: { "User-Agent": "Mozilla/5.0" },
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
     });
     if (res.ok) {
       const html = await res.text();
@@ -78,7 +116,6 @@ async function resolveYoutubeId(artist: string): Promise<string | null> {
 }
 
 async function resolveGenre(artist: string): Promise<string[]> {
-  // Use Last.fm top tags for genre detection
   const apiKey = process.env.LASTFM_API_KEY;
   if (!apiKey) return [];
 
@@ -93,28 +130,26 @@ async function resolveGenre(artist: string): Promise<string[]> {
     const data = await res.json();
     const tags: Array<{ name: string; count: number }> = data.toptags?.tag ?? [];
 
-    // Map Last.fm tags to our genre categories
     const genreMap: Record<string, string> = {
-      "rnb": "R&B/Soul", "r&b": "R&B/Soul", "soul": "R&B/Soul", "neo-soul": "R&B/Soul",
-      "rock": "Rock", "indie rock": "Rock", "alternative": "Rock", "punk": "Rock", "grunge": "Rock",
-      "latin": "Latin", "reggaeton": "Latin", "salsa": "Latin", "cumbia": "Latin", "bossa nova": "Latin",
-      "pop": "Pop", "indie pop": "Pop", "synth-pop": "Pop",
-      "hip-hop": "Hip-Hop", "hip hop": "Hip-Hop", "rap": "Hip-Hop",
-      "jazz": "Jazz", "smooth jazz": "Jazz", "bebop": "Jazz", "fusion": "Jazz",
-      "folk": "Folk", "singer-songwriter": "Folk", "americana": "Folk", "bluegrass": "Folk",
-      "classical": "Classical", "orchestral": "Classical", "contemporary classical": "Classical",
-      "world": "World", "afrobeat": "World", "afropop": "World", "k-pop": "World",
-      "electronic": "Electronic/Dance", "edm": "Electronic/Dance", "dance": "Electronic/Dance", "house": "Electronic/Dance", "techno": "Electronic/Dance",
-      "country": "Country",
-      "gospel": "Gospel",
-      "reggae": "Reggae", "dub": "Reggae",
-      "blues": "Blues",
+      rnb: "R&B/Soul", "r&b": "R&B/Soul", soul: "R&B/Soul", "neo-soul": "R&B/Soul",
+      rock: "Rock", "indie rock": "Rock", alternative: "Rock", punk: "Rock",
+      latin: "Latin", reggaeton: "Latin", salsa: "Latin", cumbia: "Latin",
+      pop: "Pop", "indie pop": "Pop", "synth-pop": "Pop",
+      "hip-hop": "Hip-Hop", "hip hop": "Hip-Hop", rap: "Hip-Hop",
+      jazz: "Jazz", "smooth jazz": "Jazz", bebop: "Jazz", fusion: "Jazz",
+      folk: "Folk", "singer-songwriter": "Folk", americana: "Folk", bluegrass: "Folk",
+      classical: "Classical", orchestral: "Classical",
+      world: "World", afrobeat: "World", afropop: "World",
+      electronic: "Electronic/Dance", edm: "Electronic/Dance", dance: "Electronic/Dance",
+      country: "Country",
+      gospel: "Gospel",
+      reggae: "Reggae", dub: "Reggae",
+      blues: "Blues",
     };
 
     const matched = new Set<string>();
     for (const tag of tags.slice(0, 10)) {
-      const normalized = tag.name.toLowerCase();
-      const genre = genreMap[normalized];
+      const genre = genreMap[tag.name.toLowerCase()];
       if (genre) matched.add(genre);
     }
     return [...matched].slice(0, 3);
