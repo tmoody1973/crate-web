@@ -26,6 +26,7 @@ export interface ExtractedArtistData {
 // ── Qualifying servers ───────────────────────────────────
 
 const QUALIFYING_SERVERS = new Set([
+  // Web tool servers
   "spotify-connected",
   "whosampled",
   "bandcamp-web",
@@ -35,6 +36,14 @@ const QUALIFYING_SERVERS = new Set([
   "tinydesk",
   "images",
   "prep-research",
+  // crate-cli servers (used by /influence and general research)
+  "influence",
+  "websearch",
+  "genius",
+  "lastfm",
+  "discogs",
+  "musicbrainz",
+  "itunes",
 ]);
 
 /** Check if a tool server's output should trigger wiki ingestion. */
@@ -65,6 +74,13 @@ const TOOL_DISPLAY: Record<string, string> = {
   "tinydesk": "Tiny Desk",
   "images": "Images",
   "prep-research": "Research",
+  "influence": "Influence Research",
+  "websearch": "Web Search",
+  "genius": "Genius",
+  "lastfm": "Last.fm",
+  "discogs": "Discogs",
+  "musicbrainz": "MusicBrainz",
+  "itunes": "iTunes",
 };
 
 /** Section headings by server. */
@@ -78,6 +94,13 @@ const SECTION_HEADINGS: Record<string, string> = {
   "tinydesk": "Tiny Desk",
   "images": "Artist Images",
   "prep-research": "Research Brief",
+  "influence": "Influence Research",
+  "websearch": "Web Research",
+  "genius": "Genius Lyrics & Bio",
+  "lastfm": "Last.fm Profile",
+  "discogs": "Discography",
+  "musicbrainz": "MusicBrainz",
+  "itunes": "iTunes Catalog",
 };
 
 /**
