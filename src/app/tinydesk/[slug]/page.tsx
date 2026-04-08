@@ -1,6 +1,8 @@
-import { readFile } from "fs/promises";
-import { join } from "path";
 import Link from "next/link";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../convex/_generated/api";
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 import { notFound } from "next/navigation";
 import { VideoInfluenceChain } from "@/components/tinydesk/video-influence-chain";
 import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
@@ -26,7 +28,26 @@ interface TinyDeskData {
 }
 
 async function getTinyDeskData(slug: string): Promise<TinyDeskData | null> {
+  // Try Convex first
   try {
+    const companion = await convex.query(api.tinydeskCompanions.getBySlug, { slug });
+    if (companion) {
+      return {
+        artist: companion.artist,
+        slug: companion.slug,
+        tagline: companion.tagline,
+        tinyDeskVideoId: companion.tinyDeskVideoId,
+        nodes: JSON.parse(companion.nodes),
+      };
+    }
+  } catch {
+    // Fall through to static file
+  }
+
+  // Fallback: static JSON
+  try {
+    const { readFile } = await import("fs/promises");
+    const { join } = await import("path");
     const filePath = join(process.cwd(), "public", "tinydesk", `${slug}.json`);
     const raw = await readFile(filePath, "utf-8");
     return JSON.parse(raw) as TinyDeskData;

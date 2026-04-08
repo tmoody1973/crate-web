@@ -1,6 +1,8 @@
-import { readdir, readFile } from "fs/promises";
-import { join } from "path";
 import Link from "next/link";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../convex/_generated/api";
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
 
 interface TinyDeskData {
@@ -24,25 +26,36 @@ export const metadata = {
 };
 
 async function getAllArtists(): Promise<TinyDeskData[]> {
-  const dir = join(process.cwd(), "public", "tinydesk");
-
   try {
-    const files = await readdir(dir);
-    const jsonFiles = files.filter((f) => f.endsWith(".json"));
+    const companions = await convex.query(api.tinydeskCompanions.listAll, {});
+    const fromConvex: TinyDeskData[] = companions.map((c) => ({
+      artist: c.artist,
+      slug: c.slug,
+      tagline: c.tagline,
+      tinyDeskVideoId: c.tinyDeskVideoId,
+    }));
 
-    const artists = await Promise.all(
-      jsonFiles.map(async (file) => {
-        try {
-          const raw = await readFile(join(dir, file), "utf-8");
-          const data = JSON.parse(raw) as TinyDeskData;
-          return data;
-        } catch {
-          return null;
-        }
-      })
-    );
-
-    return artists.filter((a): a is TinyDeskData => a !== null);
+    // Also check static files for backward compat
+    try {
+      const { readdir, readFile } = await import("fs/promises");
+      const { join } = await import("path");
+      const dir = join(process.cwd(), "public", "tinydesk");
+      const files = await readdir(dir);
+      const jsonFiles = files.filter((f) => f.endsWith(".json"));
+      const fromStatic = await Promise.all(
+        jsonFiles.map(async (file) => {
+          try {
+            const raw = await readFile(join(dir, file), "utf-8");
+            return JSON.parse(raw) as TinyDeskData;
+          } catch { return null; }
+        }),
+      );
+      const staticArtists = fromStatic.filter((a): a is TinyDeskData => a !== null);
+      const convexSlugs = new Set(fromConvex.map((a) => a.slug));
+      return [...fromConvex, ...staticArtists.filter((a) => !convexSlugs.has(a.slug))];
+    } catch {
+      return fromConvex;
+    }
   } catch {
     return [];
   }
