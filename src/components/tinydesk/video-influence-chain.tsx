@@ -8,6 +8,9 @@ interface TinyDeskNode {
   strength: number;
   source?: string;
   sourceUrl?: string;
+  sourceQuote?: string;
+  sonicDna?: string[];
+  keyWorks?: Array<{ title: string; year: string }>;
   videoId: string;
   videoTitle: string;
 }
@@ -141,8 +144,31 @@ export function VideoInfluenceChain({ nodes }: VideoInfluenceChainProps) {
                 {node.videoTitle}
               </p>
 
-              {/* Connection story - magazine-style paragraph */}
+              {/* Connection story + enrichments */}
               <div className="mt-8 md:mt-10 max-w-2xl mx-auto">
+                {/* Strength badge */}
+                <div className="flex items-center gap-3 mb-5">
+                  <div
+                    className="flex items-center gap-2 rounded-lg px-3 py-1.5"
+                    style={{ backgroundColor: `${strengthColor}10`, border: `1px solid ${strengthColor}25` }}
+                  >
+                    <div
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: strengthColor }}
+                    />
+                    <span
+                      className="text-sm font-semibold tabular-nums"
+                      style={{ color: strengthColor }}
+                    >
+                      {node.strength.toFixed(2)}
+                    </span>
+                  </div>
+                  <span style={{ color: "#52525b", fontSize: "12px" }}>
+                    influence strength
+                  </span>
+                </div>
+
+                {/* Connection text */}
                 <p
                   className="text-base md:text-lg leading-relaxed md:leading-loose"
                   style={{ color: "#d4d4d8" }}
@@ -150,8 +176,42 @@ export function VideoInfluenceChain({ nodes }: VideoInfluenceChainProps) {
                   {node.connection}
                 </p>
 
-                {/* Source as footnote */}
-                {node.source && (
+                {/* Pull quote from source */}
+                {node.sourceQuote && (
+                  <blockquote
+                    className="mt-6 pl-4 py-1"
+                    style={{ borderLeft: `2px solid ${strengthColor}50` }}
+                  >
+                    <p
+                      className="text-sm md:text-base italic leading-relaxed"
+                      style={{ color: "#a1a1aa" }}
+                    >
+                      "{node.sourceQuote}"
+                    </p>
+                    {node.source && (
+                      <cite
+                        className="mt-2 block text-xs not-italic"
+                        style={{ color: "#52525b" }}
+                      >
+                        {node.sourceUrl ? (
+                          <a
+                            href={node.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline decoration-zinc-700 underline-offset-2 hover:decoration-zinc-500 transition-colors"
+                          >
+                            {node.source} ↗
+                          </a>
+                        ) : (
+                          node.source
+                        )}
+                      </cite>
+                    )}
+                  </blockquote>
+                )}
+
+                {/* Source footnote (when no pull quote) */}
+                {!node.sourceQuote && node.source && (
                   <p className="mt-4" style={{ color: "#52525b", fontSize: "12px" }}>
                     {node.sourceUrl ? (
                       <a
@@ -167,6 +227,58 @@ export function VideoInfluenceChain({ nodes }: VideoInfluenceChainProps) {
                       node.source
                     )}
                   </p>
+                )}
+
+                {/* Sonic DNA tags */}
+                {node.sonicDna && node.sonicDna.length > 0 && (
+                  <div className="mt-6">
+                    <p
+                      className="text-[10px] font-medium uppercase tracking-widest mb-2"
+                      style={{ color: "#52525b" }}
+                    >
+                      Sonic DNA
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {node.sonicDna.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                          style={{
+                            backgroundColor: "#18181b",
+                            border: "1px solid #27272a",
+                            color: "#a1a1aa",
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Key Works */}
+                {node.keyWorks && node.keyWorks.length > 0 && (
+                  <div className="mt-5">
+                    <p
+                      className="text-[10px] font-medium uppercase tracking-widest mb-2"
+                      style={{ color: "#52525b" }}
+                    >
+                      Key Works
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {node.keyWorks.map((work) => (
+                        <span
+                          key={work.title}
+                          className="text-xs"
+                          style={{ color: "#71717a" }}
+                        >
+                          <span style={{ color: "#d4d4d8" }}>{work.title}</span>
+                          {" "}
+                          <span style={{ color: "#3f3f46" }}>({work.year})</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </section>
