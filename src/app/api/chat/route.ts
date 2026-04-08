@@ -20,6 +20,7 @@ import { createSlackTools } from "@/lib/web-tools/slack";
 import { createGoogleDocsTools } from "@/lib/web-tools/google-docs";
 import { createTumblrConnectedTools } from "@/lib/web-tools/tumblr-connected";
 import { createYouTubeConnectedTools } from "@/lib/web-tools/youtube-connected";
+import { createTinyDeskTools } from "@/lib/web-tools/tinydesk";
 import { isTokenVaultConfigured } from "@/lib/auth0-token-vault";
 import {
   searchMemories,
@@ -301,6 +302,8 @@ async function streamAgenticResponse(
           ? createYouTubeConnectedTools(auth0UserIds?.google)
           : [];
 
+        const webTinyDeskTools = createTinyDeskTools(convexUrl, userId);
+
         // Filter out crate-cli groups that use SQLite or mpv, inject web versions
         // For radio: keep crate-cli's search/browse/tags tools, replace play_radio
         const cliRadioGroup = cliToolGroups.find(
@@ -365,6 +368,7 @@ async function streamAgenticResponse(
           ...(webYouTubeConnectedTools.length > 0
             ? [{ serverName: "youtube-connected", tools: webYouTubeConnectedTools }]
             : []),
+          { serverName: "tinydesk", tools: webTinyDeskTools },
         ];
 
         // For research-heavy commands, only include relevant tool servers
