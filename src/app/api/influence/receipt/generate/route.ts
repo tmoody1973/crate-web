@@ -18,6 +18,7 @@ import {
   type ReceiptInfluence,
   artistToSlug,
   getReceiptTier,
+  sourceNameFromUrl,
 } from "@/lib/receipt-types";
 
 export const maxDuration = 30;
@@ -104,7 +105,7 @@ export async function POST(req: Request): Promise<Response> {
       context: c.context,
       sources: citations
         .slice(0, 2)
-        .map((url) => ({ name: "Perplexity", url })),
+        .map((url) => ({ name: sourceNameFromUrl(url), url })),
       subInfluences: [],
     }));
   } catch (err) {
@@ -144,7 +145,7 @@ export async function POST(req: Request): Promise<Response> {
             context: sc.context,
             sources: result.value.citations
               .slice(0, 1)
-              .map((url) => ({ name: "Perplexity", url })),
+              .map((url) => ({ name: sourceNameFromUrl(url), url })),
           })),
         };
       }

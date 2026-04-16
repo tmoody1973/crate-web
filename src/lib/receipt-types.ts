@@ -47,6 +47,35 @@ export function artistToSlug(name: string): string {
 }
 
 /**
+ * Extract a readable source name from a citation URL.
+ */
+export function sourceNameFromUrl(url: string): string {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, "");
+    const names: Record<string, string> = {
+      "en.wikipedia.org": "Wikipedia",
+      "genius.com": "Genius",
+      "allmusic.com": "AllMusic",
+      "last.fm": "Last.fm",
+      "pitchfork.com": "Pitchfork",
+      "rollingstone.com": "Rolling Stone",
+      "discogs.com": "Discogs",
+      "musicbrainz.org": "MusicBrainz",
+      "rateyourmusic.com": "RateYourMusic",
+      "billboard.com": "Billboard",
+      "nme.com": "NME",
+      "theguardian.com": "The Guardian",
+      "nytimes.com": "NY Times",
+      "bbc.co.uk": "BBC",
+      "npr.org": "NPR",
+    };
+    return names[hostname] ?? hostname.replace(/\.com$|\.org$|\.net$/, "");
+  } catch {
+    return "Source";
+  }
+}
+
+/**
  * Known ambiguous artist names with disambiguators.
  */
 export const DISAMBIGUATIONS: Record<string, string> = {

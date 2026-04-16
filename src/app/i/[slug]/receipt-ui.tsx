@@ -312,12 +312,10 @@ export function ReceiptUI({
   slug: string;
   initialReceipt: ReceiptData | null;
 }) {
-  const [receipt, setReceipt] = useState<ReceiptData | null>(initialReceipt);
-  const [loading, setLoading] = useState(!initialReceipt);
-  const [error, setError] = useState<string | null>(null);
+  const receipt = initialReceipt;
   const viewTracked = useRef(false);
 
-  // Track receipt view once data is available
+  // Track receipt view
   useEffect(() => {
     if (viewTracked.current) return;
     if (!receipt) return;
@@ -326,84 +324,10 @@ export function ReceiptUI({
       artist: receipt.artist,
       slug: receipt.slug,
       tier: receipt.tier,
-      from_cache: !!initialReceipt,
       influence_count: receipt.influences.length,
       referrer: typeof document !== "undefined" ? document.referrer : "",
     });
-  }, [receipt, initialReceipt]);
-
-  useEffect(() => {
-    if (initialReceipt) return;
-
-    let cancelled = false;
-
-    async function generate() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/influence/receipt/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ artist: slug.replace(/-/g, " ") }),
-        });
-
-        if (res.status === 429) {
-          const data = await res.json();
-          setError(data.error ?? "Rate limit exceeded. Try again later.");
-          return;
-        }
-
-        if (!res.ok) {
-          setError("Something went wrong. Try again.");
-          return;
-        }
-
-        const data = await res.json();
-        if (!cancelled) {
-          setReceipt(data.receipt);
-        }
-      } catch {
-        if (!cancelled) {
-          setError("Something went wrong. Try again.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    generate();
-    return () => {
-      cancelled = true;
-    };
-  }, [slug, initialReceipt]);
-
-  // Loading state: skeleton
-  if (loading) {
-    return <ReceiptSkeleton />;
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="px-4 py-12 max-w-[640px] mx-auto text-center">
-        <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide mb-2">
-          Oops
-        </h1>
-        <p className="text-white/50 mb-6">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-lg px-6 py-2.5 text-sm font-medium transition-colors"
-        >
-          Try again
-        </button>
-        <div className="mt-8">
-          <SearchBox currentSlug={slug} />
-        </div>
-      </div>
-    );
-  }
+  }, [receipt]);
 
   // Unknown tier
   if (!receipt || receipt.tier === "unknown") {
