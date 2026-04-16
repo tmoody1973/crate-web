@@ -365,6 +365,22 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_slug", ["userId", "slug"]),
 
+  // Influence Receipt: public rate limiting
+  receiptRateLimits: defineTable({
+    ip: v.string(),
+    timestamps: v.array(v.number()),
+    createdAt: v.number(),
+  }).index("by_ip", ["ip"]),
+
+  // Influence Receipt: cached receipt data (keyed by slug)
+  receiptCache: defineTable({
+    slug: v.string(),
+    artist: v.string(),
+    tier: v.union(v.literal("full"), v.literal("partial"), v.literal("unknown")),
+    data: v.string(), // JSON-encoded ReceiptData
+    generatedAt: v.number(),
+  }).index("by_slug", ["slug"]),
+
   wikiLogEntries: defineTable({
     userId: v.id("users"),
     timestamp: v.number(),

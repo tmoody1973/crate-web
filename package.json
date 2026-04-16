@@ -22,6 +22,7 @@
     "@posthog/cli": "^0.7.5",
     "@tailwindcss/typography": "^0.5.19",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/og": "^0.11.1",
     "convex": "^1.32.0",
     "crate-cli": "^0.5.2",
     "googleapis": "^171.4.0",
