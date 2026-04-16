@@ -335,94 +335,152 @@ export function ReceiptUI({
   }
 
   return (
-    <div className="px-4 py-8 max-w-[640px] mx-auto">
-      {/* Header */}
-      <header className="mb-8">
+    <>
+      {/* ── Sticky Header (matches /tinydesk) ────────────────────────── */}
+      <header
+        className="sticky top-0 z-50 flex items-center justify-between px-6 py-4"
+        style={{ backgroundColor: "#0A1628", borderBottom: "1px solid #1d2d44" }}
+      >
+        <div className="flex items-center gap-3">
+          <Link href="/" className="shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/branding/crate-logo_Light.svg"
+              alt="Crate"
+              style={{ height: "40px", width: "auto" }}
+            />
+          </Link>
+          <span style={{ color: "#3f3f46", fontSize: "24px", fontWeight: 300 }}>×</span>
+          <Link
+            href="/i"
+            className="font-[family-name:var(--font-bebas)] tracking-widest hover:text-cyan-400 transition-colors"
+            style={{ color: "#f4f4f5", fontSize: "20px" }}
+          >
+            INFLUENCE RECEIPTS
+          </Link>
+        </div>
         <Link
-          href="/i"
-          className="text-xs text-white/30 hover:text-white/50 transition-colors mb-4 block"
+          href="/sign-in"
+          className="font-[family-name:var(--font-bebas)] rounded px-5 py-2 text-sm tracking-widest transition-opacity hover:opacity-90"
+          style={{ backgroundColor: "#E8520E", color: "#F5F0E8" }}
+          onClick={() =>
+            posthog.capture("receipt_cta_click", {
+              artist: receipt.artist,
+              slug: receipt.slug,
+              cta_type: "header_cta",
+            })
+          }
         >
-          ← All Receipts
+          TRY CRATE FREE
         </Link>
-        <h1 className="font-[family-name:var(--font-bebas)] text-4xl sm:text-5xl md:text-6xl tracking-wide leading-none">
-          {receipt.artist}
-        </h1>
-        <p className="text-white/40 text-sm mt-2">
-          A receipt of musical influences
-        </p>
       </header>
 
-      {/* Influence tree */}
-      <section aria-label="Influence chain" role="tree" className="mb-8">
-        <h2 className="text-xs font-semibold text-white/30 uppercase tracking-widest mb-4">
-          Who shaped them
-        </h2>
-        <div className="space-y-0.5">
-          {receipt.influences.map((inf, idx) => (
-            <InfluenceNode
-              key={inf.slug}
-              influence={inf}
-              isLast={idx === receipt.influences.length - 1}
-            />
-          ))}
-        </div>
-      </section>
+      {/* ── Receipt Content ──────────────────────────────────────────── */}
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        {/* Artist header */}
+        <header className="mb-10">
+          <h1
+            className="font-[family-name:var(--font-bebas)] tracking-wide leading-none"
+            style={{ fontSize: "clamp(40px, 8vw, 72px)" }}
+          >
+            {receipt.artist}
+          </h1>
+          <p style={{ color: "#a1a1aa", fontSize: "16px", marginTop: "8px" }}>
+            Influence Receipt — who shaped their sound
+          </p>
+        </header>
 
-      {/* Sonic DNA tags */}
-      {receipt.sonicDna && receipt.sonicDna.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-xs font-semibold text-white/30 uppercase tracking-widest mb-3">
-            Sonic DNA
+        {/* Influence tree */}
+        <section aria-label="Influence chain" role="tree" className="mb-10">
+          <h2
+            className="font-[family-name:var(--font-bebas)] tracking-widest mb-5"
+            style={{ color: "#f4f4f5", fontSize: "13px" }}
+          >
+            WHO SHAPED THEM
           </h2>
-          <div className="flex flex-wrap gap-2">
-            {receipt.sonicDna.map((tag) => (
-              <span
-                key={tag}
-                className="bg-white/5 border border-white/10 rounded-full px-3 py-1 text-xs text-white/60"
-              >
-                {tag}
-              </span>
+          <div className="space-y-0.5">
+            {receipt.influences.map((inf, idx) => (
+              <InfluenceNode
+                key={inf.slug}
+                influence={inf}
+                isLast={idx === receipt.influences.length - 1}
+              />
             ))}
           </div>
         </section>
-      )}
 
-      {/* Partial tier banner */}
-      {receipt.tier === "partial" && <PartialBanner />}
+        {/* Sonic DNA tags */}
+        {receipt.sonicDna && receipt.sonicDna.length > 0 && (
+          <section className="mb-10">
+            <h2
+              className="font-[family-name:var(--font-bebas)] tracking-widest mb-4"
+              style={{ color: "#f4f4f5", fontSize: "13px" }}
+            >
+              SONIC DNA
+            </h2>
+            <div className="flex flex-wrap gap-1.5">
+              {receipt.sonicDna.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full px-2.5 py-0.5"
+                  style={{ backgroundColor: "#083344", color: "#22d3ee", fontSize: "10px" }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
 
-      {/* Actions */}
-      <footer className="border-t border-white/10 pt-6 mt-8 space-y-4">
-        <div className="flex gap-3">
-          <ShareButton artist={receipt.artist} slug={receipt.slug} />
+        {/* Partial tier banner */}
+        {receipt.tier === "partial" && <PartialBanner />}
+
+        {/* Actions */}
+        <div
+          className="rounded-xl p-6 mt-10"
+          style={{ backgroundColor: "#18181b", border: "1px solid #27272a" }}
+        >
+          <div className="flex gap-3 mb-4">
+            <ShareButton artist={receipt.artist} slug={receipt.slug} />
+          </div>
+          <SearchBox currentSlug={slug} />
         </div>
 
-        <SearchBox currentSlug={slug} />
-
-        <div className="text-center pt-4">
+        {/* Bottom CTA */}
+        <div
+          className="rounded-xl p-6 mt-4 text-center"
+          style={{ backgroundColor: "#0A1628", border: "1px solid #1d2d44" }}
+        >
+          <p style={{ color: "#a1a1aa", fontSize: "14px", marginBottom: "12px" }}>
+            Want to go deeper? Crate traces influence chains across 20+ sources.
+          </p>
           <Link
             href="/sign-up"
-            className="text-sm text-white/40 hover:text-[#4ade80] transition-colors"
+            className="font-[family-name:var(--font-bebas)] inline-block rounded-lg px-8 py-3 text-sm tracking-widest transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "#E8520E", color: "#F5F0E8" }}
             onClick={() =>
               posthog.capture("receipt_cta_click", {
                 artist: receipt.artist,
                 slug: receipt.slug,
-                cta_type: "sign_up",
+                cta_type: "bottom_cta",
               })
             }
           >
-            Want to go deeper? Try Crate →
+            TRY CRATE FREE
           </Link>
         </div>
 
-        <div className="text-center pt-2">
+        {/* Footer link */}
+        <div className="text-center mt-8">
           <Link
-            href="/"
-            className="text-xs text-white/20 hover:text-white/40 transition-colors"
+            href="/i"
+            className="text-xs transition-colors hover:text-cyan-300"
+            style={{ color: "#52525b" }}
           >
-            Crate — The Liner Notes Layer
+            ← Browse all Influence Receipts
           </Link>
         </div>
-      </footer>
-    </div>
+      </div>
+    </>
   );
 }

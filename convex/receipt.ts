@@ -130,18 +130,34 @@ export const cacheReceipt = mutation({
 });
 
 /**
- * List all cached receipts (for the landing page grid).
+ * List all cached receipts with influence preview (for the landing page).
  */
 export const listCached = query({
   args: {},
   handler: async (ctx) => {
     const receipts = await ctx.db.query("receiptCache").collect();
-    return receipts.map((r) => ({
-      slug: r.slug,
-      artist: r.artist,
-      tier: r.tier,
-      generatedAt: r.generatedAt,
-    }));
+    return receipts.map((r) => {
+      // Parse data to extract top influences for preview
+      let topInfluences: Array<{ name: string; relationship: string }> = [];
+      try {
+        const data = JSON.parse(r.data);
+        topInfluences = (data.influences || [])
+          .slice(0, 3)
+          .map((inf: { name: string; relationship: string }) => ({
+            name: inf.name,
+            relationship: inf.relationship,
+          }));
+      } catch {
+        // Non-fatal
+      }
+      return {
+        slug: r.slug,
+        artist: r.artist,
+        tier: r.tier,
+        generatedAt: r.generatedAt,
+        topInfluences,
+      };
+    });
   },
 });
 
