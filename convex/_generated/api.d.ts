@@ -17,6 +17,7 @@ import type * as messages from "../messages.js";
 import type * as orgKeys from "../orgKeys.js";
 import type * as playlists from "../playlists.js";
 import type * as published from "../published.js";
+import type * as rateLimits from "../rateLimits.js";
 import type * as receipt from "../receipt.js";
 import type * as sessions from "../sessions.js";
 import type * as shares from "../shares.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   orgKeys: typeof orgKeys;
   playlists: typeof playlists;
   published: typeof published;
+  rateLimits: typeof rateLimits;
   receipt: typeof receipt;
   sessions: typeof sessions;
   shares: typeof shares;

@@ -263,6 +263,19 @@ export default defineSchema({
     .index("by_user_type_period", ["userId", "type", "periodStart"])
     .index("by_team_domain_period", ["teamDomain", "periodStart"]),
 
+  // Shared rate-limit table. Composite key is (userId, endpoint).
+  // Each (user, endpoint) pair has one row. The row is reused across windows
+  // by resetting windowStart + count when a new window begins.
+  // Rows live forever per (user, endpoint) — no cleanup needed because N is
+  // bounded by users × endpoints. Unique index ensures atomic upsert.
+  rateLimits: defineTable({
+    userId: v.id("users"),
+    endpoint: v.string(),
+    windowStart: v.number(),
+    count: v.number(),
+    lastHitAt: v.number(),
+  }).index("by_user_endpoint", ["userId", "endpoint"]),
+
   userSkills: defineTable({
     userId: v.id("users"),
     command: v.string(),
