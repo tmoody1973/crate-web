@@ -340,7 +340,7 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       return "failed";
     }
 
-    const picks: SelectedPick[] = pickResult.picks.slice(0, 12);
+    const picks: SelectedPick[] = pickResult.picks.slice(0, 8);
 
     // Phase 5: Per-pick grounded quote + YouTube lookup in parallel (Phase
     // B of per-pick architecture). For each pick: Perplexity Search API
