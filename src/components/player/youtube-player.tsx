@@ -147,7 +147,16 @@ export function YouTubePlayer() {
     return () => {
       mounted = false;
       stopTimer();
-      playerRef.current?.destroy();
+      // YouTube's `destroy()` tries to remove its iframe from the DOM. If
+      // React has already unmounted the container (common with Strict Mode's
+      // double-invoke in dev, or when navigating away from the tour page),
+      // the iframe is already gone and destroy() throws NotFoundError.
+      // Swallow it — the cleanup goal is achieved either way.
+      try {
+        playerRef.current?.destroy();
+      } catch {
+        // iframe already detached; nothing more to do
+      }
       playerRef.current = null;
     };
   }, [setIsPlaying, setDuration, startTimer, stopTimer, next, registerSeek]);
