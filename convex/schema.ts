@@ -337,6 +337,7 @@ export default defineSchema({
     saveCount: v.number(),
     shareCount: v.number(),
     exportCount: v.number(),
+    refineCount: v.number(),              // chip refinements spawned from this tour (observation-sprint signal)
 
     createdAt: v.number(),
     completedAt: v.optional(v.number()),
