@@ -18,7 +18,7 @@ Reading order for anyone new to this feature (including future-you after 3 month
 
 ## Prototype stubs (reference only — not yet wired)
 
-The four stub files in this folder (`pipeline.ts`, `pitchfork.ts`, `prompts.ts`, `registry.ts`, `types.ts`) are Approach C scaffolding from the original design doc. **They are NOT part of v1.** v1 uses Perplexity Sonar; these stubs belong to the Phase C corpus ingestion pipeline decided at week 6.
+The five stub files in this folder (`pipeline.ts`, `pitchfork.ts`, `prompts.ts`, `registry.ts`, `types.ts`) are Approach C scaffolding from the original design doc. **They are NOT part of v1.** v1 uses Perplexity Sonar; these stubs belong to the Phase C corpus ingestion pipeline decided at week 6.
 
 ## Build sequence for v1
 

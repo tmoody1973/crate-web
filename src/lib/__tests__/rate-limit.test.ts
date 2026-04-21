@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   checkRateLimit,
   rateLimitHeaders,
@@ -69,39 +69,58 @@ describe("checkRateLimit", () => {
 });
 
 describe("retryAfterSeconds", () => {
-  it("returns seconds until reset (floored at 1)", () => {
-    const now = Date.now();
+  // Fake timers: pin Date.now() so tests are deterministic regardless of
+  // wall-clock latency between result construction and assertion.
+  const FROZEN_TIME = 1700000000000; // arbitrary stable epoch ms
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_TIME);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns seconds until reset", () => {
     const result: RateLimitResult = {
       allowed: false,
       remaining: 0,
-      resetAt: now + 30_000,
+      resetAt: FROZEN_TIME + 30_000,
       limit: 10,
     };
-    // About 30 seconds, allow a small window for execution time
-    const secs = retryAfterSeconds(result);
-    expect(secs).toBeGreaterThanOrEqual(29);
-    expect(secs).toBeLessThanOrEqual(31);
+    expect(retryAfterSeconds(result)).toBe(30);
   });
 
   it("returns at least 1 even when reset is in the past", () => {
     const result: RateLimitResult = {
       allowed: false,
       remaining: 0,
-      resetAt: Date.now() - 10_000,
+      resetAt: FROZEN_TIME - 10_000,
       limit: 10,
     };
     expect(retryAfterSeconds(result)).toBe(1);
   });
 
-  it("rounds up fractional seconds", () => {
+  it("rounds up fractional seconds (ceil)", () => {
     const result: RateLimitResult = {
       allowed: false,
       remaining: 0,
-      resetAt: Date.now() + 1500,
+      resetAt: FROZEN_TIME + 1500,
       limit: 10,
     };
-    // Should round up from ~1.5 to 2
-    expect(retryAfterSeconds(result)).toBeGreaterThanOrEqual(2);
+    // 1500ms = 1.5s, rounds up to 2
+    expect(retryAfterSeconds(result)).toBe(2);
+  });
+
+  it("handles exactly 1 second", () => {
+    const result: RateLimitResult = {
+      allowed: false,
+      remaining: 0,
+      resetAt: FROZEN_TIME + 1000,
+      limit: 10,
+    };
+    expect(retryAfterSeconds(result)).toBe(1);
   });
 });
 

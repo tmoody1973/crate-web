@@ -263,11 +263,16 @@ export default defineSchema({
     .index("by_user_type_period", ["userId", "type", "periodStart"])
     .index("by_team_domain_period", ["teamDomain", "periodStart"]),
 
-  // Shared rate-limit table. Composite key is (userId, endpoint).
+  // Shared rate-limit table. Composite logical key is (userId, endpoint).
   // Each (user, endpoint) pair has one row. The row is reused across windows
   // by resetting windowStart + count when a new window begins.
   // Rows live forever per (user, endpoint) — no cleanup needed because N is
-  // bounded by users × endpoints. Unique index ensures atomic upsert.
+  // bounded by users × endpoints.
+  //
+  // The `by_user_endpoint` index is a standard Convex index for query
+  // performance only — Convex indexes do NOT enforce uniqueness. Atomicity
+  // of the check-and-increment is guaranteed by Convex mutations being
+  // serialized transactions (see convex/rateLimits.ts).
   rateLimits: defineTable({
     userId: v.id("users"),
     endpoint: v.string(),

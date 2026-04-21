@@ -243,7 +243,7 @@ These 6 items were accepted during CEO review's SELECTIVE EXPANSION but deferred
 - **Priority:** P2 (conditional on publication partnerships materializing)
 - **Depends on:** At least one publication partnership formalized; template system to onboard additional ones quickly
 
-### T25. Save as Spotify playlist via Auth0 Vault (was Cherry-pick #5 — deferred 2026-04-20 per /plan-design-review)
+### T24. Save as Spotify playlist via Auth0 Vault (was Cherry-pick #5 — deferred 2026-04-20 per /plan-design-review)
 
 - **What:** Button in tour artifact: "Save to Spotify playlist." Creates a Spotify playlist via Auth0 Token Vault write scope (`playlist-modify-private` + `playlist-modify-public`). Re-consent modal for write-scope escalation. Track selection policy from design doc §3.5 (most-reviewed > most recent single > opener of featured album). "Not on Spotify" badge + user ack for incomplete playlists.
 - **Why:** Original Cherry-pick #5 from CEO review — closes the loop from discovery to listen for Spotify users. Ships alongside the coalition essay when Phase 2 marketing begins.
@@ -254,7 +254,7 @@ These 6 items were accepted during CEO review's SELECTIVE EXPANSION but deferred
 - **Priority:** P2 (conditional on Phase 2 coalition essay launch)
 - **Depends on:** v1 shipped; week-6 validation criteria met; coalition essay launch decision; Auth0 Vault extended with write scope
 
-### T26. A/B framework for prompts
+### T25. A/B framework for prompts
 
 - **What:** Per-intent Perplexity prompts become A/B-testable. Route 10% of traffic to prompt variant B; compare tour quality via engagement signals.
 - **Why:** Without this, every prompt change is deploy-and-pray. Eval suite catches regressions, but can't distinguish "worse" from "different."

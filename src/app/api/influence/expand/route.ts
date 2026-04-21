@@ -128,11 +128,14 @@ export async function POST(req: Request): Promise<Response> {
 
       // If cache has >= 3 connections, return immediately
       if (mappedConnections.length >= 3) {
-        return Response.json({
-          connections: mappedConnections,
-          fromCache: true,
-          enriched: false,
-        } satisfies ExpandResponse);
+        return Response.json(
+          {
+            connections: mappedConnections,
+            fromCache: true,
+            enriched: false,
+          } satisfies ExpandResponse,
+          { headers: rateLimitHeaders(rateLimit) },
+        );
       }
     }
   } catch (err) {
@@ -156,11 +159,14 @@ export async function POST(req: Request): Promise<Response> {
   } catch (err) {
     console.error("[influence/expand] Perplexity discovery failed:", err);
     // Fall through — return whatever we have from cache
-    return Response.json({
-      connections: cachedResult.connections,
-      fromCache: cachedResult.fromCache,
-      enriched: false,
-    } satisfies ExpandResponse);
+    return Response.json(
+      {
+        connections: cachedResult.connections,
+        fromCache: cachedResult.fromCache,
+        enriched: false,
+      } satisfies ExpandResponse,
+      { headers: rateLimitHeaders(rateLimit) },
+    );
   }
 
   // ── Step 3: Cache discovered edges to Convex ──────────────────────────────
@@ -241,9 +247,12 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  return Response.json({
-    connections: merged,
-    fromCache: cachedResult.fromCache,
-    enriched,
-  } satisfies ExpandResponse);
+  return Response.json(
+    {
+      connections: merged,
+      fromCache: cachedResult.fromCache,
+      enriched,
+    } satisfies ExpandResponse,
+    { headers: rateLimitHeaders(rateLimit) },
+  );
 }
