@@ -103,7 +103,7 @@ Return a JSON object: { "picks": [ ... ] }. Each pick:
 }
 
 Rules:
-1. Target 8-12 picks. Prioritize artists with direct published critical coverage (album reviews, interviews, features in editorial publications).
+1. Return 8-12 picks. Lead with artists that have direct published critical coverage for the exact theme, but DO fill to 8-12 with well-documented artists from the adjacent genres/moods when direct-theme coverage is thin. A grounded-quote step runs AFTER this and only attaches a quote when it can find a real per-pick source — so genre-adjacent picks without a perfect themed review are safe; they just render quote-less downstream rather than stapled with a fabricated citation. Returning 1-3 picks because you could only verify exact-theme coverage for that few is a FAILURE MODE. Always reach 8-12.
 2. Do NOT invent albums or release years. If you're unsure of the specific album for an artist, pick one you can attest they released.
 3. Do NOT include quote_text, quote_publication, quote_url, or any prose. Per-pick quotes are written in a separate grounded step from retrieved article snippets.
 4. Never include more than 12 picks.
