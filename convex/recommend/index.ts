@@ -27,6 +27,8 @@ import type { Id } from "../_generated/dataModel";
 import { classifyIntent } from "./intentClassify";
 import { embedText } from "./voyageEmbed";
 import { recommendFromPerplexity } from "./perplexityRecommend";
+import { selectPicks, type SelectedPick } from "./pickSelector";
+import { groundedQuoteForPick, type GroundedQuote } from "./groundedQuote";
 import { verifyCitation } from "./citationVerify";
 import { orderArc, fallbackArcOrder } from "./arcOrder";
 import { classifyModeration, summarizeTourForModeration } from "./moderationClassify";
@@ -310,11 +312,14 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       }),
     );
 
-    // Phase 4: Call Perplexity ────────────────────────────────────────────
-    await writeStatus(ctx, tourId, "reading_reviews", 0.4, "Reading recent reviews");
-    const perplexityResult = await timedPhase(w, "perplexity", async () => {
+    // Phase 4: Pick selection (Phase A of per-pick grounded architecture) ─
+    // sonar-pro returns artist names + albums only — no quote prose.
+    // Model uses retrieval to ground the selection; per-pick grounded
+    // quotes come from the Phase B step below.
+    await writeStatus(ctx, tourId, "reading_reviews", 0.35, "Selecting artists");
+    const pickResult = await timedPhase(w, "pick-select", async () => {
       w.addCost(0.04);
-      return await recommendFromPerplexity({
+      return await selectPicks({
         structuredQuery,
         keptArtistNames: wikiMemory.keptArtistNames,
         passedArtistNames: wikiMemory.passedArtistNames,
@@ -322,15 +327,12 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       });
     });
 
-    // Observability: record how many real sources Perplexity actually
-    // returned vs how many model-generated URLs survived matching.
     w.errors.push(
-      `Perplexity:picks=${perplexityResult.picks.length},citations=${perplexityResult.citations.length},withUrl=${perplexityResult.picks.filter((p) => p.quote_url).length}`,
+      `PickSelect:picks=${pickResult.picks.length},sparse=${pickResult.isSparse}`,
     );
 
-    if (perplexityResult.picks.length === 0) {
-      // Total failure — nothing to render. Mark failed.
-      w.errors.push("PerplexityZeroResultsError");
+    if (pickResult.picks.length === 0) {
+      w.errors.push("PickSelectZeroResultsError");
       await ctx.runMutation(internal.recommend.mutations.markFailed, {
         tourId,
         reason: "failed",
@@ -338,35 +340,32 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       return "failed";
     }
 
-    const picks = perplexityResult.picks.slice(0, 12); // cap at 12
-    const citations = perplexityResult.citations;
+    const picks: SelectedPick[] = pickResult.picks.slice(0, 12);
 
-    // Phase 5: Verify citations + resolve YouTube ids in parallel ───────
-    await writeStatus(ctx, tourId, "verifying", 0.7, "Verifying sources");
-    const verifiedPicks = await timedPhase(w, "verify", async () => {
+    // Phase 5: Per-pick grounded quote + YouTube lookup in parallel (Phase
+    // B of per-pick architecture). For each pick: Perplexity Search API
+    // scoped to THAT artist/album returns real snippets from the music-
+    // publication allowlist; Claude Haiku writes 2 sentences drawn from
+    // the chosen snippet. URL is selected BEFORE the prose is written —
+    // prose and URL are tightly coupled by construction.
+    await writeStatus(ctx, tourId, "verifying", 0.7, "Grounding quotes");
+    const enriched = await timedPhase(w, "ground", async () => {
       return await Promise.all(
         picks.map(async (pick) => {
-          const [verifyResult, youtubeResult] = await Promise.all([
-            (async () => {
-              if (!pick.quote_text || !pick.quote_url) return { verified: false };
-              try {
-                return await verifyCitation({
-                  url: pick.quote_url,
-                  quote: pick.quote_text,
-                });
-              } catch (e) {
-                w.errors.push(`CitationVerify:${errName(e)}`);
-                return { verified: false };
-              }
-            })(),
+          const [groundedQuote, youtubeResult] = await Promise.all([
+            groundedQuoteForPick({
+              artist: pick.name,
+              album: pick.album,
+              theme: structuredQuery.raw_text,
+            }).catch((e) => {
+              w.errors.push(`GroundedQuote:${errName(e)}`);
+              return null as GroundedQuote | null;
+            }),
             resolveYouTubeVideoId({
               artistName: pick.name,
               album: pick.album,
             }),
           ]);
-          // Log EVERY outcome so we can count hits vs misses in the errors
-          // array. Even successes get a "YouTubeResolve:ok" tag so we know
-          // the code path ran at all.
           w.errors.push(
             youtubeResult.videoId
               ? `YouTubeResolve:ok`
@@ -374,20 +373,30 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
           );
           return {
             pick,
-            verified: verifyResult.verified,
+            groundedQuote,
             youtubeTrackId: youtubeResult.videoId ?? undefined,
           };
         }),
       );
     });
 
+    // Observability: grounded-quote hit rate. Mirrors the "honest no-quote"
+    // branch — picks without matching retrieval render quote-less instead
+    // of stamped with a fabricated citation.
+    const groundedCount = enriched.filter((e) => e.groundedQuote).length;
+    w.errors.push(`Grounded:${groundedCount}/${enriched.length}`);
+
+    const citations = enriched
+      .map((e) => e.groundedQuote?.sourceUrl)
+      .filter((u): u is string => !!u);
+
     // Phase 6: Parallel arc + moderation + redaction ─────────────────────
     await writeStatus(ctx, tourId, "ordering", 0.85, "Ordering the tour");
-    const artistNames = verifiedPicks.map((vp) => vp.pick.name);
+    const artistNames = enriched.map((e) => e.pick.name);
     const tourSummary = summarizeTourForModeration(
-      verifiedPicks.map((vp) => ({
-        name: vp.pick.name,
-        quote: vp.pick.quote_text ? { text: vp.pick.quote_text } : undefined,
+      enriched.map((e) => ({
+        name: e.pick.name,
+        quote: e.groundedQuote ? { text: e.groundedQuote.why } : undefined,
       })),
     );
 
@@ -397,16 +406,15 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       redactionWithFallback(w, prompt),
     ]);
 
-    // Phase 7: Build artists array with arc position + per-pick citation
-    // URLs drawn from Perplexity's real `search_results`. Trust model:
-    // a quote is attached to an artist only when a search_result snippet
-    // both contains that quote text AND names the artist. Unmatched quotes
-    // are dropped rather than stamped with the tour's top citation.
+    // Phase 7: Build artists array with arc position. Per-pick grounded
+    // quotes are ALREADY verified-by-construction (Claude chose the URL
+    // and drew prose from its snippet), so the old matcher-based
+    // verification step is gone — the quote either arrives grounded
+    // from Phase B or the pick renders quote-less.
     const arcByName = new Map(arcResult.map((a) => [a.name, a.arcPosition]));
-    const searchResults = perplexityResult.searchResults ?? [];
 
-    const artists = verifiedPicks.map((vp) => {
-      const { pick, youtubeTrackId } = vp;
+    const artists = enriched.map((e) => {
+      const { pick, groundedQuote, youtubeTrackId } = e;
       const arcPos = arcByName.get(pick.name) ?? 0;
       const artist: {
         name: string;
@@ -428,25 +436,14 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       };
       if (pick.album) artist.album = pick.album;
       if (pick.year) artist.year = pick.year;
-      if (pick.quote_text && pick.quote_publication) {
-        // Never fall back to a generic "top tour citation" on miss —
-        // stamping the tour's headline article onto an unmatched per-artist
-        // quote launders model fabrications into authoritative-looking
-        // citations.
-        const match = matchQuoteToSnippet(
-          pick.quote_text,
-          pick.name,
-          searchResults,
-        );
-        if (match) {
-          artist.quote = {
-            text: pick.quote_text,
-            publication: pick.quote_publication,
-            author: pick.quote_author,
-            url: match.url,
-            verified: true,
-          };
-        }
+      if (groundedQuote) {
+        artist.quote = {
+          text: groundedQuote.why,
+          publication: groundedQuote.publication,
+          author: groundedQuote.author,
+          url: groundedQuote.sourceUrl,
+          verified: true,
+        };
       }
       if (youtubeTrackId) {
         artist.youtubeTrackId = youtubeTrackId;
@@ -479,33 +476,39 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       ? buildSlug(artists[0].name, 4)
       : buildSlug("tour", 8);
 
-    // Build the per-source cards from Perplexity's search_results. Each
-    // source gets a hostname-derived publication name, an optional hero
-    // image (matched from Perplexity's images[] by originUrl equality),
-    // and an artistsMentioned[] list computed by scanning the title +
-    // snippet for every tour artist name. Empty artistsMentioned is still
-    // kept — the UI renders those as "General sources for this tour."
-    const imagesByOrigin = new Map<string, string>();
-    for (const img of perplexityResult.images ?? []) {
-      if (img.originUrl && !imagesByOrigin.has(img.originUrl)) {
-        imagesByOrigin.set(img.originUrl, img.imageUrl);
+    // Build per-source cards from grounded quotes. Every source is one
+    // the Phase B step actually drew prose from, so each card already
+    // has a paired artist (the pick whose quote it grounded). Dedupe
+    // on URL — if two picks cite the same article, it appears once
+    // with both artists listed.
+    const sourceMap = new Map<string, {
+      url: string;
+      publication: string;
+      title: string;
+      snippet?: string;
+      date?: string;
+      heroImageUrl?: string;
+      artistsMentioned: string[];
+    }>();
+    for (const e of enriched) {
+      const g = e.groundedQuote;
+      if (!g) continue;
+      const existing = sourceMap.get(g.sourceUrl);
+      if (existing) {
+        if (!existing.artistsMentioned.includes(e.pick.name)) {
+          existing.artistsMentioned.push(e.pick.name);
+        }
+      } else {
+        sourceMap.set(g.sourceUrl, {
+          url: g.sourceUrl,
+          publication: g.publication,
+          title: g.sourceTitle,
+          snippet: g.why,
+          artistsMentioned: [e.pick.name],
+        });
       }
     }
-    const sources = (perplexityResult.searchResults ?? []).map((r) => {
-      const heroImageUrl = imagesByOrigin.get(r.url);
-      const base = {
-        url: r.url,
-        publication: hostFromUrl(r.url),
-        title: r.title ?? "",
-        snippet: r.snippet,
-        date: r.date,
-        artistsMentioned: mentionedArtists(
-          artists.map((a) => a.name),
-          `${r.title ?? ""} ${r.snippet ?? ""}`,
-        ),
-      };
-      return heroImageUrl ? { ...base, heroImageUrl } : base;
-    });
+    const sources = [...sourceMap.values()];
 
     // Parallel iTunes Search API lookups for album cover art. Attached to
     // each artist in the tour. Failures are silent (null artworkUrl) —
@@ -525,7 +528,7 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       artists,
       citations,
       sources,
-      perplexityFallbackUsed: perplexityResult.isSparse || perplexityResult.isCitationless,
+      perplexityFallbackUsed: pickResult.isSparse || groundedCount === 0,
       promptRedacted: redactionResult,
       promptShowRaw: false,
       moderationStatus: isApproved ? "approved" : "flagged",
