@@ -18,6 +18,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Doc } from "../../../../convex/_generated/dataModel";
 import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
 import { TourArtifact } from "./tour-artifact";
+import { TourPlayerShell } from "./player-shell";
 
 export const revalidate = 300; // 5 minutes — tours are near-immutable once public
 
@@ -84,47 +85,49 @@ export default async function TourPage({
   if (!tour) notFound();
 
   return (
-    <main
-      className={`${bebasNeue.variable} ${spaceGrotesk.variable} font-[family-name:var(--font-space)] min-h-screen bg-[#0a0a0a] text-white`}
-    >
-      <TourHeader />
+    <TourPlayerShell>
+      <main
+        className={`${bebasNeue.variable} ${spaceGrotesk.variable} font-[family-name:var(--font-space)] min-h-screen bg-[#0a0a0a] text-white pb-24`}
+      >
+        <TourHeader />
 
-      <section className="mx-auto max-w-3xl px-6 pt-8 pb-12">
-        <Hero tour={tour} />
-      </section>
+        <section className="mx-auto max-w-3xl px-6 pt-8 pb-12">
+          <Hero tour={tour} />
+        </section>
 
-      <section className="mx-auto max-w-3xl px-6 pb-16">
-        <TourArtifact tour={tour} />
-      </section>
+        <section className="mx-auto max-w-3xl px-6 pb-16">
+          <TourArtifact tour={tour} />
+        </section>
 
-      <section className="mx-auto max-w-3xl px-6 pb-20">
-        <div
-          className="rounded-xl p-6 md:p-8 text-center"
-          style={{ backgroundColor: "#0A1628", border: "1px solid #1d2d44" }}
-        >
-          <p
-            className="font-[family-name:var(--font-bebas)] tracking-wide mb-3"
-            style={{ color: "#f4f4f5", fontSize: "26px" }}
+        <section className="mx-auto max-w-3xl px-6 pb-20">
+          <div
+            className="rounded-xl p-6 md:p-8 text-center"
+            style={{ backgroundColor: "#0A1628", border: "1px solid #1d2d44" }}
           >
-            Want one of your own?
-          </p>
-          <p
-            className="mb-5 mx-auto"
-            style={{ color: "#a1a1aa", fontSize: "15px", maxWidth: "440px" }}
-          >
-            Describe a mood, an era, a show you&apos;re prepping. Crate builds
-            a 10-artist tour sequenced like a story.
-          </p>
-          <Link
-            href="/recommend"
-            className="font-[family-name:var(--font-bebas)] inline-block rounded-lg px-8 py-3 text-base tracking-widest transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "#e8b86a", color: "#0a0a0a" }}
-          >
-            BUILD YOUR TOUR
-          </Link>
-        </div>
-      </section>
-    </main>
+            <p
+              className="font-[family-name:var(--font-bebas)] tracking-wide mb-3"
+              style={{ color: "#f4f4f5", fontSize: "26px" }}
+            >
+              Want one of your own?
+            </p>
+            <p
+              className="mb-5 mx-auto"
+              style={{ color: "#a1a1aa", fontSize: "15px", maxWidth: "440px" }}
+            >
+              Describe a mood, an era, a show you&apos;re prepping. Crate builds
+              a 10-artist tour sequenced like a story.
+            </p>
+            <Link
+              href="/recommend"
+              className="font-[family-name:var(--font-bebas)] inline-block rounded-lg px-8 py-3 text-base tracking-widest transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "#e8b86a", color: "#0a0a0a" }}
+            >
+              BUILD YOUR TOUR
+            </Link>
+          </div>
+        </section>
+      </main>
+    </TourPlayerShell>
   );
 }
 

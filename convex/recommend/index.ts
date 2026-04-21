@@ -32,6 +32,7 @@ import { orderArc, fallbackArcOrder } from "./arcOrder";
 import { classifyModeration, summarizeTourForModeration } from "./moderationClassify";
 import { redactPrompt, fallbackRedact } from "./promptRedact";
 import { buildSlug } from "./slug";
+import { resolveYouTubeVideoId } from "./youtubeResolve";
 import type { StructuredQuery } from "./types";
 import type { WikiMemory } from "./wikiMemory";
 
@@ -333,22 +334,34 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
     const picks = perplexityResult.picks.slice(0, 12); // cap at 12
     const citations = perplexityResult.citations;
 
-    // Phase 5: Verify citations in parallel ──────────────────────────────
+    // Phase 5: Verify citations + resolve YouTube ids in parallel ───────
     await writeStatus(ctx, tourId, "verifying", 0.7, "Verifying sources");
     const verifiedPicks = await timedPhase(w, "verify", async () => {
       return await Promise.all(
         picks.map(async (pick) => {
-          if (!pick.quote_text || !pick.quote_url) return { pick, verified: false };
-          try {
-            const { verified } = await verifyCitation({
-              url: pick.quote_url,
-              quote: pick.quote_text,
-            });
-            return { pick, verified };
-          } catch (e) {
-            w.errors.push(`CitationVerify:${errName(e)}`);
-            return { pick, verified: false };
-          }
+          const [verifyResult, youtubeResult] = await Promise.all([
+            (async () => {
+              if (!pick.quote_text || !pick.quote_url) return { verified: false };
+              try {
+                return await verifyCitation({
+                  url: pick.quote_url,
+                  quote: pick.quote_text,
+                });
+              } catch (e) {
+                w.errors.push(`CitationVerify:${errName(e)}`);
+                return { verified: false };
+              }
+            })(),
+            resolveYouTubeVideoId({
+              artistName: pick.name,
+              album: pick.album,
+            }),
+          ]);
+          return {
+            pick,
+            verified: verifyResult.verified,
+            youtubeTrackId: youtubeResult.videoId ?? undefined,
+          };
         }),
       );
     });
@@ -372,7 +385,7 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
     // Phase 7: Build artists array with arc position + verified quotes ───
     const arcByName = new Map(arcResult.map((a) => [a.name, a.arcPosition]));
     const artists = verifiedPicks.map((vp) => {
-      const { pick, verified } = vp;
+      const { pick, verified, youtubeTrackId } = vp;
       const arcPos = arcByName.get(pick.name) ?? 0;
       const artist: {
         name: string;
@@ -385,6 +398,7 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
           url: string;
           verified: boolean;
         };
+        youtubeTrackId?: string;
         arcPosition: number;
       } = {
         name: pick.name,
@@ -400,6 +414,9 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
           url: pick.quote_url,
           verified,
         };
+      }
+      if (youtubeTrackId) {
+        artist.youtubeTrackId = youtubeTrackId;
       }
       return artist;
     });

@@ -16,8 +16,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { SignInButton, useAuth } from "@clerk/nextjs";
+import { SignInButton, useAuth, useUser } from "@clerk/nextjs";
+import { useMutation, useQuery } from "convex/react";
 import posthog from "posthog-js";
+import { api } from "../../../convex/_generated/api";
 import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
 import {
   useTourGeneration,
@@ -25,8 +27,38 @@ import {
 } from "@/lib/recommend-hooks";
 import { RECOMMEND_EVENTS } from "@/lib/recommend-analytics";
 
+/**
+ * Ensure the signed-in Clerk user has a corresponding row in the Convex
+ * users table. The Clerk webhook handles this in steady state, but dev
+ * instances without a webhook wired up and brand-new users on production
+ * in the ~seconds between sign-up and the webhook firing would otherwise
+ * hit "User not found" from the generate action.
+ */
+function useEnsureUserRow() {
+  const { userId: clerkId } = useAuth();
+  const { user: clerkUser } = useUser();
+  const convexUser = useQuery(
+    api.users.getByClerkId,
+    clerkId ? { clerkId } : "skip",
+  );
+  const upsertUser = useMutation(api.users.upsert);
+
+  useEffect(() => {
+    if (!clerkId || !clerkUser || convexUser !== null) return;
+    upsertUser({
+      clerkId,
+      email: clerkUser.primaryEmailAddress?.emailAddress ?? "",
+      name: clerkUser.fullName ?? undefined,
+    }).catch(() => {
+      // Non-fatal; the server-side action will throw a clearer error if
+      // the user still doesn't exist by the time they submit a prompt.
+    });
+  }, [clerkId, clerkUser, convexUser, upsertUser]);
+}
+
 export default function RecommendPage() {
   const { isLoaded, userId } = useAuth();
+  useEnsureUserRow();
 
   return (
     <main
@@ -160,12 +192,22 @@ function PromptPanel() {
   const status = useTourStatus(tourId);
   const router = useRouter();
 
+  // The slug returned by /api/recommend/generate is provisional — the
+  // Convex action rewrites it later based on the first artist. Subscribe
+  // to the tour row itself so we navigate to the final slug, not the stale
+  // one the POST returned.
+  const finalTour = useQuery(
+    api.recommend.mutations.getMyTourById,
+    tourId ? { tourId } : "skip",
+  );
+
   useEffect(() => {
     if (state.state !== "submitted" || !status?.isComplete) return;
     if (status.phase === "done" || status.phase === "flagged") {
-      router.push(`/r/${state.slug}`);
+      const slug = finalTour?.slug ?? state.slug;
+      router.push(`/r/${slug}`);
     }
-  }, [state, status, router]);
+  }, [state, status, router, finalTour?.slug]);
 
   if (state.state === "submitted") {
     return (

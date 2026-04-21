@@ -20,6 +20,7 @@ import posthog from "posthog-js";
 import { api } from "../../../../convex/_generated/api";
 import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { RECOMMEND_EVENTS } from "@/lib/recommend-analytics";
+import { usePlayerSafe } from "@/components/player/player-provider";
 
 type Signal = "keep" | "pass" | "save";
 type Tour = Doc<"artifactsRecommend">;
@@ -41,10 +42,55 @@ export function TourArtifact({ tour }: TourArtifactProps) {
     [tour.artists],
   );
 
-  // Single-player policy: only one YouTube iframe mounted at a time to
-  // keep the page from turning into a browser-tab-hog. Lifted to parent
-  // so stops can know when they've lost focus.
-  const [activePosition, setActivePosition] = useState<number | null>(null);
+  // Route playback through the global Crate audio player so the whole tour
+  // queues up, auto-advances when a track ends, and the PlayerBar at the
+  // bottom of the page stays in sync. `usePlayerSafe()` tolerates pages
+  // mounted without a PlayerProvider — it just returns null, and the PLAY
+  // button falls back to a link-out. Our /r/[slug] page wraps in the
+  // provider (see player-shell.tsx) so this is always set in practice.
+  const player = usePlayerSafe();
+  const playableArtists = useMemo(
+    () => artists.filter((a) => !!a.youtubeTrackId),
+    [artists],
+  );
+
+  const playFromPosition = useCallback(
+    (startArcPosition: number) => {
+      if (!player) return;
+      const from = playableArtists.findIndex(
+        (a) => a.arcPosition >= startArcPosition,
+      );
+      if (from === -1) return;
+      const head = playableArtists[from];
+      if (!head?.youtubeTrackId) return;
+
+      player.play({
+        source: "youtube",
+        sourceId: head.youtubeTrackId,
+        title: head.album ?? head.name,
+        artist: head.name,
+      });
+      for (const a of playableArtists.slice(from + 1)) {
+        if (!a.youtubeTrackId) continue;
+        player.addToQueue({
+          source: "youtube",
+          sourceId: a.youtubeTrackId,
+          title: a.album ?? a.name,
+          artist: a.name,
+        });
+      }
+      try {
+        posthog.capture("recommend_tour_player_started", {
+          slug: tour.slug,
+          startArcPosition,
+          queueLength: playableArtists.length - from,
+        });
+      } catch {
+        // ignore
+      }
+    },
+    [player, playableArtists, tour.slug],
+  );
 
   // Fire a view event once per slug mount so we can count real engagement.
   useEffect(() => {
@@ -64,7 +110,11 @@ export function TourArtifact({ tour }: TourArtifactProps) {
 
   return (
     <div>
-      <ActionBar tour={tour} />
+      <ActionBar
+        tour={tour}
+        playableCount={playableArtists.length}
+        onPlayTour={() => playFromPosition(0)}
+      />
 
       <ol className="space-y-4">
         {artists.map((a) => (
@@ -74,10 +124,7 @@ export function TourArtifact({ tour }: TourArtifactProps) {
               artist={a}
               currentSignal={signalMap?.[a.arcPosition] ?? null}
               isSignedIn={!!isSignedIn}
-              isPlaying={activePosition === a.arcPosition}
-              onTogglePlay={(playing) =>
-                setActivePosition(playing ? a.arcPosition : null)
-              }
+              onPlay={() => playFromPosition(a.arcPosition)}
             />
           </li>
         ))}
@@ -86,9 +133,17 @@ export function TourArtifact({ tour }: TourArtifactProps) {
   );
 }
 
-// ── Action bar: share + report ──────────────────────────────────────────────
+// ── Action bar: play, save, share, report ──────────────────────────────────
 
-function ActionBar({ tour }: { tour: Tour }) {
+function ActionBar({
+  tour,
+  playableCount,
+  onPlayTour,
+}: {
+  tour: Tour;
+  playableCount: number;
+  onPlayTour: () => void;
+}) {
   const recordShare = useMutation(api.recommend.mutations.recordShare);
   const [shareState, setShareState] = useState<"idle" | "copied">("idle");
   const [reportOpen, setReportOpen] = useState(false);
@@ -139,7 +194,19 @@ function ActionBar({ tour }: { tour: Tour }) {
         >
           {tour.artists.length}-STOP TOUR
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {playableCount > 0 && (
+            <button
+              type="button"
+              onClick={onPlayTour}
+              className="font-[family-name:var(--font-bebas)] rounded-lg px-4 py-2 text-xs tracking-widest transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "#e8b86a", color: "#0a0a0a" }}
+              aria-label={`Play all ${playableCount} tracks`}
+            >
+              ▶ PLAY TOUR
+            </button>
+          )}
+          <SaveAsPlaylistButton tour={tour} />
           <button
             type="button"
             onClick={() => setReportOpen(true)}
@@ -341,6 +408,107 @@ function ReportDialog({
   );
 }
 
+// ── Save-as-playlist button + dialog ────────────────────────────────────────
+
+function SaveAsPlaylistButton({ tour }: { tour: Tour }) {
+  const { isSignedIn } = useAuth();
+  const saveTour = useMutation(api.recommend.mutations.saveTourAsPlaylist);
+  const [pending, start] = useTransition();
+  const [state, setState] = useState<
+    | { kind: "idle" }
+    | { kind: "saved"; playlistId: string }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
+  const playableCount = useMemo(
+    () => tour.artists.filter((a) => !!a.youtubeTrackId).length,
+    [tour.artists],
+  );
+  if (playableCount === 0) return null;
+
+  if (!isSignedIn) {
+    return (
+      <SignInButton mode="modal">
+        <button
+          type="button"
+          className="font-[family-name:var(--font-bebas)] rounded-lg px-4 py-2 text-xs tracking-widest transition-colors hover:text-[#e8b86a]"
+          style={{
+            backgroundColor: "transparent",
+            border: "1px solid #27272a",
+            color: "#a1a1aa",
+          }}
+          aria-label="Sign in to save this tour as a Crate playlist"
+        >
+          SAVE AS PLAYLIST
+        </button>
+      </SignInButton>
+    );
+  }
+
+  if (state.kind === "saved") {
+    return (
+      <a
+        href="/w"
+        className="font-[family-name:var(--font-bebas)] rounded-lg px-4 py-2 text-xs tracking-widest transition-opacity hover:opacity-90"
+        style={{ backgroundColor: "#e8b86a", color: "#0a0a0a" }}
+      >
+        SAVED · OPEN ↗
+      </a>
+    );
+  }
+
+  const handleClick = () => {
+    setState({ kind: "idle" });
+    start(async () => {
+      try {
+        const res = await saveTour({ tourId: tour._id });
+        setState({ kind: "saved", playlistId: res.playlistId });
+        try {
+          posthog.capture("recommend_tour_saved_as_playlist", {
+            slug: tour.slug,
+            trackCount: res.trackCount,
+          });
+        } catch {
+          // ignore
+        }
+      } catch (e) {
+        setState({
+          kind: "error",
+          message: e instanceof Error ? e.message : "Save failed",
+        });
+      }
+    });
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={pending}
+        className="font-[family-name:var(--font-bebas)] rounded-lg px-4 py-2 text-xs tracking-widest transition-colors disabled:opacity-60"
+        style={{
+          backgroundColor: "transparent",
+          border: "1px solid #e8b86a",
+          color: "#e8b86a",
+        }}
+        aria-label="Save this tour as a Crate playlist"
+      >
+        {pending ? "SAVING…" : `SAVE · ${playableCount}`}
+      </button>
+      {state.kind === "error" && (
+        <span
+          className="text-xs"
+          style={{ color: "#fca5a5" }}
+          role="alert"
+        >
+          {state.message}
+        </span>
+      )}
+    </>
+  );
+}
+
 // ── Artist stop with signal buttons ──────────────────────────────────────────
 
 function ArtistStop({
@@ -348,15 +516,13 @@ function ArtistStop({
   artist,
   currentSignal,
   isSignedIn,
-  isPlaying,
-  onTogglePlay,
+  onPlay,
 }: {
   tourId: Id<"artifactsRecommend">;
   artist: ArtistEntry;
   currentSignal: Signal | null;
   isSignedIn: boolean;
-  isPlaying: boolean;
-  onTogglePlay: (playing: boolean) => void;
+  onPlay: () => void;
 }) {
   const recordSignal = useMutation(api.recommend.mutations.recordSignal);
   const clearSignal = useMutation(api.recommend.mutations.clearSignal);
@@ -551,23 +717,39 @@ function ArtistStop({
             </button>
           </SignInButton>
         )}
-        <button
-          type="button"
-          onClick={() => onTogglePlay(!isPlaying)}
-          className="ml-auto font-[family-name:var(--font-bebas)] rounded-md px-3 py-1.5 text-xs tracking-widest transition-colors"
-          style={{
-            border: "1px solid #e8b86a",
-            color: isPlaying ? "#0a0a0a" : "#e8b86a",
-            backgroundColor: isPlaying ? "#e8b86a" : "transparent",
-          }}
-          aria-pressed={isPlaying}
-          aria-label={isPlaying ? "Close player" : `Play ${artist.name}`}
-        >
-          {isPlaying ? "CLOSE" : "▶ PLAY"}
-        </button>
+        {artist.youtubeTrackId ? (
+          <button
+            type="button"
+            onClick={onPlay}
+            className="ml-auto font-[family-name:var(--font-bebas)] rounded-md px-3 py-1.5 text-xs tracking-widest transition-opacity hover:opacity-90"
+            style={{
+              border: "1px solid #e8b86a",
+              color: "#e8b86a",
+              backgroundColor: "transparent",
+            }}
+            aria-label={`Play ${artist.name} and the rest of the tour`}
+          >
+            ▶ PLAY
+          </button>
+        ) : (
+          <a
+            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(
+              artist.album ? `${artist.name} ${artist.album}` : `${artist.name} full album`,
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto font-[family-name:var(--font-bebas)] rounded-md px-3 py-1.5 text-xs tracking-widest transition-colors"
+            style={{
+              border: "1px solid #e8b86a",
+              color: "#e8b86a",
+              backgroundColor: "transparent",
+            }}
+            aria-label={`Search ${artist.name} on YouTube`}
+          >
+            LISTEN ↗
+          </a>
+        )}
       </div>
-
-      {isPlaying && <YouTubeEmbed artist={artist} />}
 
       {error && (
         <p
@@ -582,47 +764,6 @@ function ArtistStop({
   );
 }
 
-/**
- * Lazy-mounted YouTube embed. Prefers a specific track id (populated
- * during generation when the YouTube Data API is available) and falls
- * back to a search-based embed. Uses youtube-nocookie.com to avoid
- * third-party cookie prompts and lighten up the consent surface.
- */
-function YouTubeEmbed({ artist }: { artist: ArtistEntry }) {
-  const src = useMemo(() => {
-    if (artist.youtubeTrackId) {
-      return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(
-        artist.youtubeTrackId,
-      )}?autoplay=1&rel=0&modestbranding=1`;
-    }
-    const query = artist.album
-      ? `${artist.name} ${artist.album}`
-      : `${artist.name} full album`;
-    return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(
-      query,
-    )}&autoplay=1&rel=0&modestbranding=1`;
-  }, [artist.youtubeTrackId, artist.name, artist.album]);
-
-  return (
-    <div
-      className="mt-4 overflow-hidden rounded-lg"
-      style={{
-        border: "1px solid #27272a",
-        aspectRatio: "16 / 9",
-        backgroundColor: "#0a0a0a",
-      }}
-    >
-      <iframe
-        src={src}
-        title={`${artist.name} — YouTube`}
-        className="h-full w-full"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        referrerPolicy="strict-origin-when-cross-origin"
-        allowFullScreen
-      />
-    </div>
-  );
-}
 
 function SignalButton({
   label,

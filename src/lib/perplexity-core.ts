@@ -71,6 +71,13 @@ export type CallPerplexityArgs = {
   timeoutMs?: number;
   /** Default 1 (retry once on timeout or 5xx). */
   maxRetries?: number;
+  /**
+   * Optional allow-list of bare hostnames the model may cite from. Maps to
+   * Perplexity's `search_domain_filter` parameter. Use this when the caller
+   * needs to constrain sources (e.g. /recommend limits to music publications
+   * so it doesn't cite YouTube/Spotify playlist pages as "reviews").
+   */
+  searchDomainFilter?: ReadonlyArray<string>;
 };
 
 export type CallPerplexityResult = {
@@ -105,6 +112,7 @@ export async function callPerplexity(
     temperature = 0.2,
     timeoutMs = 15_000,
     maxRetries = 1,
+    searchDomainFilter,
   } = args;
 
   const apiKey = process.env.PERPLEXITY_API_KEY;
@@ -124,6 +132,7 @@ export async function callPerplexity(
         maxTokens,
         temperature,
         timeoutMs,
+        searchDomainFilter,
       });
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
@@ -159,11 +168,34 @@ async function singleCall(opts: {
   maxTokens: number;
   temperature: number;
   timeoutMs: number;
+  searchDomainFilter?: ReadonlyArray<string>;
 }): Promise<CallPerplexityResult> {
-  const { apiKey, model, systemPrompt, userPrompt, maxTokens, temperature, timeoutMs } = opts;
+  const {
+    apiKey,
+    model,
+    systemPrompt,
+    userPrompt,
+    maxTokens,
+    temperature,
+    timeoutMs,
+    searchDomainFilter,
+  } = opts;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const body: Record<string, unknown> = {
+    model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    max_tokens: maxTokens,
+    temperature,
+  };
+  if (searchDomainFilter && searchDomainFilter.length > 0) {
+    body.search_domain_filter = [...searchDomainFilter];
+  }
 
   let response: Response;
   try {
@@ -173,15 +205,7 @@ async function singleCall(opts: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: maxTokens,
-        temperature,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
   } catch (e) {

@@ -539,6 +539,80 @@ export const reportTour = mutation({
 });
 
 /**
+ * Save a tour as a Crate playlist for the signed-in user.
+ *
+ * Creates a new row in the shared `playlists` table and fans out each
+ * tour artist as a row in `playlistTracks`. Only artists with a resolved
+ * `youtubeTrackId` become tracks — artists we couldn't find on YouTube
+ * get dropped rather than saved as orphans you can't play.
+ *
+ * Returns the new playlist id so the client can link into /w to view it.
+ * Idempotent-ish: called twice with the same tour, creates two playlists.
+ * That's intentional — users may want to curate multiple variants of the
+ * same tour.
+ */
+export const saveTourAsPlaylist = mutation({
+  args: { tourId: v.id("artifactsRecommend") },
+  handler: async (ctx, { tourId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+
+    const tour = await ctx.db.get(tourId);
+    if (!tour) throw new Error("Tour not found");
+
+    // Allow saving tours the user created (even if not yet public) OR any
+    // public tour. Private-someone-else tours are off-limits.
+    const ownsIt = tour.userId === user._id;
+    if (!ownsIt && !tour.isPublic) {
+      throw new Error("Tour not available");
+    }
+
+    const playableArtists = [...tour.artists]
+      .filter((a) => !!a.youtubeTrackId)
+      .sort((a, b) => a.arcPosition - b.arcPosition);
+    if (playableArtists.length === 0) {
+      throw new Error("No playable tracks in this tour yet");
+    }
+
+    const now = Date.now();
+    const name = tour.promptRedacted?.trim() || "Crate Tour";
+    const description = `A ${tour.artists.length}-artist tour saved from Crate (${tour.slug}).`;
+
+    const playlistId = await ctx.db.insert("playlists", {
+      userId: user._id,
+      name,
+      description,
+      trackCount: playableArtists.length,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    for (let i = 0; i < playableArtists.length; i++) {
+      const a = playableArtists[i]!;
+      await ctx.db.insert("playlistTracks", {
+        playlistId,
+        title: a.album ?? a.name,
+        artist: a.name,
+        album: a.album,
+        year: a.year ? String(a.year) : undefined,
+        source: "youtube",
+        sourceId: a.youtubeTrackId!,
+        position: i,
+        addedAt: now,
+      });
+    }
+
+    return { playlistId, trackCount: playableArtists.length };
+  },
+});
+
+/**
  * Record a public share of a tour. No auth required — anonymous visitors
  * also bump the counter. The counter is best-effort; duplicates are expected
  * and fine (it's a popularity signal, not a unique-visits metric).

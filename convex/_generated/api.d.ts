@@ -35,6 +35,7 @@ import type * as recommend_slug from "../recommend/slug.js";
 import type * as recommend_types from "../recommend/types.js";
 import type * as recommend_voyageEmbed from "../recommend/voyageEmbed.js";
 import type * as recommend_wikiMemory from "../recommend/wikiMemory.js";
+import type * as recommend_youtubeResolve from "../recommend/youtubeResolve.js";
 import type * as sessions from "../sessions.js";
 import type * as shares from "../shares.js";
 import type * as subscriptions from "../subscriptions.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   "recommend/types": typeof recommend_types;
   "recommend/voyageEmbed": typeof recommend_voyageEmbed;
   "recommend/wikiMemory": typeof recommend_wikiMemory;
+  "recommend/youtubeResolve": typeof recommend_youtubeResolve;
   sessions: typeof sessions;
   shares: typeof shares;
   subscriptions: typeof subscriptions;
