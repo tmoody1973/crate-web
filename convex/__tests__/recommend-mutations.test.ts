@@ -316,6 +316,197 @@ describe("getTourStatus", () => {
   });
 });
 
+describe("recordSignal", () => {
+  async function seedTour(
+    t: ReturnType<typeof convexTest>,
+  ): Promise<{ userId: Id<"users">; clerkId: string; tourId: Id<"artifactsRecommend"> }> {
+    const clerkId = `clerk-${Math.random().toString(36).slice(2)}`;
+    const userId = await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        clerkId,
+        email: "sig@test.com",
+        createdAt: Date.now(),
+      }),
+    );
+    const tourId = await t.mutation(
+      internal.recommend.mutations.createInitialTour,
+      { userId, prompt: "sig test", slug: "sig-1234" },
+    );
+    await t.mutation(internal.recommend.mutations.finalizeTour, {
+      tourId,
+      slug: "sig-1234",
+      artists: [
+        { name: "Artist A", arcPosition: 0 },
+        { name: "Artist B", arcPosition: 1 },
+      ],
+      citations: [],
+      perplexityFallbackUsed: false,
+      promptRedacted: "sig test",
+      promptShowRaw: false,
+      moderationStatus: "approved",
+      isPublic: true,
+    });
+    return { userId, clerkId, tourId };
+  }
+
+  it("records a keep signal and increments the aggregate count", async () => {
+    const t = convexTest(schema, modules);
+    const { clerkId, tourId } = await seedTour(t);
+
+    const auth = t.withIdentity({ subject: clerkId });
+    await auth.mutation(api.recommend.mutations.recordSignal, {
+      tourId,
+      artistPosition: 0,
+      signal: "keep",
+    });
+
+    const tour = await t.run(async (ctx) => ctx.db.get(tourId));
+    expect(tour!.keepCount).toBe(1);
+    expect(tour!.passCount).toBe(0);
+
+    const map = await auth.query(
+      api.recommend.mutations.getMySignalsForTour,
+      { tourId },
+    );
+    expect(map).toEqual({ 0: "keep" });
+  });
+
+  it("switching signals updates counts atomically (keep → pass)", async () => {
+    const t = convexTest(schema, modules);
+    const { clerkId, tourId } = await seedTour(t);
+    const auth = t.withIdentity({ subject: clerkId });
+
+    await auth.mutation(api.recommend.mutations.recordSignal, {
+      tourId,
+      artistPosition: 1,
+      signal: "keep",
+    });
+    await auth.mutation(api.recommend.mutations.recordSignal, {
+      tourId,
+      artistPosition: 1,
+      signal: "pass",
+    });
+
+    const tour = await t.run(async (ctx) => ctx.db.get(tourId));
+    expect(tour!.keepCount).toBe(0);
+    expect(tour!.passCount).toBe(1);
+  });
+
+  it("clearSignal deletes the row and decrements the aggregate", async () => {
+    const t = convexTest(schema, modules);
+    const { clerkId, tourId } = await seedTour(t);
+    const auth = t.withIdentity({ subject: clerkId });
+
+    await auth.mutation(api.recommend.mutations.recordSignal, {
+      tourId,
+      artistPosition: 0,
+      signal: "save",
+    });
+    await auth.mutation(api.recommend.mutations.clearSignal, {
+      tourId,
+      artistPosition: 0,
+    });
+
+    const tour = await t.run(async (ctx) => ctx.db.get(tourId));
+    expect(tour!.saveCount).toBe(0);
+
+    const map = await auth.query(
+      api.recommend.mutations.getMySignalsForTour,
+      { tourId },
+    );
+    expect(map).toEqual({});
+  });
+
+  it("rejects invalid artistPosition", async () => {
+    const t = convexTest(schema, modules);
+    const { clerkId, tourId } = await seedTour(t);
+    const auth = t.withIdentity({ subject: clerkId });
+
+    await expect(
+      auth.mutation(api.recommend.mutations.recordSignal, {
+        tourId,
+        artistPosition: 99,
+        signal: "keep",
+      }),
+    ).rejects.toThrow(/Invalid artist position/);
+  });
+
+  it("throws when unauthenticated", async () => {
+    const t = convexTest(schema, modules);
+    const { tourId } = await seedTour(t);
+
+    await expect(
+      t.mutation(api.recommend.mutations.recordSignal, {
+        tourId,
+        artistPosition: 0,
+        signal: "keep",
+      }),
+    ).rejects.toThrow(/Not authenticated/);
+  });
+
+  it("idempotent: recording the same signal twice leaves counts at 1", async () => {
+    const t = convexTest(schema, modules);
+    const { clerkId, tourId } = await seedTour(t);
+    const auth = t.withIdentity({ subject: clerkId });
+
+    await auth.mutation(api.recommend.mutations.recordSignal, {
+      tourId,
+      artistPosition: 0,
+      signal: "keep",
+    });
+    const res = await auth.mutation(api.recommend.mutations.recordSignal, {
+      tourId,
+      artistPosition: 0,
+      signal: "keep",
+    });
+    expect(res.unchanged).toBe(true);
+
+    const tour = await t.run(async (ctx) => ctx.db.get(tourId));
+    expect(tour!.keepCount).toBe(1);
+  });
+});
+
+describe("recordShare", () => {
+  it("increments shareCount on a public tour", async () => {
+    const t = convexTest(schema, modules);
+    const userId = await makeUser(t);
+    const tourId = await t.mutation(
+      internal.recommend.mutations.createInitialTour,
+      { userId, prompt: "x", slug: "share-1" },
+    );
+    await t.mutation(internal.recommend.mutations.finalizeTour, {
+      tourId,
+      slug: "share-1",
+      artists: [{ name: "A", arcPosition: 0 }],
+      citations: [],
+      perplexityFallbackUsed: false,
+      promptRedacted: "x",
+      promptShowRaw: false,
+      moderationStatus: "approved",
+      isPublic: true,
+    });
+
+    await t.mutation(api.recommend.mutations.recordShare, { tourId });
+    await t.mutation(api.recommend.mutations.recordShare, { tourId });
+
+    const tour = await t.run(async (ctx) => ctx.db.get(tourId));
+    expect(tour!.shareCount).toBe(2);
+  });
+
+  it("returns ok:false for private tours (does not leak state)", async () => {
+    const t = convexTest(schema, modules);
+    const userId = await makeUser(t);
+    const tourId = await t.mutation(
+      internal.recommend.mutations.createInitialTour,
+      { userId, prompt: "x", slug: "priv-1" },
+    );
+    const res = await t.mutation(api.recommend.mutations.recordShare, {
+      tourId,
+    });
+    expect(res.ok).toBe(false);
+  });
+});
+
 describe("logTourEvent", () => {
   it("inserts a tourEvents row with all fields", async () => {
     const t = convexTest(schema, modules);

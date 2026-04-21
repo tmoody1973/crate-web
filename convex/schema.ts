@@ -427,6 +427,29 @@ export default defineSchema({
     checkedAt: v.number(),
   }).index("by_cache_key", ["cacheKey"]),
 
+  // Per-user per-artist signals on a tour. Powers the keep/pass/save UI and
+  // the aggregate signal counts on artifactsRecommend. Logical uniqueness:
+  // (userId, tourId, artistPosition) — enforced at the mutation layer by
+  // looking up the existing row via by_user_tour before inserting.
+  //
+  // Signal values:
+  //   - "keep": tells us the user liked this artist (weights future tours)
+  //   - "pass": user rejected it (negative weight for future tours)
+  //   - "save": user wants to remember this artist (future: personal crate)
+  tourSignals: defineTable({
+    userId: v.id("users"),
+    tourId: v.id("artifactsRecommend"),
+    artistPosition: v.number(),           // 0..N-1 in the tour's artists array
+    signal: v.union(
+      v.literal("keep"),
+      v.literal("pass"),
+      v.literal("save"),
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_user_tour", ["userId", "tourId"])
+    .index("by_tour", ["tourId"]),
+
   // ───── End /recommend v1 tables ────────────────────────────────────────────
 
   // Shared rate-limit table. Composite logical key is (userId, endpoint).
