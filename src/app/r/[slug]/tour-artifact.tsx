@@ -13,7 +13,6 @@
  * and surface a small inline message.
  */
 
-import Link from "next/link";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { SignInButton, useAuth } from "@clerk/nextjs";
@@ -40,6 +39,11 @@ export function TourArtifact({ tour }: TourArtifactProps) {
     [tour.artists],
   );
 
+  // Single-player policy: only one YouTube iframe mounted at a time to
+  // keep the page from turning into a browser-tab-hog. Lifted to parent
+  // so stops can know when they've lost focus.
+  const [activePosition, setActivePosition] = useState<number | null>(null);
+
   return (
     <div>
       <ActionBar tour={tour} />
@@ -52,6 +56,10 @@ export function TourArtifact({ tour }: TourArtifactProps) {
               artist={a}
               currentSignal={signalMap?.[a.arcPosition] ?? null}
               isSignedIn={!!isSignedIn}
+              isPlaying={activePosition === a.arcPosition}
+              onTogglePlay={(playing) =>
+                setActivePosition(playing ? a.arcPosition : null)
+              }
             />
           </li>
         ))}
@@ -126,11 +134,15 @@ function ArtistStop({
   artist,
   currentSignal,
   isSignedIn,
+  isPlaying,
+  onTogglePlay,
 }: {
   tourId: Id<"artifactsRecommend">;
   artist: ArtistEntry;
   currentSignal: Signal | null;
   isSignedIn: boolean;
+  isPlaying: boolean;
+  onTogglePlay: (playing: boolean) => void;
 }) {
   const recordSignal = useMutation(api.recommend.mutations.recordSignal);
   const clearSignal = useMutation(api.recommend.mutations.clearSignal);
@@ -316,16 +328,23 @@ function ArtistStop({
             </button>
           </SignInButton>
         )}
-        <Link
-          href={`https://www.youtube.com/results?search_query=${encodeURIComponent(artist.name + (artist.album ? " " + artist.album : ""))}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-auto font-[family-name:var(--font-bebas)] text-xs tracking-widest transition-colors hover:text-[#e8b86a]"
-          style={{ color: "#71717a" }}
+        <button
+          type="button"
+          onClick={() => onTogglePlay(!isPlaying)}
+          className="ml-auto font-[family-name:var(--font-bebas)] rounded-md px-3 py-1.5 text-xs tracking-widest transition-colors"
+          style={{
+            border: "1px solid #e8b86a",
+            color: isPlaying ? "#0a0a0a" : "#e8b86a",
+            backgroundColor: isPlaying ? "#e8b86a" : "transparent",
+          }}
+          aria-pressed={isPlaying}
+          aria-label={isPlaying ? "Close player" : `Play ${artist.name}`}
         >
-          LISTEN ↗
-        </Link>
+          {isPlaying ? "CLOSE" : "▶ PLAY"}
+        </button>
       </div>
+
+      {isPlaying && <YouTubeEmbed artist={artist} />}
 
       {error && (
         <p
@@ -337,6 +356,48 @@ function ArtistStop({
         </p>
       )}
     </article>
+  );
+}
+
+/**
+ * Lazy-mounted YouTube embed. Prefers a specific track id (populated
+ * during generation when the YouTube Data API is available) and falls
+ * back to a search-based embed. Uses youtube-nocookie.com to avoid
+ * third-party cookie prompts and lighten up the consent surface.
+ */
+function YouTubeEmbed({ artist }: { artist: ArtistEntry }) {
+  const src = useMemo(() => {
+    if (artist.youtubeTrackId) {
+      return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(
+        artist.youtubeTrackId,
+      )}?autoplay=1&rel=0&modestbranding=1`;
+    }
+    const query = artist.album
+      ? `${artist.name} ${artist.album}`
+      : `${artist.name} full album`;
+    return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(
+      query,
+    )}&autoplay=1&rel=0&modestbranding=1`;
+  }, [artist.youtubeTrackId, artist.name, artist.album]);
+
+  return (
+    <div
+      className="mt-4 overflow-hidden rounded-lg"
+      style={{
+        border: "1px solid #27272a",
+        aspectRatio: "16 / 9",
+        backgroundColor: "#0a0a0a",
+      }}
+    >
+      <iframe
+        src={src}
+        title={`${artist.name} — YouTube`}
+        className="h-full w-full"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerPolicy="strict-origin-when-cross-origin"
+        allowFullScreen
+      />
+    </div>
   );
 }
 

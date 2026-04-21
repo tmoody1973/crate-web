@@ -194,6 +194,36 @@ describe("recommendFromPerplexity", () => {
     expect(userMsg.content).not.toContain("User taste memory");
   });
 
+  it("injects Spotify seed artists into the user prompt as soft context", async () => {
+    fetchSpy.mockResolvedValueOnce(mockPerplexityResponse([{ name: "A" }]));
+
+    await recommendFromPerplexity({
+      structuredQuery: moodTheme,
+      spotifySeedArtists: ["Burial", "Arca", "Caroline Polachek"],
+    });
+
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0]![1] as RequestInit).body as string,
+    ) as { messages: Array<{ role: string; content: string }> };
+    const userMsg =
+      body.messages.find((m) => m.role === "user")?.content ?? "";
+    expect(userMsg).toContain("Spotify listening");
+    expect(userMsg).toContain("Burial, Arca, Caroline Polachek");
+    // Must not be presented as a hard constraint
+    expect(userMsg).toContain("NOT a constraint");
+  });
+
+  it("omits the Spotify block when no seeds are provided", async () => {
+    fetchSpy.mockResolvedValueOnce(mockPerplexityResponse([{ name: "A" }]));
+    await recommendFromPerplexity({ structuredQuery: moodTheme });
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0]![1] as RequestInit).body as string,
+    ) as { messages: Array<{ role: string; content: string }> };
+    const userMsg =
+      body.messages.find((m) => m.role === "user")?.content ?? "";
+    expect(userMsg).not.toContain("Spotify listening");
+  });
+
   it("preserves artist name casing (billy woods, JPEGMAFIA)", async () => {
     fetchSpy.mockResolvedValueOnce(
       mockPerplexityResponse([

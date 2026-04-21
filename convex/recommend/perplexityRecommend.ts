@@ -85,10 +85,12 @@ type PromptContext = {
   keptArtistNames?: ReadonlyArray<string>;
   /** User's Wiki memory: artists they've previously "passed" on, if any. */
   passedArtistNames?: ReadonlyArray<string>;
+  /** Optional: user's recent Spotify top artists (via Auth0 Token Vault). Soft hint, not a constraint. */
+  spotifySeedArtists?: ReadonlyArray<string>;
 };
 
 function buildMoodThemePrompt(ctx: PromptContext): string {
-  const { structuredQuery: q, keptArtistNames, passedArtistNames } = ctx;
+  const { structuredQuery: q, keptArtistNames, passedArtistNames, spotifySeedArtists } = ctx;
   const parts: string[] = [
     `Query: "${q.raw_text}"`,
     ``,
@@ -109,12 +111,12 @@ function buildMoodThemePrompt(ctx: PromptContext): string {
     ``,
     `Prioritize artists whose critical reception genuinely engages these themes, not artists who merely sound similar.`,
   );
-  appendWikiMemory(parts, keptArtistNames, passedArtistNames);
+  appendWikiMemory(parts, keptArtistNames, passedArtistNames, spotifySeedArtists);
   return parts.join("\n");
 }
 
 function buildEraGenrePrompt(ctx: PromptContext): string {
-  const { structuredQuery: q, keptArtistNames, passedArtistNames } = ctx;
+  const { structuredQuery: q, keptArtistNames, passedArtistNames, spotifySeedArtists } = ctx;
   const parts: string[] = [
     `Query: "${q.raw_text}"`,
     ``,
@@ -128,12 +130,12 @@ function buildEraGenrePrompt(ctx: PromptContext): string {
     ``,
     `Prioritize artists critics consider essential or underrated within this era or genre. Mix well-known anchors with deep cuts.`,
   );
-  appendWikiMemory(parts, keptArtistNames, passedArtistNames);
+  appendWikiMemory(parts, keptArtistNames, passedArtistNames, spotifySeedArtists);
   return parts.join("\n");
 }
 
 function buildArtistSimilarPrompt(ctx: PromptContext): string {
-  const { structuredQuery: q, keptArtistNames, passedArtistNames } = ctx;
+  const { structuredQuery: q, keptArtistNames, passedArtistNames, spotifySeedArtists } = ctx;
   const seedArtist = q.artist_hints?.[0] ?? "the seed artist";
   const parts: string[] = [
     `Query: "${q.raw_text}"`,
@@ -147,12 +149,12 @@ function buildArtistSimilarPrompt(ctx: PromptContext): string {
     ``,
     `Include direct influences, contemporaries, and descendants. Set "relationship" for each pick (influence / similar / contemporary / descendant / inspired-by).`,
   );
-  appendWikiMemory(parts, keptArtistNames, passedArtistNames);
+  appendWikiMemory(parts, keptArtistNames, passedArtistNames, spotifySeedArtists);
   return parts.join("\n");
 }
 
 function buildActivityPrompt(ctx: PromptContext): string {
-  const { structuredQuery: q, keptArtistNames, passedArtistNames } = ctx;
+  const { structuredQuery: q, keptArtistNames, passedArtistNames, spotifySeedArtists } = ctx;
   const parts: string[] = [
     `Query: "${q.raw_text}"`,
     ``,
@@ -168,12 +170,12 @@ function buildActivityPrompt(ctx: PromptContext): string {
     ``,
     `Favor sonic texture and mood over lyrical themes. This is music FOR a moment, not music ABOUT a theme.`,
   );
-  appendWikiMemory(parts, keptArtistNames, passedArtistNames);
+  appendWikiMemory(parts, keptArtistNames, passedArtistNames, spotifySeedArtists);
   return parts.join("\n");
 }
 
 function buildEmotionalPrompt(ctx: PromptContext): string {
-  const { structuredQuery: q, keptArtistNames, passedArtistNames } = ctx;
+  const { structuredQuery: q, keptArtistNames, passedArtistNames, spotifySeedArtists } = ctx;
   const parts: string[] = [
     `Query: "${q.raw_text}"`,
     ``,
@@ -188,12 +190,12 @@ function buildEmotionalPrompt(ctx: PromptContext): string {
     ``,
     `Prioritize artists critics describe as empathetic, honest, or grounded in similar emotional terrain. Avoid picks that would feel flippant or performatively sad.`,
   );
-  appendWikiMemory(parts, keptArtistNames, passedArtistNames);
+  appendWikiMemory(parts, keptArtistNames, passedArtistNames, spotifySeedArtists);
   return parts.join("\n");
 }
 
 function buildShowPrepPrompt(ctx: PromptContext): string {
-  const { structuredQuery: q, keptArtistNames, passedArtistNames } = ctx;
+  const { structuredQuery: q, keptArtistNames, passedArtistNames, spotifySeedArtists } = ctx;
   const parts: string[] = [
     `Query: "${q.raw_text}"`,
     ``,
@@ -201,7 +203,7 @@ function buildShowPrepPrompt(ctx: PromptContext): string {
     ``,
     `Include at least one artist that could serve as an anchor (well-known reference), and a mix of deeper cuts. Mix of eras and textures to support narrative pacing.`,
   ];
-  appendWikiMemory(parts, keptArtistNames, passedArtistNames);
+  appendWikiMemory(parts, keptArtistNames, passedArtistNames, spotifySeedArtists);
   return parts.join("\n");
 }
 
@@ -235,6 +237,7 @@ function appendWikiMemory(
   parts: string[],
   kept: ReadonlyArray<string> | undefined,
   passed: ReadonlyArray<string> | undefined,
+  spotifySeeds?: ReadonlyArray<string>,
 ): void {
   if ((kept && kept.length > 0) || (passed && passed.length > 0)) {
     parts.push("", "User taste memory (Wiki-derived):");
@@ -248,6 +251,12 @@ function appendWikiMemory(
         `- Artists the user has passed on in similar contexts: ${passed.join(", ")}. Avoid unless they are objectively the best fit.`,
       );
     }
+  }
+  if (spotifySeeds && spotifySeeds.length > 0) {
+    parts.push(
+      "",
+      `User's recent Spotify listening (context only, NOT a constraint): ${spotifySeeds.join(", ")}. Use this to calibrate taste, but the tour should answer the Query, not mirror the Spotify list.`,
+    );
   }
 }
 
@@ -268,6 +277,8 @@ export type RecommendFromPerplexityArgs = {
   structuredQuery: StructuredQuery;
   keptArtistNames?: ReadonlyArray<string>;
   passedArtistNames?: ReadonlyArray<string>;
+  /** Optional: user's recent Spotify top artists (from Auth0 Token Vault). Soft hint. */
+  spotifySeedArtists?: ReadonlyArray<string>;
 };
 
 /**
@@ -284,13 +295,15 @@ export type RecommendFromPerplexityArgs = {
 export async function recommendFromPerplexity(
   args: RecommendFromPerplexityArgs,
 ): Promise<PerplexityRecommendResult> {
-  const { structuredQuery, keptArtistNames, passedArtistNames } = args;
+  const { structuredQuery, keptArtistNames, passedArtistNames, spotifySeedArtists } =
+    args;
 
   const builder = PROMPT_BUILDERS[structuredQuery.intent_type];
   const userPrompt = builder({
     structuredQuery,
     keptArtistNames,
     passedArtistNames,
+    spotifySeedArtists,
   });
 
   const { content, citations } = await callPerplexity({

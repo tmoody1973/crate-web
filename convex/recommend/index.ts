@@ -48,8 +48,16 @@ const MAX_SLUG_ATTEMPTS = 3;
 // ── Public action: generateTour ──────────────────────────────────────────────
 
 export const generateTour = action({
-  args: { prompt: v.string() },
-  handler: async (ctx, { prompt }): Promise<{ tourId: Id<"artifactsRecommend">; slug: string }> => {
+  args: {
+    prompt: v.string(),
+    // Optional: resolved by the Vercel route handler from Auth0 Token Vault.
+    // Top artist names from the user's Spotify, passed as a soft taste hint.
+    spotifySeeds: v.optional(v.array(v.string())),
+  },
+  handler: async (
+    ctx,
+    { prompt, spotifySeeds },
+  ): Promise<{ tourId: Id<"artifactsRecommend">; slug: string }> => {
     // 1. Auth
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -97,6 +105,7 @@ export const generateTour = action({
       tourId,
       userId: user._id,
       prompt: normalized,
+      spotifySeeds: spotifySeeds?.slice(0, 10), // hard cap to keep prompt compact
     });
 
     return { tourId, slug: provisionalSlug };
@@ -110,8 +119,12 @@ export const runGenerationFlow = internalAction({
     tourId: v.id("artifactsRecommend"),
     userId: v.id("users"),
     prompt: v.string(),
+    spotifySeeds: v.optional(v.array(v.string())),
   },
-  handler: async (ctx, { tourId, userId, prompt }): Promise<void> => {
+  handler: async (
+    ctx,
+    { tourId, userId, prompt, spotifySeeds },
+  ): Promise<void> => {
     const startTime = Date.now();
     const phaseDurations: Record<string, number> = {};
     const errors: string[] = [];
@@ -127,6 +140,7 @@ export const runGenerationFlow = internalAction({
       tourId,
       userId,
       prompt,
+      spotifySeeds,
       phaseDurations,
       errors,
       addCost: (usd) => {
@@ -173,13 +187,14 @@ type WorkCtx = {
   tourId: Id<"artifactsRecommend">;
   userId: Id<"users">;
   prompt: string;
+  spotifySeeds?: string[];
   phaseDurations: Record<string, number>;
   errors: string[];
   addCost: (usd: number) => void;
 };
 
 async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
-  const { ctx, tourId, userId, prompt } = w;
+  const { ctx, tourId, userId, prompt, spotifySeeds } = w;
 
   try {
     // Phase 1: Classify intent ────────────────────────────────────────────
@@ -250,6 +265,7 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
         structuredQuery,
         keptArtistNames: wikiMemory.keptArtistNames,
         passedArtistNames: wikiMemory.passedArtistNames,
+        spotifySeedArtists: spotifySeeds,
       });
     });
 

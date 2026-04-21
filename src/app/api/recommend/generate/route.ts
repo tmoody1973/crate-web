@@ -14,8 +14,65 @@
 import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
+import {
+  getTokenVaultToken,
+  isTokenVaultConfigured,
+} from "@/lib/auth0-token-vault";
 
 export const maxDuration = 60; // Convex action returns fast (schedules the heavy work)
+
+const SPOTIFY_FETCH_TIMEOUT_MS = 2500; // never block tour start on a slow Spotify call
+const SPOTIFY_SEED_LIMIT = 5;
+
+/**
+ * Best-effort fetch of the caller's Spotify top-artist names via Auth0 Token
+ * Vault. Returns [] for any failure (no cookie, no token, API error, timeout).
+ * The tour generation must never be blocked by a Spotify hiccup.
+ */
+async function getSpotifyTopArtists(cookieHeader: string): Promise<string[]> {
+  if (!isTokenVaultConfigured()) return [];
+
+  const match = cookieHeader
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith("auth0_user_id_spotify=") || c.startsWith("auth0_user_id="));
+  if (!match) return [];
+  const raw = match.split("=").slice(1).join("=").trim();
+  if (!raw) return [];
+  const auth0UserId = decodeURIComponent(raw);
+
+  const token = await getTokenVaultToken("spotify", auth0UserId).catch(
+    () => null,
+  );
+  if (!token) return [];
+
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    SPOTIFY_FETCH_TIMEOUT_MS,
+  );
+  try {
+    const res = await fetch(
+      `https://api.spotify.com/v1/me/top/artists?limit=${SPOTIFY_SEED_LIMIT}&time_range=medium_term`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      },
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      items?: Array<{ name?: string }>;
+    };
+    return (data.items ?? [])
+      .map((a) => a.name)
+      .filter((n): n is string => typeof n === "string" && n.length > 0)
+      .slice(0, SPOTIFY_SEED_LIMIT);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 type GenerateResponse =
   | { ok: true; tourId: string; slug: string }
@@ -73,10 +130,15 @@ export async function POST(req: Request): Promise<Response> {
   const convex = new ConvexHttpClient(convexUrl);
   convex.setAuth(token);
 
+  // ── Optional Spotify seeds (best-effort, never blocks) ───────────────────
+  const cookieHeader = req.headers.get("cookie") ?? "";
+  const spotifySeeds = await getSpotifyTopArtists(cookieHeader);
+
   // ── Call the Convex action ───────────────────────────────────────────────
   try {
     const result = await convex.action(api.recommend.index.generateTour, {
       prompt,
+      spotifySeeds: spotifySeeds.length > 0 ? spotifySeeds : undefined,
     });
     return Response.json(
       {
