@@ -9,6 +9,17 @@ describe("recommendFromPerplexity", () => {
   beforeEach(() => {
     process.env.PERPLEXITY_API_KEY = "test-key";
     fetchSpy = vi.spyOn(globalThis, "fetch");
+    // Default: Search API pre-retrieval returns empty so tests assert
+    // purely on sonar-pro's path. Individual tests use mockResolvedValueOnce
+    // to inject sonar-pro responses; the implementation below handles the
+    // Search API call that now fires before every sonar-pro call.
+    fetchSpy.mockImplementation(async (input: Parameters<typeof fetch>[0]) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+      if (url.includes("/search")) {
+        return new Response(JSON.stringify({ results: [] }), { status: 200 });
+      }
+      throw new Error(`Unmocked fetch: ${url}`);
+    });
   });
 
   afterEach(() => {

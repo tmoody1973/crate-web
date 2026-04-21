@@ -34,6 +34,7 @@ import type * as recommend_mutations from "../recommend/mutations.js";
 import type * as recommend_perplexityRecommend from "../recommend/perplexityRecommend.js";
 import type * as recommend_promptRedact from "../recommend/promptRedact.js";
 import type * as recommend_promptTest from "../recommend/promptTest.js";
+import type * as recommend_queryDecompose from "../recommend/queryDecompose.js";
 import type * as recommend_slug from "../recommend/slug.js";
 import type * as recommend_types from "../recommend/types.js";
 import type * as recommend_voyageEmbed from "../recommend/voyageEmbed.js";
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   "recommend/perplexityRecommend": typeof recommend_perplexityRecommend;
   "recommend/promptRedact": typeof recommend_promptRedact;
   "recommend/promptTest": typeof recommend_promptTest;
+  "recommend/queryDecompose": typeof recommend_queryDecompose;
   "recommend/slug": typeof recommend_slug;
   "recommend/types": typeof recommend_types;
   "recommend/voyageEmbed": typeof recommend_voyageEmbed;

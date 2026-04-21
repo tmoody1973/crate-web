@@ -22,6 +22,8 @@ import {
   PerplexityMalformedResponseError,
   type PerplexitySearchResult,
 } from "../../src/lib/perplexity-core";
+import { perplexitySearch } from "../../src/lib/perplexity-search";
+import { decomposeToQueries } from "./queryDecompose";
 import type { StructuredQuery, IntentType } from "./types";
 
 // ── Response schema + types ──────────────────────────────────────────────────
@@ -517,10 +519,44 @@ export async function recommendFromPerplexity(
 
   const verifiableCitations = citations.filter((c) => /^https?:\/\//.test(c));
 
+  // Multi-query retrieval via the Perplexity Search API — pulls a richer
+  // curated music-criticism pool than sonar-pro's single-query search.
+  // Runs AFTER the sonar call so we only pay the extra retrieval latency
+  // when we're about to synthesize picks. Especially valuable for
+  // emotional/mood/activity intents where sonar's retrieval is too
+  // narrow (often 2-5 hits). Silent fallback to [] on error keeps the
+  // pipeline resilient.
+  const preSearchHits = await perplexitySearch({
+    queries: decomposeToQueries(structuredQuery),
+    maxResults: 4,
+    maxTokensPerPage: 512,
+    searchDomainFilter: MUSIC_PUBLICATION_ALLOWLIST,
+  }).catch(() => []);
+
+  // Merge Search API hits with sonar's own search_results. Dedup on URL.
+  // The downstream per-pick matcher then has a richer pool to find
+  // "this source names that artist" matches against, and the TourSources
+  // UI shows the combined reviews cited.
+  const seenUrls = new Set(searchResults.map((r) => r.url));
+  const extraHits: PerplexitySearchResult[] = [];
+  for (const h of preSearchHits) {
+    if (seenUrls.has(h.url)) continue;
+    seenUrls.add(h.url);
+    extraHits.push({
+      title: h.title,
+      url: h.url,
+      snippet: h.snippet,
+      date: h.date,
+      lastUpdated: h.last_updated,
+      sourceType: "web",
+    });
+  }
+  const mergedSearchResults = [...searchResults, ...extraHits];
+
   return {
     picks,
     citations: verifiableCitations,
-    searchResults,
+    searchResults: mergedSearchResults,
     isSparse: picks.length < 8,
     isCitationless: verifiableCitations.length === 0,
   };
