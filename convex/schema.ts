@@ -263,6 +263,171 @@ export default defineSchema({
     .index("by_user_type_period", ["userId", "type", "periodStart"])
     .index("by_team_domain_period", ["teamDomain", "periodStart"]),
 
+  // ───── /recommend v1 tables ────────────────────────────────────────────────
+  // All tables here support the /recommend tour generation flow. See
+  // docs/crate-recommend-feature/v1-scope.md for the locked design.
+
+  // Persistent store of every generated tour. Prompt embedding enables future
+  // similarity-cache tuning (current threshold: 0.90 cosine; near-misses
+  // 0.85–0.95 logged for week-2 calibration). Cross-user cache-match UI
+  // deferred to Phase 2 per Codex privacy review.
+  artifactsRecommend: defineTable({
+    slug: v.string(),
+    userId: v.id("users"),
+
+    // Prompt + classification
+    prompt: v.string(),                   // raw, creator-only
+    promptRedacted: v.string(),           // generic 4-8 word summary for public display
+    promptShowRaw: v.boolean(),           // creator opted to show raw on public page
+    promptEmbedding: v.array(v.number()), // Voyage-3, 1024-dim
+    intentType: v.union(
+      v.literal("mood_theme"),
+      v.literal("era_genre"),
+      v.literal("artist_similar"),
+      v.literal("activity"),
+      v.literal("emotional"),
+      v.literal("show_prep"),
+      v.literal("single_artist"),
+      v.literal("vague"),
+    ),
+    parsedQuery: v.string(),              // JSON of StructuredQuery from classifier
+
+    // The tour — structured data
+    artists: v.array(v.object({
+      name: v.string(),
+      album: v.optional(v.string()),
+      year: v.optional(v.number()),
+      quote: v.optional(v.object({
+        text: v.string(),
+        publication: v.string(),
+        author: v.optional(v.string()),
+        url: v.string(),
+        verified: v.boolean(),            // survived HEAD + quote-on-page check
+      })),
+      youtubeTrackId: v.optional(v.string()),
+      arcPosition: v.number(),            // 0..N-1 ordering
+    })),
+    citations: v.array(v.string()),       // source URLs from Perplexity
+    perplexityFallbackUsed: v.boolean(),  // true if sparse-result fallback fired
+
+    // Moderation + lifecycle state
+    moderationStatus: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("flagged"),
+      v.literal("timed_out"),
+    ),
+    moderationCategories: v.optional(v.array(v.string())),
+    moderationAttemptedAt: v.optional(v.number()),
+    isPublic: v.boolean(),                // derived from moderationStatus; governs library visibility
+    lifecyclePhase: v.union(
+      v.literal("pending"),
+      v.literal("generating"),
+      v.literal("verifying"),
+      v.literal("moderating"),
+      v.literal("completed"),
+      v.literal("timed_out"),
+      v.literal("failed"),
+      v.literal("flagged"),
+    ),
+
+    // Aggregate signal counts (Cherry-pick #12 scaffolding — UI deferred)
+    keepCount: v.number(),
+    passCount: v.number(),
+    saveCount: v.number(),
+    shareCount: v.number(),
+    exportCount: v.number(),
+
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+    moderatedAt: v.optional(v.number()),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_user", ["userId"])
+    .index("by_public_recent", ["isPublic", "createdAt"])
+    .index("by_intent_public", ["intentType", "isPublic"])
+    .index("by_moderation_status", ["moderationStatus"])
+    .vectorIndex("by_embedding", {
+      vectorField: "promptEmbedding",
+      dimensions: 1024,
+    }),
+
+  // Real-time phase streaming state. Written during generation, read via
+  // Convex useQuery subscription on the client. TTL-pruned by a cron after
+  // 1 hour (completed tours don't need status rows anymore).
+  tourStatus: defineTable({
+    tourId: v.id("artifactsRecommend"),
+    phase: v.string(),                    // e.g. "classifying", "perplexity_calling"
+    progress: v.number(),                 // 0..1
+    detail: v.optional(v.string()),       // user-visible text for the phase
+    timestamp: v.number(),
+  }).index("by_tour", ["tourId"]),
+
+  // Per-tour observability record (cost, latency, errors, moderation outcome).
+  // Also emitted to PostHog. TTL-pruned after 90 days.
+  tourEvents: defineTable({
+    tourId: v.id("artifactsRecommend"),
+    userIdHash: v.string(),               // sha256(user._id + salt), first 16 chars — PII rule
+    intentType: v.string(),
+    promptLength: v.number(),
+    promptHash: v.string(),               // first 8 chars of sha256(prompt)
+    phaseDurations: v.string(),           // JSON per-phase ms
+    cacheMatched: v.boolean(),
+    cacheSimilarity: v.optional(v.number()),
+    perplexityFallbackUsed: v.boolean(),
+    artistCount: v.number(),
+    verifiedCitationCount: v.number(),
+    moderationStatus: v.string(),
+    moderationCategories: v.optional(v.array(v.string())),
+    costUsd: v.number(),
+    errors: v.array(v.string()),          // named exception class names that fired
+    createdAt: v.number(),
+  })
+    .index("by_tour", ["tourId"])
+    .index("by_created", ["createdAt"]),
+
+  // User-submitted tour reports. Rate-limited 5/user/day via the shared
+  // rateLimits table (endpoint=recommend_report). Admin reviews via admin UI.
+  tourReports: defineTable({
+    tourId: v.id("artifactsRecommend"),
+    userId: v.id("users"),
+    reason: v.string(),                   // user-provided short description
+    status: v.union(
+      v.literal("pending"),
+      v.literal("reviewed_approved"),
+      v.literal("reviewed_blocked"),
+    ),
+    createdAt: v.number(),
+    reviewedAt: v.optional(v.number()),
+  })
+    .index("by_tour", ["tourId"])
+    .index("by_user_day", ["userId", "createdAt"])
+    .index("by_status", ["status"]),
+
+  // Admin-editable paywall domain list. Citation verification drops any quote
+  // whose URL redirects to a domain here. Initial seed list ships in
+  // src/lib/paywall-domains.ts; this table is for runtime edits without deploy.
+  paywallDomains: defineTable({
+    domain: v.string(),                   // bare hostname, lowercased (e.g. "nytimes.com")
+    addedBy: v.id("users"),
+    addedAt: v.number(),
+    isActive: v.boolean(),
+  }).index("by_domain", ["domain"]),
+
+  // Cache for citation verification results. Keyed by URL + quote prefix hash
+  // so the same URL + different quote re-verifies but the same combination
+  // reuses the result for 24 hours. Pruned by cron after 24h.
+  citationCache: defineTable({
+    cacheKey: v.string(),                 // sha256(url + "|" + quote_prefix).slice(0,32)
+    url: v.string(),
+    quotePrefix: v.string(),              // first 30 chars of the quote we checked
+    verified: v.boolean(),                // true if both URL check AND quote-on-page passed
+    failureReason: v.optional(v.string()),// "paywall" | "url_unreachable" | "quote_not_found" | "cloudflare_challenge"
+    checkedAt: v.number(),
+  }).index("by_cache_key", ["cacheKey"]),
+
+  // ───── End /recommend v1 tables ────────────────────────────────────────────
+
   // Shared rate-limit table. Composite logical key is (userId, endpoint).
   // Each (user, endpoint) pair has one row. The row is reused across windows
   // by resetting windowStart + count when a new window begins.

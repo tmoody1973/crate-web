@@ -14,7 +14,10 @@ import { v } from "convex/values";
  */
 const MAX_LIMITS: Record<string, number> = {
   influence_expand: 60, // free=10, pro/team=60 — server cap matches pro/team
-  recommend_generate: 20, // per CEO review: 20 tours/day/user (added for PR 2)
+  recommend_generate: 20, // per CEO review: 20 tours/day/user
+  recommend_signal: 500, // keep/pass/save signals (10 tours × ~50 signals each)
+  recommend_report: 5, // user-submitted tour reports, per day
+  recommend_refine: 10, // chip refinement per session (rolling window)
 };
 
 const MIN_WINDOW_MS = 1000; // 1 second — floor to prevent per-ms windows that bypass rate-limiting under load
