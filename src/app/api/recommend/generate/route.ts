@@ -18,10 +18,8 @@ import {
   getTokenVaultToken,
   isTokenVaultConfigured,
 } from "@/lib/auth0-token-vault";
-import {
-  RECOMMEND_EVENTS,
-  trackRecommendServer,
-} from "@/lib/recommend-analytics";
+import { RECOMMEND_EVENTS } from "@/lib/recommend-analytics";
+import { trackRecommendServer } from "@/lib/recommend-analytics-server";
 
 export const maxDuration = 60; // Convex action returns fast (schedules the heavy work)
 

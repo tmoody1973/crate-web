@@ -38,15 +38,9 @@ vi.mock("@/lib/auth0-token-vault", () => ({
 }));
 
 // ── PostHog capture mock — never touch the network ─────────────────────────
-vi.mock("@/lib/recommend-analytics", async () => {
-  const actual = await vi.importActual<
-    typeof import("@/lib/recommend-analytics")
-  >("@/lib/recommend-analytics");
-  return {
-    ...actual,
-    trackRecommendServer: vi.fn(async () => {}),
-  };
-});
+vi.mock("@/lib/recommend-analytics-server", () => ({
+  trackRecommendServer: vi.fn(async () => {}),
+}));
 
 beforeEach(() => {
   authMock.mockReset();

@@ -1,13 +1,13 @@
 /**
- * Shared event names + typed property shapes for /recommend PostHog events.
+ * Shared event names for /recommend PostHog events. CLIENT-SAFE — this file
+ * never imports posthog-node or any Node-only dependency, so it's safe to
+ * pull into client components without leaking server code into the browser
+ * bundle.
  *
- * Centralized so the same names fire from client (posthog-js), server (posthog-node
- * via posthog-server.ts), and the Convex action (HTTP capture API). Changing a
- * constant here changes it everywhere; PostHog dashboards stay consistent.
+ * For server-side emission, use `@/lib/recommend-analytics-server`.
  *
- * PII rule: no raw prompt text, no emails, no clerk IDs. Use the hashed forms
- * already computed by the Convex action (promptHash, userIdHash) when shipping
- * identifying properties.
+ * PII rule: no raw prompt text, no emails, no clerk IDs. Use hashed forms
+ * (promptHash, userIdHash) when shipping identifying properties.
  */
 
 export const RECOMMEND_EVENTS = {
@@ -32,8 +32,6 @@ export const RECOMMEND_EVENTS = {
 export type RecommendEvent =
   (typeof RECOMMEND_EVENTS)[keyof typeof RECOMMEND_EVENTS];
 
-// ── Client (posthog-js) ─────────────────────────────────────────────────────
-
 /**
  * Fire an event from the browser. Safe to call on the server: if posthog-js
  * isn't initialized (SSR or PostHog env vars missing), the call no-ops.
@@ -43,9 +41,7 @@ export function trackRecommendClient(
   properties?: Record<string, unknown>,
 ): void {
   if (typeof window === "undefined") return;
-  // Lazy require so server bundles don't pull posthog-js.
   try {
-    // Types are loose on posthog-js global; use a structural cast.
     const posthog = (
       window as unknown as {
         posthog?: { capture?: (name: string, props?: unknown) => void };
@@ -54,28 +50,5 @@ export function trackRecommendClient(
     posthog?.capture?.(event, properties);
   } catch {
     // Never break user flow on a telemetry hiccup.
-  }
-}
-
-// ── Server (posthog-node) ───────────────────────────────────────────────────
-
-/**
- * Fire an event from a Vercel route handler. Uses the shared posthog-node
- * client from posthog-server.ts. `distinctId` should be the Clerk user id
- * (or a stable anonymous id for unauthenticated flows).
- *
- * Never throws: telemetry failures are logged, not propagated.
- */
-export async function trackRecommendServer(
-  distinctId: string,
-  event: RecommendEvent,
-  properties?: Record<string, unknown>,
-): Promise<void> {
-  try {
-    const { getPostHogClient } = await import("./posthog-server");
-    const client = getPostHogClient();
-    client.capture({ distinctId, event, properties });
-  } catch (e) {
-    console.warn("[recommend-analytics] server capture failed:", e);
   }
 }
