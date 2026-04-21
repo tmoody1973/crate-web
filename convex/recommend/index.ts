@@ -454,6 +454,25 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       return artist;
     });
 
+    // Per-publication cap: prevent a single host from dominating citations
+    // across the tour. When retrieval skews heavily toward one publication
+    // (AllMusic album pages, Bandcamp Daily), the first N picks to claim
+    // that host keep their quote; subsequent picks drop the quote rather
+    // than compound the monoculture. Preserves arcPosition ordering for
+    // the cap — we keep the earliest claimants, not the "strongest" ones,
+    // because all matches have already passed the matcher's trust tiers.
+    const hostCounts = new Map<string, number>();
+    for (const a of [...artists].sort((x, y) => x.arcPosition - y.arcPosition)) {
+      if (!a.quote) continue;
+      const host = hostFromUrl(a.quote.url);
+      const n = hostCounts.get(host) ?? 0;
+      if (n >= MAX_CITATIONS_PER_PUBLICATION) {
+        delete a.quote;
+        continue;
+      }
+      hostCounts.set(host, n + 1);
+    }
+
     // Phase 8: Finalize ───────────────────────────────────────────────────
     const isApproved = moderationResult.categories.length === 0;
     const finalSlug = artists[0]?.name
@@ -654,6 +673,16 @@ function matchQuoteToSnippet(
   searchResults: ReadonlyArray<{ url: string; title?: string; snippet?: string }>,
 ): { url: string } | null {
   if (!quote || searchResults.length === 0) return null;
+  // Filter aggregator-bio URLs out of the matching pool entirely. These are
+  // catalog/self-host pages (allmusic.com/artist/<slug>, bare
+  // <artist>.bandcamp.com subdomains) that technically live on the
+  // allowlist because their editorial paths publish real reviews — but the
+  // bio paths themselves aren't criticism, and letting them into ANY tier
+  // (even Tier 1 by coincidental snippet overlap) launders synthesized
+  // prose into authoritative-looking citations.
+  const eligible = searchResults.filter((r) => !isAggregatorBioUrl(r.url));
+  if (eligible.length === 0) return null;
+
   const quoteLower = quote.toLowerCase();
   const prefix = quoteLower.slice(0, 25);
   const artistLower = artistName.toLowerCase();
@@ -667,7 +696,7 @@ function matchQuoteToSnippet(
   );
 
   // Tier 1 — Strict: verbatim 25-char quote prefix appears in the snippet
-  for (const r of searchResults) {
+  for (const r of eligible) {
     const snippet = (r.snippet ?? "").toLowerCase();
     if (snippet.length > 0 && snippet.includes(prefix)) {
       return { url: r.url };
@@ -675,17 +704,12 @@ function matchQuoteToSnippet(
   }
 
   // Tier 2 — Medium: search_result title or URL path explicitly names the
-  // artist. Treat this as "source IS about this artist" — a strictly weaker
-  // claim than "this exact quote appears on that page," but strong enough
-  // to stand behind as a real per-artist citation (same trust model as /i/
-  // Influence Receipts: here's a source about this artist). Critical for
-  // publisher attribution: downbeat.com/...akinmusire is a real Akinmusire
-  // piece whether or not the model's paraphrased quote word-overlaps with
-  // the snippet.
+  // artist. Treat this as "source IS about this artist" — weaker than
+  // verbatim-quote-in-snippet but strong enough for editorial articles.
   if (artistLower.length >= 4) {
     const artistDashed = artistLower.replace(/\s+/g, "-");
     const artistUnderscored = artistLower.replace(/\s+/g, "_");
-    for (const r of searchResults) {
+    for (const r of eligible) {
       const title = (r.title ?? "").toLowerCase();
       const url = r.url.toLowerCase();
       if (
@@ -700,7 +724,7 @@ function matchQuoteToSnippet(
 
   // Tier 3 — Loose: artist appears in the title+snippet hay AND the quote
   // has 4+ significant-word overlap with it.
-  for (const r of searchResults) {
+  for (const r of eligible) {
     const hay = `${r.title ?? ""} ${r.snippet ?? ""}`.toLowerCase();
     if (!hay.includes(artistLower)) continue;
     const overlap = quoteWords.filter((w) => hay.includes(w)).length;
@@ -719,6 +743,35 @@ function hostFromUrl(url: string): string {
     return url;
   }
 }
+
+/**
+ * True if the URL is an aggregator/bio page rather than an editorial article.
+ * These hosts appear in the allowlist because they DO publish real reviews on
+ * other paths, but their catalog paths match every artist by slug and would
+ * otherwise dominate Tier 2 matching with prose that isn't from the page.
+ *
+ * Aggregator-bio patterns blocked from Tier 2:
+ *   - allmusic.com/artist/<slug>   (discography + auto-bio, not a review)
+ *   - <artist>.bandcamp.com        (self-hosted artist page, not criticism)
+ *
+ * Still allowed (real editorial): allmusic.com/album/<slug>,
+ * daily.bandcamp.com/..., anything else on the allowlist.
+ */
+function isAggregatorBioUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "");
+    if (host === "allmusic.com" && u.pathname.startsWith("/artist/")) return true;
+    // bare bandcamp.com is Bandcamp Daily / editorial via daily.bandcamp.com;
+    // any other <slug>.bandcamp.com is the artist's own self-hosted page.
+    if (host.endsWith(".bandcamp.com") && host !== "daily.bandcamp.com") return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+const MAX_CITATIONS_PER_PUBLICATION = 3;
 
 /**
  * Return the subset of `artistNames` mentioned anywhere in `text`
