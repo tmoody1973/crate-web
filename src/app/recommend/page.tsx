@@ -17,11 +17,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SignInButton, useAuth } from "@clerk/nextjs";
+import posthog from "posthog-js";
 import { bebasNeue, spaceGrotesk } from "@/lib/landing-fonts";
 import {
   useTourGeneration,
   useTourStatus,
 } from "@/lib/recommend-hooks";
+import { RECOMMEND_EVENTS } from "@/lib/recommend-analytics";
 
 export default function RecommendPage() {
   const { isLoaded, userId } = useAuth();
@@ -185,6 +187,13 @@ function PromptPanel() {
         e.preventDefault();
         const trimmed = prompt.trim();
         if (trimmed.length < 2 || submitting) return;
+        try {
+          posthog.capture(RECOMMEND_EVENTS.tourStartedAttempt, {
+            promptLength: trimmed.length,
+          });
+        } catch {
+          // ignore
+        }
         generate(trimmed);
       }}
       className="space-y-4"

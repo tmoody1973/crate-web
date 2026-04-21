@@ -149,6 +149,7 @@ export const runGenerationFlow = internalAction({
     });
 
     const result = await Promise.race([workPromise, timeoutPromise]);
+    const totalMs = Date.now() - startTime;
 
     // Persist observability event regardless of outcome
     try {
@@ -177,8 +178,58 @@ export const runGenerationFlow = internalAction({
         reason: "timed_out",
       });
     }
+
+    // Ship an aggregate event to PostHog so dashboards see tour outcomes even
+    // though the Vercel route returned long ago. Best-effort — never throws.
+    await capturePostHog({
+      distinctId: hashUserId(userId),
+      event: "recommend_tour_completed",
+      properties: {
+        outcome: result === "timeout" ? "timed_out" : result,
+        totalMs,
+        costUsd: cost,
+        errorCount: errors.length,
+        errors: errors.slice(0, 5),
+        phaseDurations,
+      },
+    });
   },
 });
+
+// ── PostHog HTTP capture (Convex can't use posthog-node cleanly) ────────────
+
+async function capturePostHog(args: {
+  distinctId: string;
+  event: string;
+  properties?: Record<string, unknown>;
+}): Promise<void> {
+  const key = process.env.NEXT_PUBLIC_POSTHOG_KEY ?? process.env.POSTHOG_KEY;
+  const host =
+    process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
+  if (!key) return; // Observability is optional — never block the action on it.
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    try {
+      await fetch(`${host.replace(/\/$/, "")}/capture/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: key,
+          event: args.event,
+          distinct_id: args.distinctId,
+          properties: args.properties ?? {},
+          timestamp: new Date().toISOString(),
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    // telemetry failure is never fatal
+  }
+}
 
 // ── Core work pipeline ───────────────────────────────────────────────────────
 

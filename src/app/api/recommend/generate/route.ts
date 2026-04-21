@@ -18,6 +18,10 @@ import {
   getTokenVaultToken,
   isTokenVaultConfigured,
 } from "@/lib/auth0-token-vault";
+import {
+  RECOMMEND_EVENTS,
+  trackRecommendServer,
+} from "@/lib/recommend-analytics";
 
 export const maxDuration = 60; // Convex action returns fast (schedules the heavy work)
 
@@ -140,6 +144,14 @@ export async function POST(req: Request): Promise<Response> {
       prompt,
       spotifySeeds: spotifySeeds.length > 0 ? spotifySeeds : undefined,
     });
+
+    // Fire-and-forget telemetry — never block the response on PostHog.
+    void trackRecommendServer(clerkId, RECOMMEND_EVENTS.tourStarted, {
+      promptLength: prompt.length,
+      hasSpotifySeeds: spotifySeeds.length > 0,
+      spotifySeedCount: spotifySeeds.length,
+    });
+
     return Response.json(
       {
         ok: true,

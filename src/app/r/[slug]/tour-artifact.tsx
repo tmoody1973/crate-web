@@ -13,11 +13,13 @@
  * and surface a small inline message.
  */
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { SignInButton, useAuth } from "@clerk/nextjs";
+import posthog from "posthog-js";
 import { api } from "../../../../convex/_generated/api";
 import type { Doc, Id } from "../../../../convex/_generated/dataModel";
+import { RECOMMEND_EVENTS } from "@/lib/recommend-analytics";
 
 type Signal = "keep" | "pass" | "save";
 type Tour = Doc<"artifactsRecommend">;
@@ -43,6 +45,22 @@ export function TourArtifact({ tour }: TourArtifactProps) {
   // keep the page from turning into a browser-tab-hog. Lifted to parent
   // so stops can know when they've lost focus.
   const [activePosition, setActivePosition] = useState<number | null>(null);
+
+  // Fire a view event once per slug mount so we can count real engagement.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      posthog.capture(RECOMMEND_EVENTS.tourViewed, {
+        slug: tour.slug,
+        intentType: tour.intentType,
+        artistCount: tour.artists.length,
+        verifiedCitationCount: tour.artists.filter((a) => a.quote?.verified)
+          .length,
+      });
+    } catch {
+      // telemetry hiccups never affect the user
+    }
+  }, [tour._id, tour.slug, tour.intentType, tour.artists]);
 
   return (
     <div>
@@ -81,14 +99,17 @@ function ActionBar({ tour }: { tour: Tour }) {
     const nav = navigator as Navigator & {
       share?: (data: ShareData) => Promise<void>;
     };
+    let method: "native_share" | "clipboard" | "none" = "none";
     try {
       if (nav.share) {
+        method = "native_share";
         await nav.share({
           title: tour.promptRedacted || "A listening tour",
           text: "Check out this Crate tour",
           url,
         });
       } else if (nav.clipboard?.writeText) {
+        method = "clipboard";
         await nav.clipboard.writeText(url);
         setShareState("copied");
         setTimeout(() => setShareState("idle"), 1800);
@@ -96,6 +117,14 @@ function ActionBar({ tour }: { tour: Tour }) {
       recordShare({ tourId: tour._id }).catch(() => {
         // Best-effort counter; never block the UI.
       });
+      try {
+        posthog.capture(RECOMMEND_EVENTS.tourShared, {
+          slug: tour.slug,
+          method,
+        });
+      } catch {
+        // ignore
+      }
     } catch {
       // User cancelled the share sheet, or permission denied. No-op.
     }
@@ -174,6 +203,14 @@ function ReportDialog({
       try {
         await reportTour({ tourId, reason: trimmed });
         setState("submitted");
+        try {
+          posthog.capture(RECOMMEND_EVENTS.tourReported, {
+            tourId,
+            reasonLength: trimmed.length,
+          });
+        } catch {
+          // ignore
+        }
       } catch (e) {
         setState("error");
         setError(e instanceof Error ? e.message : "Couldn't submit report");
@@ -352,6 +389,15 @@ function ArtistStop({
               artistPosition: artist.arcPosition,
               signal,
             });
+          }
+          try {
+            posthog.capture(RECOMMEND_EVENTS.signalRecorded, {
+              signal: willToggleOff ? "cleared" : signal,
+              artistPosition: artist.arcPosition,
+              tourId,
+            });
+          } catch {
+            // ignore
           }
           setOptimistic("__unset"); // release to server state
         } catch (e) {
