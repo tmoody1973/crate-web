@@ -148,6 +148,15 @@ const MUSIC_PUBLICATION_ALLOWLIST: ReadonlyArray<string> = [
   "crackmagazine.net",
   "rollingstone.com",
   "downbeat.com",
+  // Long-tail critics that appeared in earlier testing and got pushed out
+  // when we first trimmed to 15. Filling remaining cap slots (Perplexity
+  // allows 20) adds breadth without sacrificing the allowlist's strict
+  // enforcement of "criticism only, no streaming/social leakage."
+  "jerryjazzmusician.com",
+  "brooklynrail.org",
+  "popmatters.com",
+  "clashmusic.com",
+  "nme.com",
 ];
 
 /**
