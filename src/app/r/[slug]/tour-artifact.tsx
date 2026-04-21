@@ -21,6 +21,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { RECOMMEND_EVENTS } from "@/lib/recommend-analytics";
 import { usePlayerSafe } from "@/components/player/player-provider";
+import { sourceNameFromUrl } from "@/lib/receipt-types";
 
 type Signal = "keep" | "pass" | "save";
 type Tour = Doc<"artifactsRecommend">;
@@ -637,7 +638,7 @@ function ArtistStop({
           }}
         >
           <p
-            className="italic mb-2"
+            className="italic"
             style={{
               color: "#e4e4e7",
               fontSize: "15px",
@@ -647,34 +648,19 @@ function ArtistStop({
           >
             &ldquo;{artist.quote.text}&rdquo;
           </p>
-          <footer
-            className="text-xs tracking-wide"
-            style={{ color: "#71717a" }}
-          >
-            —{" "}
-            {artist.quote.author ? `${artist.quote.author}, ` : ""}
-            <a
-              href={artist.quote.url}
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-              className="underline decoration-dotted underline-offset-2 transition-colors hover:text-[#e8b86a]"
-              style={{ color: "#a1a1aa" }}
-            >
-              {artist.quote.publication}
-            </a>
-            {artist.quote.verified && (
-              <span
-                className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide"
-                style={{
-                  backgroundColor: "rgba(232,184,106,0.12)",
-                  color: "#e8b86a",
-                }}
-                aria-label="Citation verified on source page"
+          {artist.quote.url && (
+            <div className="mt-2">
+              <a
+                href={artist.quote.url}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="inline-flex items-center gap-1 text-xs tracking-wide transition-colors hover:text-[#e8b86a]"
+                style={{ color: "#a1a1aa" }}
               >
-                VERIFIED
-              </span>
-            )}
-          </footer>
+                {sourceNameFromUrl(artist.quote.url)} ↗
+              </a>
+            </div>
+          )}
         </blockquote>
       )}
 

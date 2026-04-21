@@ -78,6 +78,16 @@ export type CallPerplexityArgs = {
    * so it doesn't cite YouTube/Spotify playlist pages as "reviews").
    */
   searchDomainFilter?: ReadonlyArray<string>;
+  /**
+   * Optional Perplexity `response_format` object for structured-output
+   * enforcement. When set, the API guarantees the returned `content` string
+   * parses as JSON matching the provided schema — eliminates the
+   * `PerplexityMalformedResponseError` path for schema-shaped responses.
+   *
+   * Shape: `{ type: "json_schema", json_schema: { name: "...", schema: {...} } }`.
+   * See https://docs.perplexity.ai/api-reference/sonar-post.
+   */
+  responseFormat?: Record<string, unknown>;
 };
 
 /**
@@ -142,6 +152,7 @@ export async function callPerplexity(
     timeoutMs = 15_000,
     maxRetries = 1,
     searchDomainFilter,
+    responseFormat,
   } = args;
 
   const apiKey = process.env.PERPLEXITY_API_KEY;
@@ -162,6 +173,7 @@ export async function callPerplexity(
         temperature,
         timeoutMs,
         searchDomainFilter,
+        responseFormat,
       });
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
@@ -198,6 +210,7 @@ async function singleCall(opts: {
   temperature: number;
   timeoutMs: number;
   searchDomainFilter?: ReadonlyArray<string>;
+  responseFormat?: Record<string, unknown>;
 }): Promise<CallPerplexityResult> {
   const {
     apiKey,
@@ -208,6 +221,7 @@ async function singleCall(opts: {
     temperature,
     timeoutMs,
     searchDomainFilter,
+    responseFormat,
   } = opts;
 
   const controller = new AbortController();
@@ -224,6 +238,9 @@ async function singleCall(opts: {
   };
   if (searchDomainFilter && searchDomainFilter.length > 0) {
     body.search_domain_filter = [...searchDomainFilter];
+  }
+  if (responseFormat) {
+    body.response_format = responseFormat;
   }
 
   let response: Response;

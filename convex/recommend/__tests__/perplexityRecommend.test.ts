@@ -22,7 +22,7 @@ describe("recommendFromPerplexity", () => {
   ): Response {
     return new Response(
       JSON.stringify({
-        choices: [{ message: { content: JSON.stringify(picks) } }],
+        choices: [{ message: { content: JSON.stringify({ picks }) } }],
         citations,
       }),
       { status: 200 },

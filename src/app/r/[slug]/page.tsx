@@ -26,6 +26,140 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 type Tour = Doc<"artifactsRecommend">;
 
+/**
+ * Rich per-source card section — mirrors the `/cuts` ReviewSourceCard
+ * pattern. Each card shows publication badge + linked title + snippet +
+ * date + the tour artists mentioned in that source. Cards come from
+ * Perplexity's `search_results` array (real URLs, real snippets, real
+ * titles), stored on the tour as `sources` during generation.
+ *
+ * Falls back to a flat URL list when `sources` is empty (older tours or
+ * Perplexity responses that only include `citations[]`).
+ */
+function TourSources({ tour }: { tour: Tour }) {
+  const sources = tour.sources ?? [];
+  const fallbackUrls =
+    sources.length === 0
+      ? tour.citations.filter((u) => /^https?:\/\//.test(u)).slice(0, 10)
+      : [];
+
+  if (sources.length === 0 && fallbackUrls.length === 0) return null;
+
+  return (
+    <section className="mx-auto max-w-3xl px-6 pb-16">
+      <p
+        className="font-[family-name:var(--font-bebas)] tracking-widest mb-4"
+        style={{ color: "#e8b86a", fontSize: "12px" }}
+      >
+        REVIEWS CITED
+      </p>
+      {sources.length > 0 ? (
+        <ul className="space-y-3">
+          {sources.map((s) => (
+            <li key={s.url}>
+              <ReviewSourceCard source={s} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul className="space-y-2 rounded-xl p-5"
+          style={{ backgroundColor: "#0A1628", border: "1px solid #1d2d44" }}
+        >
+          {fallbackUrls.map((url) => (
+            <li key={url}>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="truncate block text-sm transition-colors hover:text-[#e8b86a]"
+                style={{ color: "#a1a1aa" }}
+              >
+                {hostnameFor(url)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+type TourSource = NonNullable<Tour["sources"]>[number];
+
+function ReviewSourceCard({ source }: { source: TourSource }) {
+  return (
+    <article
+      className="rounded-lg p-4"
+      style={{ backgroundColor: "#18181b", border: "1px solid #27272a" }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <span
+            className="inline-block font-[family-name:var(--font-bebas)] tracking-widest"
+            style={{ color: "#e8b86a", fontSize: "10px" }}
+          >
+            {source.publication}
+          </span>
+          <a
+            href={source.url}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className="mt-1 block text-sm font-semibold transition-colors hover:underline"
+            style={{ color: "#22d3ee" }}
+          >
+            {source.title || source.url}
+          </a>
+          {source.snippet && (
+            <p
+              className="mt-2 italic"
+              style={{
+                color: "#d4d4d8",
+                fontSize: "13px",
+                lineHeight: "1.55",
+                fontFamily: "Georgia, serif",
+              }}
+            >
+              &ldquo;{source.snippet}&rdquo;
+            </p>
+          )}
+        </div>
+        {source.date && (
+          <span
+            className="shrink-0 text-[10px] tracking-wide"
+            style={{ color: "#52525b" }}
+          >
+            {source.date}
+          </span>
+        )}
+      </div>
+      {source.artistsMentioned.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {source.artistsMentioned.map((a) => (
+            <span
+              key={a}
+              className="rounded-full px-2 py-0.5 text-[10px]"
+              style={{
+                backgroundColor: "rgba(232,184,106,0.12)",
+                color: "#e8b86a",
+              }}
+            >
+              {a}
+            </span>
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function hostnameFor(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 async function getTour(slug: string): Promise<Tour | null> {
   try {
     return await convex.query(api.recommend.mutations.getTourBySlug, { slug });

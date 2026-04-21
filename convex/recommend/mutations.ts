@@ -139,6 +139,18 @@ export const finalizeTour = internalMutation({
       }),
     ),
     citations: v.array(v.string()),
+    sources: v.optional(
+      v.array(
+        v.object({
+          url: v.string(),
+          publication: v.string(),
+          title: v.string(),
+          snippet: v.optional(v.string()),
+          date: v.optional(v.string()),
+          artistsMentioned: v.array(v.string()),
+        }),
+      ),
+    ),
     perplexityFallbackUsed: v.boolean(),
     promptRedacted: v.string(),
     promptShowRaw: v.boolean(),

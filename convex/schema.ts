@@ -307,7 +307,22 @@ export default defineSchema({
       youtubeTrackId: v.optional(v.string()),
       arcPosition: v.number(),            // 0..N-1 ordering
     })),
-    citations: v.array(v.string()),       // source URLs from Perplexity
+    citations: v.array(v.string()),       // source URLs from Perplexity (legacy flat list; prefer `sources`)
+    // Rich per-source cards from Perplexity's `search_results` response field.
+    // Unlike the old model-generated quote_url path, every entry here has a
+    // real title + snippet + URL that Perplexity actually searched. The UI
+    // renders these as ReviewSourceCard cards (see /cuts for the pattern).
+    // `artistsMentioned` is computed server-side by scanning each snippet +
+    // title for tour artist names, which lets the UI cluster sources under
+    // the relevant artist stops.
+    sources: v.optional(v.array(v.object({
+      url: v.string(),
+      publication: v.string(),            // derived from hostname (e.g. "pitchfork.com")
+      title: v.string(),
+      snippet: v.optional(v.string()),
+      date: v.optional(v.string()),
+      artistsMentioned: v.array(v.string()),
+    }))),
     perplexityFallbackUsed: v.boolean(),  // true if sparse-result fallback fired
 
     // Moderation + lifecycle state

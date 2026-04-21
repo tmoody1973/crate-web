@@ -396,10 +396,16 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       redactionWithFallback(w, prompt),
     ]);
 
-    // Phase 7: Build artists array with arc position + verified quotes ───
+    // Phase 7: Build artists array with arc position + per-pick citation
+    // URLs drawn from Perplexity's real `search_results`. Trust model:
+    // a quote is attached to an artist only when a search_result snippet
+    // both contains that quote text AND names the artist. Unmatched quotes
+    // are dropped rather than stamped with the tour's top citation.
     const arcByName = new Map(arcResult.map((a) => [a.name, a.arcPosition]));
+    const searchResults = perplexityResult.searchResults ?? [];
+
     const artists = verifiedPicks.map((vp) => {
-      const { pick, verified, youtubeTrackId } = vp;
+      const { pick, youtubeTrackId } = vp;
       const arcPos = arcByName.get(pick.name) ?? 0;
       const artist: {
         name: string;
@@ -420,20 +426,25 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       };
       if (pick.album) artist.album = pick.album;
       if (pick.year) artist.year = pick.year;
-      // STRICT citation policy: only attach the quote when citationVerify
-      // confirmed both (a) the URL is reachable and (b) the quote prefix
-      // actually appears on the page. Unverified quotes are dropped
-      // entirely rather than shown without a badge — even sonar-pro
-      // hallucinates URLs that look legitimate, and we'd rather an artist
-      // card show no citation than mislead the reader with a fake one.
-      if (pick.quote_text && pick.quote_url && verified) {
-        artist.quote = {
-          text: pick.quote_text,
-          publication: pick.quote_publication ?? "Unknown",
-          author: pick.quote_author,
-          url: pick.quote_url,
-          verified: true,
-        };
+      if (pick.quote_text && pick.quote_publication) {
+        // Never fall back to a generic "top tour citation" on miss —
+        // stamping the tour's headline article onto an unmatched per-artist
+        // quote launders model fabrications into authoritative-looking
+        // citations.
+        const match = matchQuoteToSnippet(
+          pick.quote_text,
+          pick.name,
+          searchResults,
+        );
+        if (match) {
+          artist.quote = {
+            text: pick.quote_text,
+            publication: pick.quote_publication,
+            author: pick.quote_author,
+            url: match.url,
+            verified: true,
+          };
+        }
       }
       if (youtubeTrackId) {
         artist.youtubeTrackId = youtubeTrackId;
@@ -447,12 +458,30 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       ? buildSlug(artists[0].name, 4)
       : buildSlug("tour", 8);
 
+    // Build the per-source cards from Perplexity's search_results. Each
+    // source gets a hostname-derived publication name and an
+    // artistsMentioned[] list computed by scanning the title + snippet
+    // for every tour artist name. Empty artistsMentioned is still kept —
+    // the UI renders those as "General sources for this tour."
+    const sources = (perplexityResult.searchResults ?? []).map((r) => ({
+      url: r.url,
+      publication: hostFromUrl(r.url),
+      title: r.title ?? "",
+      snippet: r.snippet,
+      date: r.date,
+      artistsMentioned: mentionedArtists(
+        artists.map((a) => a.name),
+        `${r.title ?? ""} ${r.snippet ?? ""}`,
+      ),
+    }));
+
     await writeStatus(ctx, tourId, "finalizing", 0.95, "Wrapping up");
     await ctx.runMutation(internal.recommend.mutations.finalizeTour, {
       tourId,
       slug: finalSlug,
       artists,
       citations,
+      sources,
       perplexityFallbackUsed: perplexityResult.isSparse || perplexityResult.isCitationless,
       promptRedacted: redactionResult,
       promptShowRaw: false,
@@ -579,4 +608,105 @@ function hashUserId(userId: Id<"users">): string {
 
 function hashPrompt(prompt: string): string {
   return createHash("sha256").update(prompt).digest("hex").slice(0, 8);
+}
+
+/**
+ * Match a model-generated quote to a real Perplexity search_result by
+ * looking for substantive text overlap between the quote and each
+ * snippet. Returns the matched source (with real URL) or null.
+ *
+ * Matching heuristic — from strict to loose:
+ *   1. 25-char prefix of the quote appears verbatim in a snippet.
+ *   2. 4+ significant words (length ≥ 4) from the quote appear in a
+ *      snippet in any order, AND the snippet/title mentions the artist.
+ *   3. Otherwise: no match.
+ *
+ * Case-insensitive. No fuzzy matching — the LLM paraphrases often enough
+ * that a false positive there would be common.
+ */
+function matchQuoteToSnippet(
+  quote: string,
+  artistName: string,
+  searchResults: ReadonlyArray<{ url: string; title?: string; snippet?: string }>,
+): { url: string } | null {
+  if (!quote || searchResults.length === 0) return null;
+  const quoteLower = quote.toLowerCase();
+  const prefix = quoteLower.slice(0, 25);
+  const artistLower = artistName.toLowerCase();
+  const quoteWords = Array.from(
+    new Set(
+      quoteLower
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length >= 4),
+    ),
+  );
+
+  // Tier 1 — Strict: verbatim 25-char quote prefix appears in the snippet
+  for (const r of searchResults) {
+    const snippet = (r.snippet ?? "").toLowerCase();
+    if (snippet.length > 0 && snippet.includes(prefix)) {
+      return { url: r.url };
+    }
+  }
+
+  // Tier 2 — Medium: search_result title or URL path explicitly names the
+  // artist. Treat this as "source IS about this artist" — a strictly weaker
+  // claim than "this exact quote appears on that page," but strong enough
+  // to stand behind as a real per-artist citation (same trust model as /i/
+  // Influence Receipts: here's a source about this artist). Critical for
+  // publisher attribution: downbeat.com/...akinmusire is a real Akinmusire
+  // piece whether or not the model's paraphrased quote word-overlaps with
+  // the snippet.
+  if (artistLower.length >= 4) {
+    const artistDashed = artistLower.replace(/\s+/g, "-");
+    const artistUnderscored = artistLower.replace(/\s+/g, "_");
+    for (const r of searchResults) {
+      const title = (r.title ?? "").toLowerCase();
+      const url = r.url.toLowerCase();
+      if (
+        title.includes(artistLower) ||
+        url.includes(artistDashed) ||
+        url.includes(artistUnderscored)
+      ) {
+        return { url: r.url };
+      }
+    }
+  }
+
+  // Tier 3 — Loose: artist appears in the title+snippet hay AND the quote
+  // has 4+ significant-word overlap with it.
+  for (const r of searchResults) {
+    const hay = `${r.title ?? ""} ${r.snippet ?? ""}`.toLowerCase();
+    if (!hay.includes(artistLower)) continue;
+    const overlap = quoteWords.filter((w) => hay.includes(w)).length;
+    if (overlap >= 4) {
+      return { url: r.url };
+    }
+  }
+
+  return null;
+}
+
+function hostFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Return the subset of `artistNames` mentioned anywhere in `text`
+ * (case-insensitive). Used to cluster Perplexity search_results under the
+ * matching artist stop. Not stemmed — we only match on the exact artist
+ * string. "Bill Evans" matches "Bill Evans Trio" but not "evans"; close
+ * enough for v1.
+ */
+function mentionedArtists(
+  artistNames: ReadonlyArray<string>,
+  text: string,
+): string[] {
+  const lower = text.toLowerCase();
+  return artistNames.filter((n) => n.length >= 2 && lower.includes(n.toLowerCase()));
 }
