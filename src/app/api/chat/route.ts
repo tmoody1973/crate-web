@@ -62,6 +62,95 @@ function sseEncode(event: CrateEvent | string): string {
 const CHAT_SYSTEM =
   "You are Crate, an AI music research assistant. For casual conversation, be friendly and brief. Mention that you can help with music research — artists, samples, vinyl, concerts, genres, and more.";
 
+/**
+ * Intercept `/recommend <prompt>` and kick off tour generation via the
+ * Convex recommend pipeline. Streams back a small CrateEvent sequence so
+ * the chat panel renders a normal assistant message with the tour link.
+ * The tour itself keeps rendering in the background at /r/[slug].
+ */
+async function streamRecommendTour(rawMessage: string): Promise<Response> {
+  const prompt = rawMessage.replace(/^\/recommend\s*/i, "").trim();
+
+  const token = await (await auth()).getToken({ template: "convex" });
+
+  const stream = new ReadableStream({
+    start: async (controller) => {
+      const encoder = new TextEncoder();
+      const write = (ev: CrateEvent) => {
+        controller.enqueue(encoder.encode(sseEncode(ev)));
+      };
+      const startedAt = Date.now();
+
+      try {
+        if (!prompt) {
+          write({ type: "answer_start" });
+          write({
+            type: "answer_token",
+            token:
+              "`/recommend` needs a prompt. Try `/recommend jazz for winter morning coffee`.",
+          });
+          write({
+            type: "done",
+            totalMs: Date.now() - startedAt,
+            toolsUsed: [],
+            toolCallCount: 0,
+            costUsd: 0,
+          });
+          controller.close();
+          return;
+        }
+
+        if (!token) {
+          write({ type: "error", message: "Could not resolve Convex auth for /recommend." });
+          controller.close();
+          return;
+        }
+
+        const scopedConvex = new ConvexHttpClient(
+          process.env.NEXT_PUBLIC_CONVEX_URL!,
+        );
+        scopedConvex.setAuth(token);
+
+        write({ type: "answer_start" });
+        write({
+          type: "answer_token",
+          token: `Building a tour for **${prompt}**…\n\n`,
+        });
+
+        const { slug } = await scopedConvex.action(
+          api.recommend.index.generateTour,
+          { prompt },
+        );
+
+        const tourUrl = `/r/${slug}`;
+        write({
+          type: "answer_token",
+          token: [
+            `Your tour is generating — [open it here](${tourUrl}).`,
+            ``,
+            `The page loads in real time as picks, quotes, album covers, and sources come in.`,
+          ].join("\n"),
+        });
+
+        write({
+          type: "done",
+          totalMs: Date.now() - startedAt,
+          toolsUsed: ["generateTour"],
+          toolCallCount: 1,
+          costUsd: 0.04,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        write({ type: "error", message: `/recommend failed: ${msg}` });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, { headers: SSE_HEADERS });
+}
+
 /** Fast direct API call for chat-tier messages — no tools, ~1-2s response. */
 async function streamChatDirect(
   message: string,
@@ -708,6 +797,17 @@ export async function POST(req: Request) {
       typeof m.content === "string" &&
       m.content.length > 0,
   );
+
+  // `/recommend <prompt>` — bypass the LLM entirely. Generating a tour is
+  // a 30s+ pipeline (Perplexity multi-query + sonar-pro + matcher + iTunes
+  // + arc ordering + moderation) that lives in a Convex action. We kick
+  // it off here, stream back a tour-ready message with a /r/[slug] link,
+  // and let the dedicated tour page render the rich artifact. Saves the
+  // agentic loop's tokens and avoids trying to reproduce the /r/ render
+  // as an inline openui component.
+  if (rawMessage.trim().startsWith("/recommend")) {
+    return streamRecommendTour(rawMessage.trim());
+  }
 
   // Slash command preprocessing — built-in commands first
   let message = preprocessSlashCommand(rawMessage);

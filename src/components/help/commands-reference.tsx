@@ -63,6 +63,13 @@ const COMMANDS = [
     tier: "free",
   },
   {
+    name: "/recommend",
+    aliases: [],
+    description: "Generate a 10-artist listening tour grounded in music criticism. Picks come with album covers, quotes, real publisher links, and YouTube playback. Renders on its own shareable page.",
+    example: "/recommend jazz for winter morning coffee",
+    tier: "free",
+  },
+  {
     name: "/help",
     aliases: [],
     description: "Open the help guide.",

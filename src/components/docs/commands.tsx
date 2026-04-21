@@ -58,6 +58,14 @@ const commands = [
       "Browse and play your Spotify playlists directly in Crate. Without arguments, shows your full playlist library with inline Spotify players. With a playlist name, searches your library and opens that playlist with embedded playback, track list, and action buttons for deep dives and Slack sharing. Requires Spotify connected in Settings.",
     output: "SpotifyPlaylists or SpotifyPlaylist component with embedded Spotify player",
   },
+  {
+    name: "/recommend",
+    usage: "/recommend [mood, era, genre, or seed artist]",
+    example: "/recommend jazz for winter morning coffee",
+    description:
+      "Generate a 10-artist listening tour grounded in published music criticism. Retrieval hits a curated allowlist of music publications (Pitchfork, DownBeat, The Quietus, NPR, AllMusic, Bandcamp Daily, and more) via multi-query decomposition, then attaches real source URLs per pick when the search results name the artist. Each pick lands with album cover art (iTunes) and a YouTube-playable track when available. Tour renders on its own shareable page at /r/[slug].",
+    output: "Link to the tour page — picks, quotes, sources, cover art, and audio playback",
+  },
 ];
 
 export function Commands() {
