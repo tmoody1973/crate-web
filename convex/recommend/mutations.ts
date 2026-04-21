@@ -462,6 +462,82 @@ export const clearSignal = mutation({
   },
 });
 
+// ── User reports (flag a tour for admin review) ─────────────────────────────
+
+const REPORT_RATE_LIMIT_MAX = 5;
+const REPORT_RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const REPORT_REASON_MAX_LENGTH = 500;
+
+/**
+ * Submit a report on a public tour. Auth required — prevents anonymous
+ * brigading. Rate-limited to 5/user/day via the shared rateLimits table.
+ * Reason is trimmed and capped at 500 characters server-side.
+ */
+export const reportTour = mutation({
+  args: {
+    tourId: v.id("artifactsRecommend"),
+    reason: v.string(),
+  },
+  handler: async (ctx, { tourId, reason }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+
+    const trimmedReason = reason.trim().slice(0, REPORT_REASON_MAX_LENGTH);
+    if (trimmedReason.length < 3) {
+      throw new Error("Report reason is too short");
+    }
+
+    const tour = await ctx.db.get(tourId);
+    if (!tour) throw new Error("Tour not found");
+
+    // Rate-limit check — inlined per the same pattern as recordSignal.
+    const now = Date.now();
+    const rl = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_user_endpoint", (q) =>
+        q.eq("userId", user._id).eq("endpoint", "recommend_report"),
+      )
+      .unique();
+    if (!rl || now >= rl.windowStart + REPORT_RATE_LIMIT_WINDOW_MS) {
+      if (rl) {
+        await ctx.db.patch(rl._id, {
+          windowStart: now,
+          count: 1,
+          lastHitAt: now,
+        });
+      } else {
+        await ctx.db.insert("rateLimits", {
+          userId: user._id,
+          endpoint: "recommend_report",
+          windowStart: now,
+          count: 1,
+          lastHitAt: now,
+        });
+      }
+    } else if (rl.count >= REPORT_RATE_LIMIT_MAX) {
+      throw new Error("Daily report limit reached");
+    } else {
+      await ctx.db.patch(rl._id, { count: rl.count + 1, lastHitAt: now });
+    }
+
+    await ctx.db.insert("tourReports", {
+      tourId,
+      userId: user._id,
+      reason: trimmedReason,
+      status: "pending",
+      createdAt: now,
+    });
+
+    return { ok: true };
+  },
+});
+
 /**
  * Record a public share of a tour. No auth required — anonymous visitors
  * also bump the counter. The counter is best-effort; duplicates are expected

@@ -11,6 +11,7 @@
 import type * as artifacts from "../artifacts.js";
 import type * as collection from "../collection.js";
 import type * as crates from "../crates.js";
+import type * as crons from "../crons.js";
 import type * as influence from "../influence.js";
 import type * as keys from "../keys.js";
 import type * as messages from "../messages.js";
@@ -19,8 +20,10 @@ import type * as playlists from "../playlists.js";
 import type * as published from "../published.js";
 import type * as rateLimits from "../rateLimits.js";
 import type * as receipt from "../receipt.js";
+import type * as recommend_admin from "../recommend/admin.js";
 import type * as recommend_arcOrder from "../recommend/arcOrder.js";
 import type * as recommend_citationVerify from "../recommend/citationVerify.js";
+import type * as recommend_cleanup from "../recommend/cleanup.js";
 import type * as recommend_haikuStructured from "../recommend/haikuStructured.js";
 import type * as recommend_index from "../recommend/index.js";
 import type * as recommend_intentClassify from "../recommend/intentClassify.js";
@@ -54,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   artifacts: typeof artifacts;
   collection: typeof collection;
   crates: typeof crates;
+  crons: typeof crons;
   influence: typeof influence;
   keys: typeof keys;
   messages: typeof messages;
@@ -62,8 +66,10 @@ declare const fullApi: ApiFromModules<{
   published: typeof published;
   rateLimits: typeof rateLimits;
   receipt: typeof receipt;
+  "recommend/admin": typeof recommend_admin;
   "recommend/arcOrder": typeof recommend_arcOrder;
   "recommend/citationVerify": typeof recommend_citationVerify;
+  "recommend/cleanup": typeof recommend_cleanup;
   "recommend/haikuStructured": typeof recommend_haikuStructured;
   "recommend/index": typeof recommend_index;
   "recommend/intentClassify": typeof recommend_intentClassify;

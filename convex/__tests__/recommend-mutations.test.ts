@@ -507,6 +507,248 @@ describe("recordShare", () => {
   });
 });
 
+describe("reportTour", () => {
+  async function seedTour(
+    t: ReturnType<typeof convexTest>,
+  ): Promise<{ clerkId: string; tourId: Id<"artifactsRecommend"> }> {
+    const clerkId = `rep-${Math.random().toString(36).slice(2)}`;
+    const userId = await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        clerkId,
+        email: "rep@test.com",
+        createdAt: Date.now(),
+      }),
+    );
+    const tourId = await t.mutation(
+      internal.recommend.mutations.createInitialTour,
+      { userId, prompt: "x", slug: "rep-1" },
+    );
+    await t.mutation(internal.recommend.mutations.finalizeTour, {
+      tourId,
+      slug: "rep-1",
+      artists: [{ name: "X", arcPosition: 0 }],
+      citations: [],
+      perplexityFallbackUsed: false,
+      promptRedacted: "x",
+      promptShowRaw: false,
+      moderationStatus: "approved",
+      isPublic: true,
+    });
+    return { clerkId, tourId };
+  }
+
+  it("inserts a pending tourReports row with trimmed reason", async () => {
+    const t = convexTest(schema, modules);
+    const { clerkId, tourId } = await seedTour(t);
+    const auth = t.withIdentity({ subject: clerkId });
+
+    await auth.mutation(api.recommend.mutations.reportTour, {
+      tourId,
+      reason: "   fabricated quote   ",
+    });
+
+    const reports = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("tourReports")
+          .withIndex("by_tour", (q) => q.eq("tourId", tourId))
+          .collect(),
+    );
+    expect(reports).toHaveLength(1);
+    expect(reports[0]!.reason).toBe("fabricated quote");
+    expect(reports[0]!.status).toBe("pending");
+  });
+
+  it("rejects reasons shorter than 3 chars", async () => {
+    const t = convexTest(schema, modules);
+    const { clerkId, tourId } = await seedTour(t);
+    const auth = t.withIdentity({ subject: clerkId });
+    await expect(
+      auth.mutation(api.recommend.mutations.reportTour, {
+        tourId,
+        reason: "!",
+      }),
+    ).rejects.toThrow(/too short/);
+  });
+
+  it("throws when unauthenticated", async () => {
+    const t = convexTest(schema, modules);
+    const { tourId } = await seedTour(t);
+    await expect(
+      t.mutation(api.recommend.mutations.reportTour, {
+        tourId,
+        reason: "this is bad",
+      }),
+    ).rejects.toThrow(/Not authenticated/);
+  });
+});
+
+describe("admin.setTourVisibility", () => {
+  async function seedAdminAndTour(
+    t: ReturnType<typeof convexTest>,
+  ): Promise<{ adminClerk: string; tourId: Id<"artifactsRecommend"> }> {
+    const adminEmail = "admin@crate.test";
+    process.env.ADMIN_EMAILS = adminEmail;
+    const adminClerk = `admin-${Math.random().toString(36).slice(2)}`;
+    await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        clerkId: adminClerk,
+        email: adminEmail,
+        createdAt: Date.now(),
+      }),
+    );
+    // Tour owned by a non-admin
+    const ownerId = await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        clerkId: "owner-x",
+        email: "owner@test.com",
+        createdAt: Date.now(),
+      }),
+    );
+    const tourId = await t.mutation(
+      internal.recommend.mutations.createInitialTour,
+      { userId: ownerId, prompt: "x", slug: "admin-1" },
+    );
+    await t.mutation(internal.recommend.mutations.finalizeTour, {
+      tourId,
+      slug: "admin-1",
+      artists: [{ name: "X", arcPosition: 0 }],
+      citations: [],
+      perplexityFallbackUsed: false,
+      promptRedacted: "x",
+      promptShowRaw: false,
+      moderationStatus: "flagged",
+      isPublic: false,
+    });
+    return { adminClerk, tourId };
+  }
+
+  it("approve flips moderationStatus, isPublic, and appends audit tag", async () => {
+    const t = convexTest(schema, modules);
+    const { adminClerk, tourId } = await seedAdminAndTour(t);
+    const admin = t.withIdentity({ subject: adminClerk });
+
+    await admin.mutation(api.recommend.admin.setTourVisibility, {
+      tourId,
+      action: "approve",
+      reason: "looks fine",
+    });
+
+    const tour = await t.run(async (ctx) => ctx.db.get(tourId));
+    expect(tour!.moderationStatus).toBe("approved");
+    expect(tour!.isPublic).toBe(true);
+    expect(tour!.lifecyclePhase).toBe("completed");
+    expect(tour!.moderationCategories).toEqual(
+      expect.arrayContaining([expect.stringContaining("admin:approve:admin@crate.test")]),
+    );
+  });
+
+  it("rejects non-admin callers (Forbidden)", async () => {
+    const t = convexTest(schema, modules);
+    process.env.ADMIN_EMAILS = "admin@crate.test";
+    const nonAdminClerk = `user-${Math.random().toString(36).slice(2)}`;
+    await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        clerkId: nonAdminClerk,
+        email: "someone@test.com",
+        createdAt: Date.now(),
+      }),
+    );
+    const ownerId = await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        clerkId: "owner-y",
+        email: "owner@test.com",
+        createdAt: Date.now(),
+      }),
+    );
+    const tourId = await t.mutation(
+      internal.recommend.mutations.createInitialTour,
+      { userId: ownerId, prompt: "x", slug: "non-admin-1" },
+    );
+
+    await expect(
+      t
+        .withIdentity({ subject: nonAdminClerk })
+        .mutation(api.recommend.admin.setTourVisibility, {
+          tourId,
+          action: "approve",
+        }),
+    ).rejects.toThrow(/Forbidden/);
+  });
+});
+
+describe("cleanup pruning", () => {
+  it("pruneTourStatus deletes rows older than the cutoff, keeps fresh rows", async () => {
+    const t = convexTest(schema, modules);
+    const userId = await makeUser(t);
+    const tourId = await t.mutation(
+      internal.recommend.mutations.createInitialTour,
+      { userId, prompt: "x", slug: "prune-1" },
+    );
+
+    // Insert an old row (manually via t.run) and a fresh row via the mutation
+    await t.run(async (ctx) => {
+      await ctx.db.insert("tourStatus", {
+        tourId,
+        phase: "stale",
+        progress: 0.5,
+        timestamp: Date.now() - 2 * 60 * 60 * 1000, // 2h ago
+      });
+    });
+    await t.mutation(internal.recommend.mutations.writeTourStatus, {
+      tourId,
+      phase: "fresh",
+      progress: 0.9,
+    });
+
+    const result = await t.mutation(
+      internal.recommend.cleanup.pruneTourStatus,
+      {},
+    );
+    expect(result.deleted).toBe(1);
+
+    const remaining = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("tourStatus")
+          .withIndex("by_tour", (q) => q.eq("tourId", tourId))
+          .collect(),
+    );
+    expect(remaining.map((r) => r.phase)).toEqual(["fresh"]);
+  });
+
+  it("pruneCitationCache drops rows older than 24h", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("citationCache", {
+        cacheKey: "old",
+        url: "https://x",
+        quotePrefix: "old quote",
+        verified: true,
+        checkedAt: Date.now() - 48 * 60 * 60 * 1000,
+      });
+      await ctx.db.insert("citationCache", {
+        cacheKey: "new",
+        url: "https://y",
+        quotePrefix: "new quote",
+        verified: true,
+        checkedAt: Date.now(),
+      });
+    });
+
+    const result = await t.mutation(
+      internal.recommend.cleanup.pruneCitationCache,
+      {},
+    );
+    expect(result.deleted).toBe(1);
+
+    const remaining = await t.run(
+      async (ctx) => await ctx.db.query("citationCache").collect(),
+    );
+    expect(remaining.map((r) => r.cacheKey)).toEqual(["new"]);
+  });
+});
+
 describe("logTourEvent", () => {
   it("inserts a tourEvents row with all fields", async () => {
     const t = convexTest(schema, modules);
