@@ -15,12 +15,13 @@ import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import type { ExpandResponse } from "@/lib/openui/influence-graph-types";
 import { discoverWithPerplexity } from "@/lib/perplexity-discover";
+import {
+  checkRateLimit,
+  rateLimitHeaders,
+  retryAfterSeconds,
+} from "@/lib/rate-limit";
 
 export const maxDuration = 30;
-
-// ── Simple in-memory rate limiter (acceptable for MVP) ────────────────────────
-
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
 const RATE_LIMITS: Record<string, number> = {
   free: 10,
@@ -28,22 +29,7 @@ const RATE_LIMITS: Record<string, number> = {
   team: 60,
 };
 
-function checkRateLimit(clerkId: string, plan: string): boolean {
-  const limit = RATE_LIMITS[plan] ?? 10;
-  const now = Date.now();
-  const key = `${clerkId}:${plan}`;
-  const entry = rateLimitMap.get(key);
-
-  if (!entry || now >= entry.resetAt) {
-    rateLimitMap.set(key, { count: 1, resetAt: now + 3_600_000 });
-    return true;
-  }
-
-  if (entry.count >= limit) return false;
-
-  rateLimitMap.set(key, { ...entry, count: entry.count + 1 });
-  return true;
-}
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
@@ -92,11 +78,24 @@ export async function POST(req: Request): Promise<Response> {
     // Default to free if subscription lookup fails
   }
 
-  // Rate limit check
-  if (!checkRateLimit(clerkId, plan)) {
+  // Rate limit check (Convex-backed; works across Vercel serverless instances)
+  const rateLimit = await checkRateLimit({
+    convex,
+    userId,
+    endpoint: "influence_expand",
+    limit: RATE_LIMITS[plan] ?? RATE_LIMITS.free!,
+    windowMs: ONE_HOUR_MS,
+  });
+  if (!rateLimit.allowed) {
     return Response.json(
-      { error: "Rate limit exceeded. Try again in an hour." },
-      { status: 429 },
+      { error: "Rate limit exceeded. Try again in an hour.", resetAt: rateLimit.resetAt },
+      {
+        status: 429,
+        headers: {
+          ...rateLimitHeaders(rateLimit),
+          "Retry-After": String(retryAfterSeconds(rateLimit)),
+        },
+      },
     );
   }
 
@@ -129,11 +128,14 @@ export async function POST(req: Request): Promise<Response> {
 
       // If cache has >= 3 connections, return immediately
       if (mappedConnections.length >= 3) {
-        return Response.json({
-          connections: mappedConnections,
-          fromCache: true,
-          enriched: false,
-        } satisfies ExpandResponse);
+        return Response.json(
+          {
+            connections: mappedConnections,
+            fromCache: true,
+            enriched: false,
+          } satisfies ExpandResponse,
+          { headers: rateLimitHeaders(rateLimit) },
+        );
       }
     }
   } catch (err) {
@@ -157,11 +159,14 @@ export async function POST(req: Request): Promise<Response> {
   } catch (err) {
     console.error("[influence/expand] Perplexity discovery failed:", err);
     // Fall through — return whatever we have from cache
-    return Response.json({
-      connections: cachedResult.connections,
-      fromCache: cachedResult.fromCache,
-      enriched: false,
-    } satisfies ExpandResponse);
+    return Response.json(
+      {
+        connections: cachedResult.connections,
+        fromCache: cachedResult.fromCache,
+        enriched: false,
+      } satisfies ExpandResponse,
+      { headers: rateLimitHeaders(rateLimit) },
+    );
   }
 
   // ── Step 3: Cache discovered edges to Convex ──────────────────────────────
@@ -242,9 +247,12 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  return Response.json({
-    connections: merged,
-    fromCache: cachedResult.fromCache,
-    enriched,
-  } satisfies ExpandResponse);
+  return Response.json(
+    {
+      connections: merged,
+      fromCache: cachedResult.fromCache,
+      enriched,
+    } satisfies ExpandResponse,
+    { headers: rateLimitHeaders(rateLimit) },
+  );
 }
