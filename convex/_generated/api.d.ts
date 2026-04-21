@@ -28,6 +28,7 @@ import type * as recommend_diag from "../recommend/diag.js";
 import type * as recommend_haikuStructured from "../recommend/haikuStructured.js";
 import type * as recommend_index from "../recommend/index.js";
 import type * as recommend_intentClassify from "../recommend/intentClassify.js";
+import type * as recommend_itunesArtwork from "../recommend/itunesArtwork.js";
 import type * as recommend_migrations from "../recommend/migrations.js";
 import type * as recommend_moderationClassify from "../recommend/moderationClassify.js";
 import type * as recommend_mutations from "../recommend/mutations.js";
@@ -79,6 +80,7 @@ declare const fullApi: ApiFromModules<{
   "recommend/haikuStructured": typeof recommend_haikuStructured;
   "recommend/index": typeof recommend_index;
   "recommend/intentClassify": typeof recommend_intentClassify;
+  "recommend/itunesArtwork": typeof recommend_itunesArtwork;
   "recommend/migrations": typeof recommend_migrations;
   "recommend/moderationClassify": typeof recommend_moderationClassify;
   "recommend/mutations": typeof recommend_mutations;

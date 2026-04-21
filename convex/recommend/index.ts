@@ -33,6 +33,7 @@ import { classifyModeration, summarizeTourForModeration } from "./moderationClas
 import { redactPrompt, fallbackRedact } from "./promptRedact";
 import { buildSlug } from "./slug";
 import { resolveYouTubeVideoId } from "./youtubeResolve";
+import { lookupAlbumArtwork } from "./itunesArtwork";
 import type { StructuredQuery } from "./types";
 import type { WikiMemory } from "./wikiMemory";
 
@@ -411,6 +412,7 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
         name: string;
         album?: string;
         year?: number;
+        artworkUrl?: string;
         quote?: {
           text: string;
           publication: string;
@@ -459,21 +461,43 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       : buildSlug("tour", 8);
 
     // Build the per-source cards from Perplexity's search_results. Each
-    // source gets a hostname-derived publication name and an
-    // artistsMentioned[] list computed by scanning the title + snippet
-    // for every tour artist name. Empty artistsMentioned is still kept —
-    // the UI renders those as "General sources for this tour."
-    const sources = (perplexityResult.searchResults ?? []).map((r) => ({
-      url: r.url,
-      publication: hostFromUrl(r.url),
-      title: r.title ?? "",
-      snippet: r.snippet,
-      date: r.date,
-      artistsMentioned: mentionedArtists(
-        artists.map((a) => a.name),
-        `${r.title ?? ""} ${r.snippet ?? ""}`,
-      ),
-    }));
+    // source gets a hostname-derived publication name, an optional hero
+    // image (matched from Perplexity's images[] by originUrl equality),
+    // and an artistsMentioned[] list computed by scanning the title +
+    // snippet for every tour artist name. Empty artistsMentioned is still
+    // kept — the UI renders those as "General sources for this tour."
+    const imagesByOrigin = new Map<string, string>();
+    for (const img of perplexityResult.images ?? []) {
+      if (img.originUrl && !imagesByOrigin.has(img.originUrl)) {
+        imagesByOrigin.set(img.originUrl, img.imageUrl);
+      }
+    }
+    const sources = (perplexityResult.searchResults ?? []).map((r) => {
+      const heroImageUrl = imagesByOrigin.get(r.url);
+      const base = {
+        url: r.url,
+        publication: hostFromUrl(r.url),
+        title: r.title ?? "",
+        snippet: r.snippet,
+        date: r.date,
+        artistsMentioned: mentionedArtists(
+          artists.map((a) => a.name),
+          `${r.title ?? ""} ${r.snippet ?? ""}`,
+        ),
+      };
+      return heroImageUrl ? { ...base, heroImageUrl } : base;
+    });
+
+    // Parallel iTunes Search API lookups for album cover art. Attached to
+    // each artist in the tour. Failures are silent (null artworkUrl) —
+    // artwork is decorative, never blocks tour generation.
+    await Promise.all(
+      artists.map(async (artist) => {
+        if (!artist.album) return;
+        const art = await lookupAlbumArtwork(artist.name, artist.album);
+        if (art) artist.artworkUrl = art.artworkUrl;
+      }),
+    );
 
     await writeStatus(ctx, tourId, "finalizing", 0.95, "Wrapping up");
     await ctx.runMutation(internal.recommend.mutations.finalizeTour, {

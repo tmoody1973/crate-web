@@ -125,6 +125,7 @@ export const finalizeTour = internalMutation({
         name: v.string(),
         album: v.optional(v.string()),
         year: v.optional(v.number()),
+        artworkUrl: v.optional(v.string()),
         quote: v.optional(
           v.object({
             text: v.string(),
@@ -147,6 +148,7 @@ export const finalizeTour = internalMutation({
           title: v.string(),
           snippet: v.optional(v.string()),
           date: v.optional(v.string()),
+          heroImageUrl: v.optional(v.string()),
           artistsMentioned: v.array(v.string()),
         }),
       ),

@@ -297,6 +297,11 @@ export default defineSchema({
       name: v.string(),
       album: v.optional(v.string()),
       year: v.optional(v.number()),
+      // 600x600 album cover from iTunes Search API. Attached server-side
+      // after picks come back, so the tour card renders without a client
+      // fetch round-trip. Null when iTunes has no match (rare for major
+      // artists, common for obscure small-label releases).
+      artworkUrl: v.optional(v.string()),
       quote: v.optional(v.object({
         text: v.string(),
         publication: v.string(),
@@ -321,6 +326,10 @@ export default defineSchema({
       title: v.string(),
       snippet: v.optional(v.string()),
       date: v.optional(v.string()),
+      // Optional hero image from Perplexity's images[] response field
+      // (populated when the sonar-pro call is made with return_images: true).
+      // Matched to this source entry by origin_url equality.
+      heroImageUrl: v.optional(v.string()),
       artistsMentioned: v.array(v.string()),
     }))),
     perplexityFallbackUsed: v.boolean(),  // true if sparse-result fallback fired

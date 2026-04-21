@@ -20,6 +20,7 @@ import { z } from "zod";
 import {
   callPerplexity,
   PerplexityMalformedResponseError,
+  type PerplexityImage,
   type PerplexitySearchResult,
 } from "../../src/lib/perplexity-core";
 import { perplexitySearch } from "../../src/lib/perplexity-search";
@@ -188,6 +189,8 @@ export type PerplexityRecommendResult = {
    * responses that only return `citations`.
    */
   searchResults: PerplexitySearchResult[];
+  /** Hero images from Perplexity's `images[]` field. Matched to sources by originUrl downstream. */
+  images: PerplexityImage[];
   /** True if the response had fewer than 8 picks — caller may choose to fallback to Claude. */
   isSparse: boolean;
   /** True if the response had zero citations with verifiable URLs — stronger fallback signal. */
@@ -460,7 +463,7 @@ export async function recommendFromPerplexity(
     spotifySeedArtists,
   });
 
-  const { content, citations, searchResults } = await callPerplexity({
+  const { content, citations, searchResults, images } = await callPerplexity({
     systemPrompt: SYSTEM_PROMPT,
     userPrompt,
     // sonar-pro has stronger citation behavior + better source selection.
@@ -479,6 +482,9 @@ export async function recommendFromPerplexity(
     // as our schema. Empty/partial responses just come back with a shorter
     // `picks` array.
     responseFormat: PERPLEXITY_RESPONSE_FORMAT,
+    // Pull hero images alongside text results so TourSources cards can
+    // render a publication thumbnail next to each source entry.
+    returnImages: true,
   });
 
   // response_format guarantees JSON, but defensively parse + validate.
@@ -557,6 +563,7 @@ export async function recommendFromPerplexity(
     picks,
     citations: verifiableCitations,
     searchResults: mergedSearchResults,
+    images,
     isSparse: picks.length < 8,
     isCitationless: verifiableCitations.length === 0,
   };

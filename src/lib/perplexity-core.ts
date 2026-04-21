@@ -88,6 +88,13 @@ export type CallPerplexityArgs = {
    * See https://docs.perplexity.ai/api-reference/sonar-post.
    */
   responseFormat?: Record<string, unknown>;
+  /**
+   * When true, Perplexity returns an `images` array in the response whose
+   * entries include `image_url`, `origin_url`, `title`, `width`, `height`.
+   * We use this to attach hero images to source cards (matching by
+   * `origin_url` to the search_result URL).
+   */
+  returnImages?: boolean;
 };
 
 /**
@@ -124,6 +131,20 @@ export type CallPerplexityResult = {
    * whatever URL the model fabricated.
    */
   searchResults: PerplexitySearchResult[];
+  /**
+   * Hero images Perplexity surfaced during the call (populated only when
+   * the caller set `returnImages: true`). Callers can match images back
+   * to `searchResults[].url` via `originUrl` equality.
+   */
+  images: PerplexityImage[];
+};
+
+export type PerplexityImage = {
+  imageUrl: string;
+  originUrl: string;
+  title?: string;
+  width?: number;
+  height?: number;
 };
 
 // ── Core call ────────────────────────────────────────────────────────────────
@@ -153,6 +174,7 @@ export async function callPerplexity(
     maxRetries = 1,
     searchDomainFilter,
     responseFormat,
+    returnImages,
   } = args;
 
   const apiKey = process.env.PERPLEXITY_API_KEY;
@@ -174,6 +196,7 @@ export async function callPerplexity(
         timeoutMs,
         searchDomainFilter,
         responseFormat,
+        returnImages,
       });
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
@@ -211,6 +234,7 @@ async function singleCall(opts: {
   timeoutMs: number;
   searchDomainFilter?: ReadonlyArray<string>;
   responseFormat?: Record<string, unknown>;
+  returnImages?: boolean;
 }): Promise<CallPerplexityResult> {
   const {
     apiKey,
@@ -222,6 +246,7 @@ async function singleCall(opts: {
     timeoutMs,
     searchDomainFilter,
     responseFormat,
+    returnImages,
   } = opts;
 
   const controller = new AbortController();
@@ -241,6 +266,9 @@ async function singleCall(opts: {
   }
   if (responseFormat) {
     body.response_format = responseFormat;
+  }
+  if (returnImages) {
+    body.return_images = true;
   }
 
   let response: Response;
@@ -301,6 +329,13 @@ async function singleCall(opts: {
       last_updated?: string;
       source?: string;
     }>;
+    images?: Array<{
+      image_url?: string;
+      origin_url?: string;
+      title?: string;
+      width?: number;
+      height?: number;
+    }>;
   };
   try {
     data = (await response.json()) as typeof data;
@@ -330,8 +365,23 @@ async function singleCall(opts: {
         }))
     : [];
 
+  const images: PerplexityImage[] = Array.isArray(data?.images)
+    ? data.images
+        .filter(
+          (i): i is { image_url: string; origin_url?: string; title?: string; width?: number; height?: number } =>
+            typeof i?.image_url === "string",
+        )
+        .map((i) => ({
+          imageUrl: i.image_url,
+          originUrl: i.origin_url ?? "",
+          title: i.title,
+          width: i.width,
+          height: i.height,
+        }))
+    : [];
+
   const cleaned = stripCodeFences(rawContent).trim();
-  return { content: cleaned, citations, searchResults };
+  return { content: cleaned, citations, searchResults, images };
 }
 
 /**

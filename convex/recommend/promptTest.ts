@@ -163,6 +163,55 @@ export const compareRetrieval = internalAction({
 });
 
 /**
+ * Direct Perplexity call to probe whether return_images yields anything
+ * for a given query + domain filter combo. Returns raw image + search
+ * counts so we can diagnose zero-image tours without tailing logs.
+ */
+export const probeImages = internalAction({
+  args: {
+    query: v.string(),
+    useAllowlist: v.optional(v.boolean()),
+  },
+  handler: async (_ctx, { query, useAllowlist = true }) => {
+    const { callPerplexity } = await import("../../src/lib/perplexity-core");
+    const ALLOWLIST = [
+      "pitchfork.com",
+      "thequietus.com",
+      "bandcamp.com",
+      "npr.org",
+      "ra.co",
+      "theguardian.com",
+      "wire.co.uk",
+      "stereogum.com",
+      "allmusic.com",
+      "jazztimes.com",
+      "factmag.com",
+      "thefader.com",
+      "crackmagazine.net",
+      "rollingstone.com",
+      "downbeat.com",
+    ];
+    const result = await callPerplexity({
+      systemPrompt:
+        "You are a music research assistant. Respond with a short JSON object.",
+      userPrompt: `Tell me about "${query}". Return JSON: {"summary": "..."}`,
+      model: "sonar-pro",
+      maxTokens: 300,
+      temperature: 0.2,
+      returnImages: true,
+      ...(useAllowlist ? { searchDomainFilter: ALLOWLIST } : {}),
+    });
+    return {
+      imagesCount: result.images.length,
+      searchResultsCount: result.searchResults.length,
+      citationsCount: result.citations.length,
+      sampleImages: result.images.slice(0, 3),
+      sampleSearchResults: result.searchResults.slice(0, 3).map((r) => r.url),
+    };
+  },
+});
+
+/**
  * Re-run tour generation for an existing tour's prompt, under the CURRENT
  * code (new prompts + expanded denylist). Creates a fresh tour row with a
  * new slug. Returns the new slug — fetch via getTourBySlug to inspect.

@@ -604,6 +604,16 @@ function ArtistStop({
         >
           {artist.arcPosition + 1}
         </span>
+        {artist.artworkUrl && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={artist.artworkUrl}
+            alt={`${artist.album ?? artist.name} cover`}
+            className="h-16 w-16 shrink-0 rounded-md object-cover"
+            loading="lazy"
+            style={{ border: "1px solid #27272a" }}
+          />
+        )}
         <div className="min-w-0 flex-1">
           <p
             className="font-[family-name:var(--font-bebas)] tracking-wide leading-tight"

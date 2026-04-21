@@ -93,6 +93,15 @@ function ReviewSourceCard({ source }: { source: TourSource }) {
       style={{ backgroundColor: "#18181b", border: "1px solid #27272a" }}
     >
       <div className="flex items-start justify-between gap-4">
+        {source.heroImageUrl && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={source.heroImageUrl}
+            alt=""
+            className="h-16 w-16 shrink-0 rounded object-cover"
+            loading="lazy"
+          />
+        )}
         <div className="min-w-0 flex-1">
           <span
             className="inline-block font-[family-name:var(--font-bebas)] tracking-widest"
