@@ -17,7 +17,11 @@
  */
 
 import { z } from "zod";
-import { callPerplexity, PerplexityMalformedResponseError } from "../../src/lib/perplexity-core";
+import {
+  callPerplexity,
+  PerplexityMalformedResponseError,
+  type PerplexitySearchResult,
+} from "../../src/lib/perplexity-core";
 import type { StructuredQuery, IntentType } from "./types";
 
 // ── Response schema + types ──────────────────────────────────────────────────
@@ -50,30 +54,43 @@ const PerplexityResponseSchema = z.array(PerplexityPickSchema);
  * all of which it would happily pull when asked for "reviews" of an album.
  * Sticking to music publications keeps the provenance quotes real.
  */
-const RECOMMEND_ALLOWED_DOMAINS: ReadonlyArray<string> = [
-  "pitchfork.com",
-  "thequietus.com",
-  "daily.bandcamp.com",
-  "npr.org",
-  "rollingstone.com",
-  "stereogum.com",
-  "residentadvisor.net",
-  "factmag.com",
-  "theguardian.com",
-  "nytimes.com",
-  "wire.co.uk",
-  "spin.com",
-  "theringer.com",
-  "vulture.com",
-  "mixmag.net",
-  "clashmusic.com",
-  "dummymag.com",
-  "crackmagazine.net",
-  "pastemagazine.com",
-  "nme.com",
-  "brooklynvegan.com",
-  "treblezine.com",
-  "popmatters.com",
+/**
+ * Denylist passed as Perplexity's `search_domain_filter`. Entries prefixed
+ * with `-` exclude the domain from search results; Perplexity then pulls
+ * from anything else on the web.
+ *
+ * Denylist beats allowlist here because:
+ *   1. Music criticism lives on hundreds of publications (zines, local
+ *      radio blogs, substacks by real critics, artist interviews on
+ *      regional outlets). Curating a positive list locks most of them out.
+ *   2. Genre coverage is naturally solved — jazz criticism shows up on
+ *      JazzTimes, AllMusic, DownBeat, NPR, Stereogum, The Guardian; metal
+ *      on Pitchfork/Revolver/Invisible Oranges; electronic on RA/FACT/Mixmag.
+ *      We don't need an intent pool to force Perplexity toward the right
+ *      press — it already goes there when the query has genre signal.
+ *   3. Hallucination sources (YouTube, Spotify, Wikipedia, Genius, user
+ *      social) are a small, stable set. Blocking them is cheap and
+ *      comprehensive.
+ *
+ * Perplexity caps the filter at 20 entries. We're under.
+ */
+const MUSIC_DOMAIN_DENYLIST: ReadonlyArray<string> = [
+  "-youtube.com",
+  "-music.apple.com",
+  "-open.spotify.com",
+  "-soundcloud.com",
+  "-en.wikipedia.org",
+  "-genius.com",
+  "-discogs.com",
+  "-last.fm",
+  "-reddit.com",
+  "-twitter.com",
+  "-x.com",
+  "-facebook.com",
+  "-tiktok.com",
+  "-instagram.com",
+  "-medium.com",
+  "-amazon.com",
 ];
 
 export type PerplexityRecommendResult = {
@@ -341,7 +358,7 @@ export async function recommendFromPerplexity(
     spotifySeedArtists,
   });
 
-  const { content, citations } = await callPerplexity({
+  const { content, citations, searchResults } = await callPerplexity({
     systemPrompt: SYSTEM_PROMPT,
     userPrompt,
     // sonar-pro has stronger citation behavior + better source selection.
@@ -354,7 +371,10 @@ export async function recommendFromPerplexity(
     // suspenders with the SYSTEM_PROMPT rules — if the model tries to
     // return a Wikipedia or YouTube citation, the API strips it before we
     // ever see the response.
-    searchDomainFilter: RECOMMEND_ALLOWED_DOMAINS,
+    // Denylist of low-signal / hallucination-magnet domains. Perplexity
+    // pulls from anywhere else — any music publication, any genre, any
+    // region — which naturally solves coverage without manual curation.
+    searchDomainFilter: MUSIC_DOMAIN_DENYLIST,
   });
 
   // Parse the JSON array
@@ -377,7 +397,23 @@ export async function recommendFromPerplexity(
     );
   }
 
-  const picks = validated.data;
+  // Overwrite each pick's quote_url with a REAL URL from search_results when
+  // we can match. The model's embedded quote_url is the #1 source of fake
+  // citations — it looks like a pitchfork.com/reviews/... URL but points at
+  // a page that doesn't exist. Matching to search_results + the top-level
+  // citations array lets us keep only quotes that cite a real document.
+  const picks = validated.data.map((pick) => {
+    if (!pick.quote_text) return pick;
+    const realUrl = matchPickToRealUrl(pick, searchResults, citations);
+    if (!realUrl) {
+      // No real URL backs this quote — strip the fabricated one. The
+      // citationVerify step will then drop the quote entirely since the
+      // URL is gone.
+      return { ...pick, quote_url: undefined };
+    }
+    return { ...pick, quote_url: realUrl };
+  });
+
   const verifiableCitations = citations.filter((c) => /^https?:\/\//.test(c));
 
   return {
@@ -386,4 +422,126 @@ export async function recommendFromPerplexity(
     isSparse: picks.length < 8,
     isCitationless: verifiableCitations.length === 0,
   };
+}
+
+/**
+ * Match a pick to a real URL from Perplexity's `search_results` array.
+ *
+ * Strategy — most specific first:
+ *   1. A search_result whose snippet or title contains the artist name AND
+ *      whose URL host matches the pick's stated publication (e.g. pitchfork
+ *      if quote_publication is "Pitchfork").
+ *   2. A search_result whose snippet or title contains the artist name.
+ *   3. A search_result whose URL host matches the publication.
+ *   4. Fall back to citations[] host-match (older API path, no snippet).
+ *
+ * Returns null when none of the above find a match — the caller treats
+ * this as "no real citation found" and drops the quote.
+ */
+function matchPickToRealUrl(
+  pick: PerplexityPick,
+  searchResults: ReadonlyArray<PerplexitySearchResult>,
+  citations: ReadonlyArray<string>,
+): string | null {
+  const artistTokens = normalizeTokens(pick.name);
+  const publicationHost = publicationToHost(pick.quote_publication);
+
+  const hasArtist = (text: string | undefined | null): boolean => {
+    if (!text) return false;
+    const lower = text.toLowerCase();
+    return artistTokens.every((t) => lower.includes(t));
+  };
+
+  const hostMatches = (url: string): boolean => {
+    if (!publicationHost) return false;
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, "");
+      return host === publicationHost || host.endsWith(`.${publicationHost}`);
+    } catch {
+      return false;
+    }
+  };
+
+  // 1. Artist mention + publication host
+  for (const r of searchResults) {
+    if (
+      (hasArtist(r.snippet) || hasArtist(r.title)) &&
+      hostMatches(r.url)
+    ) {
+      return r.url;
+    }
+  }
+  // 2. Artist mention anywhere
+  for (const r of searchResults) {
+    if (hasArtist(r.snippet) || hasArtist(r.title)) {
+      return r.url;
+    }
+  }
+  // 3. Publication-host match
+  for (const r of searchResults) {
+    if (hostMatches(r.url)) return r.url;
+  }
+  // 4. Older API: citations[] without snippets
+  for (const url of citations) {
+    if (hostMatches(url)) return url;
+  }
+  return null;
+}
+
+const STOP_TOKENS = new Set(["the", "a", "an", "of", "and"]);
+
+function normalizeTokens(name: string): string[] {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 1 && !STOP_TOKENS.has(t));
+}
+
+/**
+ * Map a free-form `quote_publication` string ("Pitchfork", "The Quietus",
+ * "Bandcamp Daily") to a bare hostname we can match against search_result URLs.
+ * Covers the publications in our allow-list pool. Returns null on unknowns.
+ */
+function publicationToHost(pub: string | undefined): string | null {
+  if (!pub) return null;
+  const key = pub.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const map: Record<string, string> = {
+    pitchfork: "pitchfork.com",
+    thequietus: "thequietus.com",
+    quietus: "thequietus.com",
+    bandcampdaily: "bandcamp.com",
+    bandcamp: "bandcamp.com",
+    npr: "npr.org",
+    nprmusic: "npr.org",
+    theguardian: "theguardian.com",
+    guardian: "theguardian.com",
+    residentadvisor: "residentadvisor.net",
+    fact: "factmag.com",
+    factmag: "factmag.com",
+    mixmag: "mixmag.net",
+    crack: "crackmagazine.net",
+    crackmagazine: "crackmagazine.net",
+    dummy: "dummymag.com",
+    dummymag: "dummymag.com",
+    thefader: "thefader.com",
+    fader: "thefader.com",
+    stereogum: "stereogum.com",
+    rollingstone: "rollingstone.com",
+    brooklynvegan: "brooklynvegan.com",
+    treble: "treblezine.com",
+    treblezine: "treblezine.com",
+    popmatters: "popmatters.com",
+    allmusic: "allmusic.com",
+    jazztimes: "jazztimes.com",
+    thewire: "wire.co.uk",
+    wire: "wire.co.uk",
+    vulture: "vulture.com",
+    clash: "clashmusic.com",
+    clashmusic: "clashmusic.com",
+    nme: "nme.com",
+    paste: "pastemagazine.com",
+    pastemagazine: "pastemagazine.com",
+  };
+  return map[key] ?? null;
 }

@@ -321,6 +321,12 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       });
     });
 
+    // Observability: record how many real sources Perplexity actually
+    // returned vs how many model-generated URLs survived matching.
+    w.errors.push(
+      `Perplexity:picks=${perplexityResult.picks.length},citations=${perplexityResult.citations.length},withUrl=${perplexityResult.picks.filter((p) => p.quote_url).length}`,
+    );
+
     if (perplexityResult.picks.length === 0) {
       // Total failure — nothing to render. Mark failed.
       w.errors.push("PerplexityZeroResultsError");
@@ -357,6 +363,14 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
               album: pick.album,
             }),
           ]);
+          // Log EVERY outcome so we can count hits vs misses in the errors
+          // array. Even successes get a "YouTubeResolve:ok" tag so we know
+          // the code path ran at all.
+          w.errors.push(
+            youtubeResult.videoId
+              ? `YouTubeResolve:ok`
+              : `YouTubeResolve:${youtubeResult.failureReason ?? "unknown"}`,
+          );
           return {
             pick,
             verified: verifyResult.verified,
@@ -406,13 +420,19 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       };
       if (pick.album) artist.album = pick.album;
       if (pick.year) artist.year = pick.year;
-      if (pick.quote_text && pick.quote_url) {
+      // STRICT citation policy: only attach the quote when citationVerify
+      // confirmed both (a) the URL is reachable and (b) the quote prefix
+      // actually appears on the page. Unverified quotes are dropped
+      // entirely rather than shown without a badge — even sonar-pro
+      // hallucinates URLs that look legitimate, and we'd rather an artist
+      // card show no citation than mislead the reader with a fake one.
+      if (pick.quote_text && pick.quote_url && verified) {
         artist.quote = {
           text: pick.quote_text,
           publication: pick.quote_publication ?? "Unknown",
           author: pick.quote_author,
           url: pick.quote_url,
-          verified,
+          verified: true,
         };
       }
       if (youtubeTrackId) {

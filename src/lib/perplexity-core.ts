@@ -80,11 +80,40 @@ export type CallPerplexityArgs = {
   searchDomainFilter?: ReadonlyArray<string>;
 };
 
+/**
+ * Structured search result Perplexity actually consulted during the call.
+ * These URLs are REAL — they came from Perplexity's search engine, not the
+ * language model, so they don't suffer from the URL hallucination that
+ * plagues the model-generated `quote_url` field in Perplexity content.
+ *
+ * Per the API docs, this is the authoritative source for provenance. Callers
+ * should prefer matching against `searchResults` over trusting any URL the
+ * model embedded in its response.
+ */
+export type PerplexitySearchResult = {
+  title: string;
+  url: string;
+  date?: string;
+  snippet?: string;
+  lastUpdated?: string;
+  sourceType?: string;
+};
+
 export type CallPerplexityResult = {
   /** Cleaned message content (code fences stripped). Callers parse further. */
   content: string;
-  /** Citation URLs the model drew from. May be empty. */
+  /**
+   * Citation URLs the model drew from (older `citations` field). May be empty.
+   * Prefer `searchResults` when available — it has title/snippet for matching.
+   */
   citations: string[];
+  /**
+   * Full search results the model consulted (newer `search_results` field).
+   * Empty on older API versions. Contains per-result title/snippet/date which
+   * lets callers match a pick's quote to a real article instead of accepting
+   * whatever URL the model fabricated.
+   */
+  searchResults: PerplexitySearchResult[];
 };
 
 // ── Core call ────────────────────────────────────────────────────────────────
@@ -233,8 +262,13 @@ async function singleCall(opts: {
   }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
+    // Log the body prefix server-side so Convex dashboard captures the exact
+    // upstream error (caller's error class strips the body otherwise).
+    console.warn(
+      `[perplexity-core] ${response.status} body: ${text.slice(0, 400)}`,
+    );
     throw new PerplexityUpstreamError(
-      `Perplexity error ${response.status}: ${text.slice(0, 200)}`,
+      `Perplexity error ${response.status}: ${text.slice(0, 400)}`,
       response.status,
     );
   }
@@ -242,6 +276,14 @@ async function singleCall(opts: {
   let data: {
     choices?: Array<{ message?: { content?: string } }>;
     citations?: string[];
+    search_results?: Array<{
+      title?: string;
+      url?: string;
+      date?: string;
+      snippet?: string;
+      last_updated?: string;
+      source?: string;
+    }>;
   };
   try {
     data = (await response.json()) as typeof data;
@@ -253,9 +295,26 @@ async function singleCall(opts: {
 
   const rawContent = data?.choices?.[0]?.message?.content ?? "";
   const citations = Array.isArray(data?.citations) ? data.citations : [];
+  const searchResults: PerplexitySearchResult[] = Array.isArray(
+    data?.search_results,
+  )
+    ? data.search_results
+        .filter(
+          (s): s is { title?: string; url?: string; snippet?: string; date?: string; last_updated?: string; source?: string } =>
+            typeof s?.url === "string",
+        )
+        .map((s) => ({
+          title: s.title ?? "",
+          url: s.url!,
+          snippet: s.snippet,
+          date: s.date,
+          lastUpdated: s.last_updated,
+          sourceType: s.source,
+        }))
+    : [];
 
   const cleaned = stripCodeFences(rawContent).trim();
-  return { content: cleaned, citations };
+  return { content: cleaned, citations, searchResults };
 }
 
 /**

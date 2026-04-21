@@ -24,6 +24,7 @@ import type * as recommend_admin from "../recommend/admin.js";
 import type * as recommend_arcOrder from "../recommend/arcOrder.js";
 import type * as recommend_citationVerify from "../recommend/citationVerify.js";
 import type * as recommend_cleanup from "../recommend/cleanup.js";
+import type * as recommend_diag from "../recommend/diag.js";
 import type * as recommend_haikuStructured from "../recommend/haikuStructured.js";
 import type * as recommend_index from "../recommend/index.js";
 import type * as recommend_intentClassify from "../recommend/intentClassify.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   "recommend/arcOrder": typeof recommend_arcOrder;
   "recommend/citationVerify": typeof recommend_citationVerify;
   "recommend/cleanup": typeof recommend_cleanup;
+  "recommend/diag": typeof recommend_diag;
   "recommend/haikuStructured": typeof recommend_haikuStructured;
   "recommend/index": typeof recommend_index;
   "recommend/intentClassify": typeof recommend_intentClassify;
