@@ -244,3 +244,44 @@ export const getTourStatus = query({
   },
 });
 
+/**
+ * List recent public tours for the /r library homepage. Only returns tours
+ * with moderation_status=approved and isPublic=true. Ordered by createdAt
+ * descending (most recent first).
+ */
+export const listRecentPublicTours = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { limit = 15 }) => {
+    const capped = Math.min(Math.max(1, limit), 50);
+    const tours = await ctx.db
+      .query("artifactsRecommend")
+      .withIndex("by_public_recent", (q) => q.eq("isPublic", true))
+      .order("desc")
+      .take(capped);
+    return tours;
+  },
+});
+
+/**
+ * Creator-scoped tour read. Returns the tour regardless of isPublic if the
+ * authenticated caller is the creator. For viewing one's own in-progress
+ * tours from the /recommend page immediately after submit.
+ */
+export const getMyTourById = query({
+  args: { tourId: v.id("artifactsRecommend") },
+  handler: async (ctx, { tourId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const tour = await ctx.db.get(tourId);
+    if (!tour) return null;
+
+    const creator = await ctx.db.get(tour.userId);
+    if (!creator || creator.clerkId !== identity.subject) return null;
+
+    return tour;
+  },
+});
+
