@@ -61,6 +61,49 @@ export const upsert = mutation({
   },
 });
 
+/**
+ * One-shot backfill: assign usernameSlug to users created before the
+ * upsert path started slugifying. Without this, /wiki/[username]/[slug]
+ * pages 404 because the owner lookup queries by_username_slug and
+ * misses any user whose slug was never written.
+ *
+ * Idempotent: skips users that already have a slug. Dedupes against
+ * users processed in this run AND against pre-existing slugs, so
+ * collisions (e.g., four users named "Tarik Moody") get -2 / -3 / -4
+ * suffixes. Oldest createdAt wins the canonical slug.
+ */
+export const backfillUsernameSlugs = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("users").collect();
+    const taken = new Set<string>();
+    for (const u of all) {
+      if (u.usernameSlug) taken.add(u.usernameSlug);
+    }
+
+    const missing = all
+      .filter((u) => !u.usernameSlug)
+      .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+
+    let updated = 0;
+    for (const u of missing) {
+      const base = slugify(u.name ?? u.email.split("@")[0]);
+      if (!base) continue;
+      let candidate = base;
+      let n = 2;
+      while (taken.has(candidate)) {
+        candidate = `${base}-${n}`;
+        n++;
+      }
+      taken.add(candidate);
+      await ctx.db.patch(u._id, { usernameSlug: candidate });
+      updated++;
+    }
+
+    return { totalUsers: all.length, updated, skipped: all.length - updated };
+  },
+});
+
 export const setHelpPersona = mutation({
   args: {
     clerkId: v.string(),
