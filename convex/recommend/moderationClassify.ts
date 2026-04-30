@@ -75,7 +75,11 @@ export async function classifyModeration(args: {
     userContent,
     schema: ModerationResult,
     maxRetries: 1,
-    timeoutMs: 5000,
+    // 15s, not 5s. The original budget was set when the pipeline was leaner;
+    // the per-pick architecture (commit d3f3598) saturates the same wall-clock
+    // window that moderation fires in, pushing structured Haiku calls past 5s
+    // on benign prompts. 15s catches the slow tail without hiding real failures.
+    timeoutMs: 15000,
   });
 }
 
