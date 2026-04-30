@@ -303,6 +303,49 @@ export const archivePage = mutation({
   },
 });
 
+/**
+ * One-shot rescue: re-trigger synthesis for every wiki page where no section
+ * has lastSynthesizedAt. These pages got stuck when the original synthesizer
+ * choked on Haiku JSON wrapped in trailing prose (fixed in the brace-slice
+ * parser). Schedules with 2s stagger to stay under Anthropic rate limits.
+ */
+export const resynthesizeStuckPages = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("wikiPages").collect();
+    let scheduled = 0;
+    let alreadyDone = 0;
+    let archived = 0;
+    for (const page of all) {
+      if (page.archivedAt) {
+        archived++;
+        continue;
+      }
+      const synced = page.sections.some(
+        (s: { lastSynthesizedAt?: number }) => s.lastSynthesizedAt,
+      );
+      if (synced) {
+        alreadyDone++;
+        continue;
+      }
+      // Stagger: 2s between calls to stay under Anthropic rate limits.
+      // 56 stuck pages × 2s = ~2 minute total elapsed.
+      await ctx.scheduler.runAfter(
+        scheduled * 2000,
+        internal.wiki.synthesizeWikiPageInternal,
+        { pageId: page._id },
+      );
+      scheduled++;
+    }
+    return {
+      total: all.length,
+      scheduled,
+      alreadyDone,
+      archived,
+    };
+  },
+});
+
 /** Schedule synthesis for a wiki page. Uses Convex scheduler so it survives
  *  serverless function termination (unlike fire-and-forget from route.ts). */
 export const scheduleSynthesis = mutation({
