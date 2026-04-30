@@ -213,7 +213,7 @@ export function VideoInfluenceChain({ nodes, artist }: VideoInfluenceChainProps)
                       className="text-sm md:text-base italic leading-relaxed"
                       style={{ color: "#a1a1aa" }}
                     >
-                      "{node.sourceQuote}"
+                      &ldquo;{node.sourceQuote}&rdquo;
                     </p>
                     {node.source && (
                       <cite

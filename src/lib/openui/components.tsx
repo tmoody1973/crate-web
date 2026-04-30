@@ -2753,7 +2753,6 @@ export const StoryCard = defineComponent({
     sources: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Sources as JSON array of {name, url} objects"),
   }),
   component: ({ props }) => {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     const isMobile = useIsMobile();
     const [activeChapter, setActiveChapter] = useState(0);
     const [mobileOpenSection, setMobileOpenSection] = useState<number | null>(0);
@@ -3168,7 +3167,6 @@ export const TrackCard = defineComponent({
     sources: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Sources: [{name, url}]"),
   }),
   component: ({ props }) => {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     const isMobile = useIsMobile();
     const [activeTab, setActiveTab] = useState(0);
 
@@ -3482,7 +3480,6 @@ export const ArtistProfile = defineComponent({
     sources: z.preprocess(jsonPreprocess, z.array(z.any())).optional().describe("Sources: [{name, url}]"),
   }),
   component: ({ props }) => {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     const isMobile = useIsMobile();
     const [activeTab, setActiveTab] = useState(0);
 

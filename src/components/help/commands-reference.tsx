@@ -162,7 +162,7 @@ export function CommandsReference() {
       {/* Natural language */}
       <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-4">Natural language</h3>
       <p className="text-[14px] mb-4" style={{ color: "#71717a" }}>
-        You don't need slash commands. Just describe what you want.
+        You don&apos;t need slash commands. Just describe what you want.
       </p>
       <div className="space-y-3">
         {NATURAL_COMMANDS.map((cmd) => (
@@ -172,7 +172,7 @@ export function CommandsReference() {
             style={{ backgroundColor: "#18181b", borderColor: "rgba(245,240,232,0.06)" }}
           >
             <p className="text-[14px] font-medium mb-1" style={{ color: "#F5F0E8" }}>
-              "{cmd.prompt}"
+              &ldquo;{cmd.prompt}&rdquo;
             </p>
             <p className="text-[13px]" style={{ color: "#71717a" }}>
               {cmd.description}
