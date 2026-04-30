@@ -11,6 +11,16 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "../_generated/server";
 
+/** Lifecycle phase to write for each moderation outcome. Centralized here so
+ *  adding a new moderationStatus value means adding one row, not editing a
+ *  ternary chain. Mirror to ModerationStatus union in schema.ts:338. */
+const LIFECYCLE_BY_MODERATION_STATUS = {
+  approved: "completed",
+  flagged: "flagged",
+  timed_out: "timed_out",
+  pending: "completed",
+} as const satisfies Record<string, "flagged" | "timed_out" | "completed">;
+
 // ── Initial tour creation (called from the public generateTour action) ──────
 
 export const createInitialTour = internalMutation({
@@ -170,12 +180,7 @@ export const finalizeTour = internalMutation({
     const { tourId, ...patch } = args;
     await ctx.db.patch(tourId, {
       ...patch,
-      lifecyclePhase:
-        args.moderationStatus === "flagged"
-          ? "flagged"
-          : args.moderationStatus === "timed_out"
-            ? "timed_out"
-            : "completed",
+      lifecyclePhase: LIFECYCLE_BY_MODERATION_STATUS[args.moderationStatus],
       moderationAttemptedAt: now,
       moderatedAt: now,
       completedAt: now,

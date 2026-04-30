@@ -20,6 +20,12 @@
 import { haikuStructured } from "./haikuStructured";
 import { ModerationResult, type ModerationResult as ModerationResultT } from "./types";
 
+/** Wall-clock budget for the Haiku structured call. The per-pick architecture
+ *  saturates the same window moderation fires in, pushing structured calls
+ *  past the original 5s budget on benign prompts. 15s catches the slow tail
+ *  without hiding real failures. */
+const HAIKU_TIMEOUT_MS = 15_000;
+
 const SYSTEM_PROMPT = `You are a content moderation classifier for Crate, a music-recommendation platform. Given a user's prompt and the generated tour output, you identify any problematic content categories. Return strict JSON.
 
 You are STRICT on:
@@ -75,11 +81,7 @@ export async function classifyModeration(args: {
     userContent,
     schema: ModerationResult,
     maxRetries: 1,
-    // 15s, not 5s. The original budget was set when the pipeline was leaner;
-    // the per-pick architecture (commit d3f3598) saturates the same wall-clock
-    // window that moderation fires in, pushing structured Haiku calls past 5s
-    // on benign prompts. 15s catches the slow tail without hiding real failures.
-    timeoutMs: 15000,
+    timeoutMs: HAIKU_TIMEOUT_MS,
   });
 }
 

@@ -49,6 +49,46 @@ const MAX_PROMPT_LENGTH = 2000;             // truncate on ingress (per Section 
 const MIN_PROMPT_LENGTH = 1;
 const MAX_SLUG_ATTEMPTS = 3;
 
+/** Sentinel category written by moderationWithFallback when the Haiku call
+ *  itself errors. Distinguishes API failures (recoverable, surfaces in admin
+ *  queue) from real content flags (intentional, stays private). */
+const MODERATION_FAILURE_CATEGORY = "unknown-moderation-failure";
+
+// ── Moderation outcome resolution ────────────────────────────────────────────
+
+type ModerationOutcome = {
+  moderationStatus: "approved" | "flagged" | "timed_out";
+  /** Phase string written to tourStatus. The /recommend page only redirects
+   *  on "done"; "flagged" / "timed_out" keep the user on the LoadingPanel
+   *  STOPPED state instead of pushing them to a 404. */
+  phase: "done" | "flagged" | "timed_out";
+  detail: string;
+};
+
+/** One source of truth for what each moderation outcome means. Adding a new
+ *  outcome (e.g., "manual-review") = add one branch, no other edits. */
+function resolveModerationOutcome(categories: readonly string[]): ModerationOutcome {
+  if (categories.length === 0) {
+    return {
+      moderationStatus: "approved",
+      phase: "done",
+      detail: "Your tour is ready",
+    };
+  }
+  if (categories.includes(MODERATION_FAILURE_CATEGORY)) {
+    return {
+      moderationStatus: "timed_out",
+      phase: "timed_out",
+      detail: "Stayed private — moderation will retry shortly",
+    };
+  }
+  return {
+    moderationStatus: "flagged",
+    phase: "flagged",
+    detail: "Staying private — moderation flagged this",
+  };
+}
+
 // ── Public action: generateTour ──────────────────────────────────────────────
 
 export const generateTour = action({
@@ -471,12 +511,8 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
     }
 
     // Phase 8: Finalize ───────────────────────────────────────────────────
-    const isApproved = moderationResult.categories.length === 0;
-    // Distinguish "moderation API errored" from "content was flagged". The
-    // former is recoverable via the admin queue; the latter is intentional.
-    const isModerationApiFailure = moderationResult.categories.includes(
-      "unknown-moderation-failure",
-    );
+    const outcome = resolveModerationOutcome(moderationResult.categories);
+    const isApproved = outcome.moderationStatus === "approved";
     const finalSlug = artists[0]?.name
       ? buildSlug(artists[0].name, 4)
       : buildSlug("tour", 8);
@@ -536,29 +572,12 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       perplexityFallbackUsed: pickResult.isSparse || groundedCount === 0,
       promptRedacted: redactionResult,
       promptShowRaw: false,
-      moderationStatus: isApproved
-        ? "approved"
-        : isModerationApiFailure
-          ? "timed_out"
-          : "flagged",
+      moderationStatus: outcome.moderationStatus,
       moderationCategories: isApproved ? undefined : moderationResult.categories,
       isPublic: isApproved,
     });
 
-    // Write a phase the client can act on. The /recommend page only
-    // redirects on "done"; "flagged" / "timed_out" keep the user on the
-    // LoadingPanel STOPPED state instead of pushing them to a 404.
-    const finalPhase = isApproved
-      ? "done"
-      : isModerationApiFailure
-        ? "timed_out"
-        : "flagged";
-    const finalDetail = isApproved
-      ? "Your tour is ready"
-      : isModerationApiFailure
-        ? "Stayed private — moderation will retry shortly"
-        : "Staying private — moderation flagged this";
-    await writeStatus(ctx, tourId, finalPhase, 1.0, finalDetail);
+    await writeStatus(ctx, tourId, outcome.phase, 1.0, outcome.detail);
 
     return isApproved ? "done" : "flagged";
   } catch (e) {
@@ -600,9 +619,9 @@ async function moderationWithFallback(
       return await classifyModeration({ prompt, tourOutputSummary: tourSummary });
     } catch (e) {
       // Fail-closed per Open Decision from CEO review: on moderation error,
-      // treat as flagged (stay private). Cron will retry.
+      // mark as timed_out (stay private, surfaces in admin queue for retry).
       w.errors.push(`Moderation:${errName(e)}`);
-      return { categories: ["unknown-moderation-failure"] };
+      return { categories: [MODERATION_FAILURE_CATEGORY] };
     }
   });
 }

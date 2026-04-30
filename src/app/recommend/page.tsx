@@ -180,6 +180,8 @@ function SignedOutCta() {
   );
 }
 
+const PROMPT_MAX_LENGTH = 400;
+
 const EXAMPLE_PROMPTS = [
   "Sad about climate change but I still want to dance",
   "Jazz that sounds like winter morning coffee",
@@ -189,7 +191,7 @@ const EXAMPLE_PROMPTS = [
 
 function PromptPanel() {
   const searchParams = useSearchParams();
-  const initialPrompt = searchParams.get("prompt")?.slice(0, 400) ?? "";
+  const initialPrompt = searchParams.get("prompt")?.slice(0, PROMPT_MAX_LENGTH) ?? "";
   const [prompt, setPrompt] = useState(initialPrompt);
   const { state, generate, reset } = useTourGeneration();
   const tourId = state.state === "submitted" ? state.tourId : null;
@@ -253,7 +255,7 @@ function PromptPanel() {
       >
         <textarea
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value.slice(0, 400))}
+          onChange={(e) => setPrompt(e.target.value.slice(0, PROMPT_MAX_LENGTH))}
           placeholder="Describe the listening tour you want..."
           rows={3}
           disabled={submitting}
@@ -264,7 +266,7 @@ function PromptPanel() {
         />
         <div className="mt-3 flex items-center justify-between">
           <span style={{ color: "#52525b", fontSize: "12px" }}>
-            {prompt.length}/400
+            {prompt.length}/{PROMPT_MAX_LENGTH}
           </span>
           <button
             type="submit"

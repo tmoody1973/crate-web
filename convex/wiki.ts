@@ -13,6 +13,10 @@ function slugify(name: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+/** Delay between scheduled synthesis calls during a bulk rescue. Keeps us
+ *  under Anthropic rate limits without serializing the queue. */
+const RESYNTHESIZE_STAGGER_MS = 2_000;
+
 // ── Shared validator fragments ───────────────────────────
 
 const sectionSourceValidator = v.object({
@@ -328,10 +332,8 @@ export const resynthesizeStuckPages = internalMutation({
         alreadyDone++;
         continue;
       }
-      // Stagger: 2s between calls to stay under Anthropic rate limits.
-      // 56 stuck pages × 2s = ~2 minute total elapsed.
       await ctx.scheduler.runAfter(
-        scheduled * 2000,
+        scheduled * RESYNTHESIZE_STAGGER_MS,
         internal.wiki.synthesizeWikiPageInternal,
         { pageId: page._id },
       );
@@ -428,11 +430,11 @@ async function callHaikuSynthesis(
   const parsed = parseLooseJSON(cleaned);
   if (!parsed) return null;
 
-  // Validate expected shape
-  if (typeof parsed !== "object") return null;
-  if ((parsed as Record<string, unknown>).sections && !Array.isArray((parsed as Record<string, unknown>).sections)) return null;
+  // Validate expected shape: sections, if present, must be an array.
+  const sections = parsed.sections;
+  if (sections !== undefined && !Array.isArray(sections)) return null;
 
-  return parsed as Record<string, unknown>;
+  return parsed;
 }
 
 /** Parse JSON that may have trailing prose ("I excluded X because Y..."). Tries
