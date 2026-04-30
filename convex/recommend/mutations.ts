@@ -171,7 +171,11 @@ export const finalizeTour = internalMutation({
     await ctx.db.patch(tourId, {
       ...patch,
       lifecyclePhase:
-        args.moderationStatus === "flagged" ? "flagged" : "completed",
+        args.moderationStatus === "flagged"
+          ? "flagged"
+          : args.moderationStatus === "timed_out"
+            ? "timed_out"
+            : "completed",
       moderationAttemptedAt: now,
       moderatedAt: now,
       completedAt: now,

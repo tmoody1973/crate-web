@@ -472,6 +472,11 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
 
     // Phase 8: Finalize ───────────────────────────────────────────────────
     const isApproved = moderationResult.categories.length === 0;
+    // Distinguish "moderation API errored" from "content was flagged". The
+    // former is recoverable via the admin queue; the latter is intentional.
+    const isModerationApiFailure = moderationResult.categories.includes(
+      "unknown-moderation-failure",
+    );
     const finalSlug = artists[0]?.name
       ? buildSlug(artists[0].name, 4)
       : buildSlug("tour", 8);
@@ -531,18 +536,29 @@ async function runWork(w: WorkCtx): Promise<"done" | "flagged" | "failed"> {
       perplexityFallbackUsed: pickResult.isSparse || groundedCount === 0,
       promptRedacted: redactionResult,
       promptShowRaw: false,
-      moderationStatus: isApproved ? "approved" : "flagged",
+      moderationStatus: isApproved
+        ? "approved"
+        : isModerationApiFailure
+          ? "timed_out"
+          : "flagged",
       moderationCategories: isApproved ? undefined : moderationResult.categories,
       isPublic: isApproved,
     });
 
-    await writeStatus(
-      ctx,
-      tourId,
-      "done",
-      1.0,
-      isApproved ? "Your tour is ready" : "Staying private — moderation flagged this",
-    );
+    // Write a phase the client can act on. The /recommend page only
+    // redirects on "done"; "flagged" / "timed_out" keep the user on the
+    // LoadingPanel STOPPED state instead of pushing them to a 404.
+    const finalPhase = isApproved
+      ? "done"
+      : isModerationApiFailure
+        ? "timed_out"
+        : "flagged";
+    const finalDetail = isApproved
+      ? "Your tour is ready"
+      : isModerationApiFailure
+        ? "Stayed private — moderation will retry shortly"
+        : "Staying private — moderation flagged this";
+    await writeStatus(ctx, tourId, finalPhase, 1.0, finalDetail);
 
     return isApproved ? "done" : "flagged";
   } catch (e) {

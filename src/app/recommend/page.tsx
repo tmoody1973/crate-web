@@ -14,8 +14,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { SignInButton, useAuth, useUser } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
 import posthog from "posthog-js";
@@ -70,7 +70,9 @@ export default function RecommendPage() {
         {!isLoaded ? (
           <AuthSkeleton />
         ) : userId ? (
-          <PromptPanel />
+          <Suspense fallback={<AuthSkeleton />}>
+            <PromptPanel />
+          </Suspense>
         ) : (
           <SignedOutCta />
         )}
@@ -186,7 +188,9 @@ const EXAMPLE_PROMPTS = [
 ];
 
 function PromptPanel() {
-  const [prompt, setPrompt] = useState("");
+  const searchParams = useSearchParams();
+  const initialPrompt = searchParams.get("prompt")?.slice(0, 400) ?? "";
+  const [prompt, setPrompt] = useState(initialPrompt);
   const { state, generate, reset } = useTourGeneration();
   const tourId = state.state === "submitted" ? state.tourId : null;
   const status = useTourStatus(tourId);
@@ -203,7 +207,10 @@ function PromptPanel() {
 
   useEffect(() => {
     if (state.state !== "submitted" || !status?.isComplete) return;
-    if (status.phase === "done" || status.phase === "flagged") {
+    // Only redirect on a true success. "flagged" / "timed_out" / "failed" tours
+    // have isPublic=false, so /r/[slug] would 404. Keep the user on the
+    // LoadingPanel so they see the STOPPED state and can try again.
+    if (status.phase === "done") {
       const slug = finalTour?.slug ?? state.slug;
       router.push(`/r/${slug}`);
     }

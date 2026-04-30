@@ -397,6 +397,7 @@ const SLASH_COMMANDS = [
   { command: "/prep", description: "Show prep (shorthand)", usage: "/prep [station]: [request]", example: "/prep 88nine: talk breaks for Khruangbin > Simz" },
   { command: "/radio", description: "Search and play live radio stations", usage: "/radio [station, genre, or URL]", example: "/radio KEXP" },
   { command: "/influence", description: "Map an artist's musical influences", usage: "/influence [artist name]", example: "/influence Flying Lotus" },
+  { command: "/recommend", description: "Build a 10-artist listening tour from a mood, era, or theme", usage: "/recommend [prompt]", example: "/recommend 70s spiritual jazz and psychedelic soul" },
   { command: "/spotify", description: "Browse and play your Spotify playlists", usage: "/spotify [playlist name]", example: "/spotify HYFIN" },
   { command: "/tumblr", description: "Discover music on Tumblr — dashboard, tags, or likes", usage: "/tumblr [#tag | likes]", example: "/tumblr #afrobeat" },
   { command: "/track", description: "Deep dive into a specific track", usage: "/track [song] [artist]", example: "/track So What Miles Davis" },
@@ -695,6 +696,14 @@ function ChatInput({ resendMessage, onResendConsumed, onOpenSetup, customSkills 
     }
     if (trimmed === "/tinydesk") {
       setShowTinyDeskPicker(true);
+      setShowSlashMenu(false);
+      setInput("");
+      return;
+    }
+    if (trimmed === "/recommend" || trimmed.startsWith("/recommend ")) {
+      const arg = trimmed.replace("/recommend", "").trim();
+      const url = arg ? `/recommend?prompt=${encodeURIComponent(arg)}` : "/recommend";
+      window.location.href = url;
       setShowSlashMenu(false);
       setInput("");
       return;
