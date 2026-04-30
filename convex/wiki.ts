@@ -381,14 +381,35 @@ async function callHaikuSynthesis(
   const text = result.content?.[0]?.text;
   if (!text) return null;
 
-  const cleaned = text.replace(/^```json?\n?/m, "").replace(/\n?```$/m, "");
-  const parsed = JSON.parse(cleaned);
+  const cleaned = text.replace(/^```json?\n?/m, "").replace(/\n?```$/m, "").trim();
+  const parsed = parseLooseJSON(cleaned);
+  if (!parsed) return null;
 
   // Validate expected shape
-  if (!parsed || typeof parsed !== "object") return null;
-  if (parsed.sections && !Array.isArray(parsed.sections)) return null;
+  if (typeof parsed !== "object") return null;
+  if ((parsed as Record<string, unknown>).sections && !Array.isArray((parsed as Record<string, unknown>).sections)) return null;
 
-  return parsed;
+  return parsed as Record<string, unknown>;
+}
+
+/** Parse JSON that may have trailing prose ("I excluded X because Y..."). Tries
+ *  pure parse first, then falls back to slicing the outermost JSON object out
+ *  of the response. Mirrors parseJSONFromResponse in recommend/haikuStructured.ts
+ *  but inlined to avoid forcing this file into the Node runtime. */
+function parseLooseJSON(raw: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    // fall through
+  }
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start === -1 || end <= start) return null;
+  try {
+    return JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
 /** Synthesize a wiki page using Haiku. Retries once on failure.
