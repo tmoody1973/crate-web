@@ -2,9 +2,26 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import type { ReceiptData, ReceiptInfluence } from "@/lib/receipt-types";
+import { getOrCreateCreatorId } from "@/lib/creator-id";
+import { useActiveTime } from "@/hooks/use-active-time";
+
+/** Random 6-char share token. Appended as ?s=<token> on share-button URLs
+ *  so an inbound view carrying the token can be attributed to the share
+ *  that produced it. No PII; no account; just an attribution token. */
+function generateShareToken(): string {
+  const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let token = "";
+  for (let i = 0; i < 6; i++) {
+    token += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+  }
+  return token;
+}
+
+const QUALIFIED_VIEW_MS = 5_000;
+const RECENT_GENERATION_WINDOW_MS = 60_000;
 
 // ── Relationship color mapping ───────────────────────────────────────────────
 
@@ -215,6 +232,7 @@ function SearchBox({ currentSlug }: { currentSlug?: string }) {
       posthog.capture("receipt_try_another", {
         artist: currentSlug,
         next_artist: slug,
+        creator_id: getOrCreateCreatorId(),
       });
       router.push(`/i/${slug}`);
     },
@@ -247,19 +265,27 @@ function ShareButton({ artist, slug }: { artist: string; slug: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleShare = useCallback(async () => {
-    const url = `https://digcrate.app/i/${slug}?utm_source=share&utm_medium=receipt`;
+    const shareToken = generateShareToken();
+    const url = `https://digcrate.app/i/${slug}?s=${shareToken}`;
     const shareData = {
       title: `${artist} — Musical DNA | Crate`,
       text: `Check out the musical influence chain for ${artist}`,
       url,
     };
 
-    posthog.capture("receipt_share_click", { artist, slug, method: "initial" });
+    const baseProps = {
+      artist,
+      slug,
+      share_token: shareToken,
+      creator_id: getOrCreateCreatorId(),
+    };
+
+    posthog.capture("receipt_share_click", { ...baseProps, method: "initial" });
 
     try {
       if (navigator.share) {
         await navigator.share(shareData);
-        posthog.capture("receipt_share_click", { artist, slug, method: "native_share" });
+        posthog.capture("receipt_share_click", { ...baseProps, method: "native_share" });
         return;
       }
     } catch (err) {
@@ -270,7 +296,7 @@ function ShareButton({ artist, slug }: { artist: string; slug: string }) {
     // Clipboard fallback
     try {
       await navigator.clipboard.writeText(url);
-      posthog.capture("receipt_share_click", { artist, slug, method: "clipboard" });
+      posthog.capture("receipt_share_click", { ...baseProps, method: "clipboard" });
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -314,20 +340,67 @@ export function ReceiptUI({
 }) {
   const receipt = initialReceipt;
   const viewTracked = useRef(false);
+  const searchParams = useSearchParams();
+  const incomingShareToken = searchParams.get("s") ?? null;
 
-  // Track receipt view
+  // Track receipt view (raw — every page mount, no dwell filter)
   useEffect(() => {
     if (viewTracked.current) return;
     if (!receipt) return;
     viewTracked.current = true;
-    posthog.capture("receipt_view", {
+
+    const creatorId = getOrCreateCreatorId();
+    const baseProps = {
       artist: receipt.artist,
       slug: receipt.slug,
       tier: receipt.tier,
       influence_count: receipt.influences.length,
       referrer: typeof document !== "undefined" ? document.referrer : "",
-    });
-  }, [receipt]);
+      creator_id: creatorId,
+    };
+
+    posthog.capture("receipt_view", baseProps);
+
+    // If this URL carries a share token, attribute the view to the
+    // originating share event so PostHog can JOIN inbound traffic to
+    // the share that produced it.
+    if (incomingShareToken) {
+      posthog.capture("receipt_viewed_via_share", {
+        ...baseProps,
+        share_token: incomingShareToken,
+      });
+    }
+
+    // If the receipt was generated within the last 60s, treat the
+    // current visitor as the de-facto creator. The cache layer means
+    // every later visitor sees the same row, so this heuristic is the
+    // simplest accurate fire point without a schema migration.
+    if (Date.now() - receipt.generatedAt < RECENT_GENERATION_WINDOW_MS) {
+      posthog.capture("receipt_generated", {
+        artist: receipt.artist,
+        slug: receipt.slug,
+        creator_id: creatorId,
+      });
+    }
+  }, [receipt, incomingShareToken]);
+
+  // Qualified view: ≥5s active time. Per the sprint gate, this is the
+  // metric that drives the GO/NO-GO decision (median ≥8 unique non-Tarik
+  // qualified views per posted receipt).
+  const onQualified = useCallback(
+    (activeMs: number) => {
+      if (!receipt) return;
+      posthog.capture("receipt_view_qualified", {
+        artist: receipt.artist,
+        slug: receipt.slug,
+        tier: receipt.tier,
+        active_ms: activeMs,
+        creator_id: getOrCreateCreatorId(),
+      });
+    },
+    [receipt],
+  );
+  useActiveTime({ qualifyAfterMs: QUALIFIED_VIEW_MS, onQualified });
 
   // Unknown tier
   if (!receipt || receipt.tier === "unknown") {
@@ -368,6 +441,7 @@ export function ReceiptUI({
               artist: receipt.artist,
               slug: receipt.slug,
               cta_type: "header_cta",
+              creator_id: getOrCreateCreatorId(),
             })
           }
         >
@@ -463,6 +537,7 @@ export function ReceiptUI({
                 artist: receipt.artist,
                 slug: receipt.slug,
                 cta_type: "bottom_cta",
+                creator_id: getOrCreateCreatorId(),
               })
             }
           >

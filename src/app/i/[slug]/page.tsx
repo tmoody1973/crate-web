@@ -3,6 +3,7 @@
  * Zero-login, shareable, ISR-cached.
  */
 
+import { Suspense } from "react";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../convex/_generated/api";
 import type { ReceiptData } from "@/lib/receipt-types";
@@ -156,7 +157,9 @@ export default async function InfluenceReceiptPage({
     <main
       className={`${bebasNeue.variable} ${spaceGrotesk.variable} min-h-screen bg-[#0a0a0a] text-white font-[family-name:var(--font-space)]`}
     >
-      <ReceiptUI slug={slug} initialReceipt={receipt} />
+      <Suspense fallback={null}>
+        <ReceiptUI slug={slug} initialReceipt={receipt} />
+      </Suspense>
     </main>
   );
 }
