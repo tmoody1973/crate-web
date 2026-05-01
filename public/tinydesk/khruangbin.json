@@ -1,0 +1,141 @@
+{
+  "artist": "Khruangbin",
+  "slug": "khruangbin",
+  "tagline": "Thai funk cassettes, Houston highways, and the sonic threads connecting Houston's globe-trotting trio to a half-century of psychedelic soul.",
+  "tinyDeskVideoId": "vWLJeqLPfSU",
+  "nodes": [
+    {
+      "name": "Thai Funk & Luk Thung",
+      "role": "Primary sonic influence",
+      "era": "1960s-1970s",
+      "connection": "Guitarist Mark Speer and bassist Laura Lee Ochoa discovered Thai psych-funk via the Monrakplengthai blog. The reverb-drenched guitar, pentatonic melody, and hushed vocals became the spine of The Universe Smiles Upon You (2015).",
+      "strength": 0.95,
+      "source": "Pitchfork",
+      "sourceUrl": "https://pitchfork.com/reviews/albums/khruangbin-con-todo-el-mundo/",
+      "sourceQuote": "Iran is the obvious touchstone in Maria Tambien, but the album's deepest roots are in Thai funk cassettes from the 1960s.",
+      "sonicDna": ["reverb-drenched guitar", "pentatonic melody", "hushed vocals", "psychedelic groove", "surf twang"],
+      "keyWorks": [{"title": "Monrakplengthai compilations", "year": "2000s"}, {"title": "The Universe Smiles Upon You", "year": "2015"}],
+      "videoId": "F20jCvWG07g",
+      "videoTitle": "Thai-Dreams (70s/80s Luk Thung, Luk Krung, Mor Lam) Live Vinyl Mix"
+    },
+    {
+      "name": "Googoosh (Iranian Pop)",
+      "role": "Melodic & modal influence",
+      "era": "1970s",
+      "connection": "Con Todo El Mundo (2018) drew from 1970s Iranian pop. Melismatic phrasing, modal scales, lush strings. The Vinyl Factory ran a dedicated feature on their favourite Iranian records.",
+      "strength": 0.82,
+      "source": "Pitchfork / The Vinyl Factory",
+      "sourceUrl": "https://pitchfork.com/reviews/albums/khruangbin-con-todo-el-mundo/",
+      "sourceQuote": "Iran is the obvious touchstone in Maria Tambien.",
+      "sonicDna": ["melismatic phrasing", "modal scales", "lush strings", "pre-revolution pop"],
+      "keyWorks": [{"title": "Con Todo El Mundo", "year": "2018"}, {"title": "Maria Tambien", "year": "2018"}],
+      "videoId": "AolZSuSNmC0",
+      "videoTitle": "Googoosh Full Concert at Hollywood Bowl"
+    },
+    {
+      "name": "Mahalia Jackson (Gospel)",
+      "role": "Structural & devotional foundation",
+      "era": "1940s-present",
+      "connection": "Mark Speer and Donald 'DJ' Johnson played together in a Houston gospel church band before Khruangbin. The call-and-response, meditative pacing, and devotional stillness of this tradition became the backbone of their live presence.",
+      "strength": 0.80,
+      "source": "The Guardian",
+      "sourceUrl": "https://www.theguardian.com/music/2024/nov/17/khruangbin-review",
+      "sourceQuote": "There is something faintly liturgical about a Khruangbin show.",
+      "sonicDna": ["call-and-response", "meditative pacing", "devotional stillness", "communal energy"],
+      "keyWorks": [{"title": "How I Got Over", "year": "1947"}, {"title": "Move On Up a Little Higher", "year": "1947"}],
+      "videoId": "l49N8U3d0Bw",
+      "videoTitle": "Mahalia Jackson - How I Got Over (LIVE)"
+    },
+    {
+      "name": "Leon Bridges",
+      "role": "Collaborator",
+      "era": "2020-2022",
+      "connection": "Two collaborative EPs (Texas Sun, 2020; Texas Moon, 2022) revealed the deep Black Texas musical heritage underpinning Khruangbin's instrumental language.",
+      "strength": 0.78,
+      "source": "PBS NewsHour",
+      "sourceUrl": "https://www.pbs.org/newshour/show/meet-khruangbin-the-texas-trio",
+      "videoId": "C_oACPWGvM4",
+      "videoTitle": "Leon Bridges: NPR Music Tiny Desk Concert"
+    },
+    {
+      "name": "Kool & the Gang",
+      "role": "Jazz-funk template",
+      "era": "1974",
+      "connection": "Khruangbin played Summer Madness in live medleys for years before recording it for Late Night Tales (2020). Pitchfork: 'Onstage, Khruangbin have long played a medley weaving together old funk and hip-hop rhythms, slotting Summer Madness alongside Nothin but a G Thang.'",
+      "strength": 0.72,
+      "source": "Pitchfork",
+      "sourceUrl": "https://pitchfork.com/reviews/albums/khruangbin-late-night-tales/",
+      "videoId": "QvxMpm4DwI0",
+      "videoTitle": "Summer Madness Live - Kool & the Gang"
+    },
+    {
+      "name": "Vieux Farka Toure",
+      "role": "Collaborator",
+      "era": "2022",
+      "connection": "Collaboration album Ali (2022) blended West African desert blues with Khruangbin's reverb-glazed groove, making explicit the structural relationship between Malian music and Texas blues.",
+      "strength": 0.72,
+      "source": "Pitchfork",
+      "sourceUrl": "https://en.wikipedia.org/wiki/Khruangbin",
+      "videoId": "18YKj7oF76g",
+      "videoTitle": "Vieux Farka Toure - Full Performance (Live on KEXP)"
+    },
+    {
+      "name": "Jimi Hendrix",
+      "role": "Psychedelic guitar scaffold",
+      "era": "Late 1960s",
+      "connection": "Mark Speer's guitar technique, reverb-heavy sustained phrases, upper-register melody, and mood-generating atmosphere draw on late-1960s psych-rock. The approach of treating guitar as an atmospheric instrument rather than a rhythm tool connects directly to Hendrix's innovations.",
+      "strength": 0.70,
+      "source": "The Guardian",
+      "sourceUrl": "https://www.theguardian.com/music/2024/apr/07/khruangbin-a-la-sala-review",
+      "sourceQuote": "The reverb-laden twang of spaghetti western melodies.",
+      "sonicDna": ["sustained reverb", "upper-register melody", "atmospheric guitar", "wah-wah pedal", "feedback as texture"],
+      "keyWorks": [{"title": "Are You Experienced", "year": "1967"}, {"title": "Electric Ladyland", "year": "1968"}],
+      "videoId": "5wfZqs3bc8A",
+      "videoTitle": "Purple Haze (Live at Woodstock, 1969)"
+    },
+    {
+      "name": "Bonobo",
+      "role": "Scene catalyst",
+      "era": "2010-2013",
+      "connection": "Khruangbin formed while opening for Bonobo's 2010 US tour. Bonobo included 'A Calf Born in Winter' on his 2013 Late Night Tales mix, introducing Khruangbin to a global audience. Pitchfork: 'It was on Bonobo's own 2013 mix that much of the world was introduced to Khruangbin.'",
+      "strength": 0.68,
+      "source": "Pitchfork",
+      "sourceUrl": "https://pitchfork.com/reviews/albums/khruangbin-late-night-tales/",
+      "videoId": "fn-4RbxXThE",
+      "videoTitle": "Bonobo Live At Royal Albert Hall"
+    },
+    {
+      "name": "The Meters",
+      "role": "New Orleans funk foundation",
+      "era": "1960s-1970s",
+      "connection": "Laura Lee McBride grew up in Houston's R&B and gospel scene, where The Meters were foundational listening. Their locked-in, minimal pocket, one riff repeated until hypnotic, is the structural engine beneath every Khruangbin groove.",
+      "strength": 0.87,
+      "source": "NPR Music",
+      "sourceUrl": "https://www.npr.org/2020/05/29/863853683/khruangbin-tiny-desk-at-home-concert",
+      "videoId": "_FBnQvd_xzs",
+      "videoTitle": "The Meters - Cissy Strut"
+    },
+    {
+      "name": "Serge Gainsbourg",
+      "role": "Aesthetic influence",
+      "era": "1960s-1980s",
+      "connection": "Mark Speer has discussed DJing Gainsbourg records at after-parties on European tours. Pitchfork: 'Mark Speer might fold in cuts like Serge Gainsbourg sleaze in Paris or funky molam in Bangkok.'",
+      "strength": 0.58,
+      "source": "Pitchfork",
+      "sourceUrl": "https://pitchfork.com/reviews/albums/khruangbin-late-night-tales/",
+      "videoId": "vn9JdXEZlL8",
+      "videoTitle": "Serge Gainsbourg - Bonnie And Clyde (Live au Zenith de Paris 1988)"
+    },
+    {
+      "name": "Thievery Corporation",
+      "role": "Global dub-jam lineage",
+      "era": "1996-present",
+      "connection": "Pitchfork placed Khruangbin in a lineage with Thievery Corporation as practitioners of 'dub-jammy ethereal instrumental music that synthesizes global traditions without exoticizing the source material.'",
+      "strength": 0.60,
+      "source": "Pitchfork",
+      "sourceUrl": "https://pitchfork.com/reviews/albums/khruangbin-con-todo-el-mundo/",
+      "videoId": "5eK6SYVyZRk",
+      "videoTitle": "Thievery Corporation - Full Performance (Live on KEXP)"
+    }
+  ]
+}

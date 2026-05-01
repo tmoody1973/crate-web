@@ -1,0 +1,348 @@
+/**
+ * Manual agentic loop supporting both Anthropic (direct) and OpenAI (OpenRouter).
+ *
+ * Loop: send message → if tool_use → execute tools → send results → repeat → done.
+ * Emits CrateEvents (same format as crate-cli) for SSE streaming to the frontend.
+ */
+
+import { Anthropic, OpenAI } from "@posthog/ai";
+import type { MessageParam, ToolResultBlockParam, Message } from "@anthropic-ai/sdk/resources/messages";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import { getPostHogClient } from "./posthog-server";
+import type { CrateToolDef, HandlerEntry } from "./tool-adapter";
+import {
+  buildAnthropicToolkit,
+  buildOpenAIToolkit,
+  executeTool,
+  bareToolName,
+  serverFromToolName,
+} from "./tool-adapter";
+import { TOOL_CALL_CAP, TOOL_CALL_CAP_RESEARCH } from "@/lib/plans";
+
+/** CrateEvent types — matches crate-cli/dist/agent/events.d.ts exactly. */
+export type CrateEvent =
+  | { type: "thinking"; text: string }
+  | { type: "tool_start"; tool: string; server: string; input: unknown }
+  | { type: "tool_end"; tool: string; server: string; durationMs: number; resultSummary?: string }
+  | { type: "answer_start" }
+  | { type: "answer_token"; token: string }
+  | { type: "done"; totalMs: number; toolsUsed: string[]; toolCallCount: number; costUsd: number }
+  | { type: "error"; message: string }
+  | { type: "plan"; tasks: Array<{ id: number; description: string; done: boolean }> }
+  | { type: "play_radio"; station: string; streamUrl: string; tags?: string; country?: string; favicon?: string }
+  | { type: "wiki_update"; artists: string[]; count: number };
+
+export interface AgenticLoopOptions {
+  message: string;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
+  systemPrompt: string;
+  model: string;
+  apiKey: string;
+  /** When true, route through OpenRouter (OpenAI-compatible API) */
+  useOpenRouter?: boolean;
+  toolGroups: Array<{ serverName: string; tools: CrateToolDef[] }>;
+  maxTurns?: number;
+  signal?: AbortSignal;
+  /** PostHog distinct ID for LLM analytics (Clerk user ID) */
+  posthogDistinctId?: string;
+  /** PostHog trace ID to group all turns in this session */
+  posthogTraceId?: string;
+  /** Research-heavy command — gets higher tool call cap */
+  isResearchCommand?: boolean;
+  /** Called after each tool completes with full result content (for wiki ingestion). */
+  onToolComplete?: (server: string, tool: string, content: string) => void;
+}
+
+// ── Shared helpers ────────────────────────────────────────────────
+
+async function* executeTools(
+  handlers: Map<string, HandlerEntry>,
+  calls: Array<{ id: string; name: string; input: Record<string, unknown> }>,
+  onToolComplete?: (server: string, tool: string, content: string) => void,
+): AsyncGenerator<CrateEvent | { _toolResult: { id: string; content: string } }> {
+  // Emit all tool_start events immediately so the UI shows activity
+  const callMeta = calls.map((call) => ({
+    call,
+    bare: bareToolName(call.name),
+    server: serverFromToolName(call.name),
+  }));
+  for (const { bare, server, call } of callMeta) {
+    yield { type: "tool_start", tool: bare, server, input: call.input };
+  }
+
+  // Execute ALL tools in parallel
+  const startTime = Date.now();
+  const results = await Promise.all(
+    callMeta.map(async ({ call, bare }) => {
+      const start = Date.now();
+      try {
+        const result = await executeTool(handlers, call.name, call.input);
+        return { call, bare, result, durationMs: Date.now() - start, error: null };
+      } catch (err) {
+        return {
+          call, bare,
+          result: { content: `Error: ${err instanceof Error ? err.message : "tool failed"}`, serverName: "error" },
+          durationMs: Date.now() - start,
+          error: err,
+        };
+      }
+    }),
+  );
+
+  // Yield all results in order
+  for (const { call, bare, result, durationMs } of results) {
+    const resultSummary = result.content.length > 200
+      ? result.content.slice(0, 200) + "..."
+      : result.content;
+
+    yield { type: "tool_end", tool: bare, server: result.serverName, durationMs, resultSummary };
+
+    // Wiki ingestion callback
+    if (onToolComplete) {
+      try { onToolComplete(result.serverName, bare, result.content); } catch { /* silent */ }
+    }
+
+    // Emit play_radio event
+    if (bare === "play_radio") {
+      try {
+        const parsed = JSON.parse(result.content);
+        if (parsed.status === "streaming" && parsed.stream_url) {
+          yield {
+            type: "play_radio",
+            station: parsed.station,
+            streamUrl: parsed.stream_url,
+            tags: parsed.tags,
+            country: parsed.country,
+            favicon: parsed.favicon,
+          };
+        }
+      } catch { /* not JSON, skip */ }
+    }
+
+    yield { _toolResult: { id: call.id, content: result.content } };
+  }
+}
+
+function emitText(text: string): CrateEvent[] {
+  const events: CrateEvent[] = [{ type: "answer_start" }];
+  const chunkSize = 20;
+  for (let i = 0; i < text.length; i += chunkSize) {
+    events.push({ type: "answer_token", token: text.slice(i, i + chunkSize) });
+  }
+  return events;
+}
+
+// ── Anthropic loop ────────────────────────────────────────────────
+
+async function* anthropicLoop(
+  options: AgenticLoopOptions,
+): AsyncGenerator<CrateEvent> {
+  const { message, history, systemPrompt, model, apiKey, maxTurns = 25, signal, posthogDistinctId, posthogTraceId } = options;
+
+  const client = new Anthropic({ apiKey, posthog: getPostHogClient() });
+  const { tools, handlers } = buildAnthropicToolkit(options.toolGroups);
+
+  const messages: MessageParam[] = [
+    ...(history ?? []).map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    })),
+    { role: "user" as const, content: message },
+  ];
+
+  const startTime = Date.now();
+  const toolsUsed: string[] = [];
+  let toolCallCount = 0;
+
+  for (let turn = 0; turn < maxTurns; turn++) {
+    if (signal?.aborted) break;
+
+    // When nearing the turn limit, nudge the model to produce final output
+    const turnsRemaining = maxTurns - turn;
+    const nudgeMessages = turnsRemaining <= 3 && turn > 0
+      ? [...messages, {
+          role: "user" as const,
+          content: `[SYSTEM: You have ${turnsRemaining} turns left. Stop making tool calls and output your final response NOW. If you were asked to output OpenUI Lang, output the component immediately with the data you have.]`,
+        }]
+      : messages;
+
+    const response = await client.messages.create(
+      {
+        model,
+        max_tokens: 16384,
+        system: systemPrompt,
+        messages: nudgeMessages,
+        tools: tools.length > 0 ? tools : undefined,
+        posthogDistinctId,
+        posthogTraceId,
+      },
+      { signal },
+    ) as Message;
+
+    // Emit text, collect tool_use blocks
+    const toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
+
+    for (const block of response.content) {
+      if (block.type === "text" && block.text) {
+        for (const ev of emitText(block.text)) yield ev;
+      } else if (block.type === "tool_use") {
+        toolCalls.push({ id: block.id, name: block.name, input: block.input as Record<string, unknown> });
+      }
+    }
+
+    if (toolCalls.length === 0 || response.stop_reason === "end_turn") break;
+
+    // Enforce tool call cap (research commands get a higher cap)
+    const cap = options.isResearchCommand ? TOOL_CALL_CAP_RESEARCH : TOOL_CALL_CAP;
+    if (toolCallCount + toolCalls.length > cap) {
+      for (const ev of emitText("\n\nI've gathered a lot of information. Here's what I found so far.")) yield ev;
+      break;
+    }
+
+    // If we're on the last turn, don't execute more tools — force output
+    if (turnsRemaining <= 1) break;
+
+    // Add assistant message
+    messages.push({ role: "assistant", content: response.content });
+
+    // Execute tools
+    const toolResults: ToolResultBlockParam[] = [];
+    for await (const ev of executeTools(handlers, toolCalls, options.onToolComplete)) {
+      if ("_toolResult" in ev) {
+        toolResults.push({ type: "tool_result", tool_use_id: ev._toolResult.id, content: ev._toolResult.content });
+      } else {
+        if (ev.type === "tool_start" || ev.type === "tool_end") {
+          const bare = "tool" in ev ? ev.tool : "";
+          if (ev.type === "tool_start") toolCallCount++;
+          if (ev.type === "tool_start" && !toolsUsed.includes(bare)) toolsUsed.push(bare);
+        }
+        yield ev;
+      }
+    }
+
+    messages.push({ role: "user", content: toolResults });
+  }
+
+  yield { type: "done", totalMs: Date.now() - startTime, toolsUsed, toolCallCount, costUsd: 0 };
+}
+
+// ── OpenAI/OpenRouter loop ────────────────────────────────────────
+
+async function* openRouterLoop(
+  options: AgenticLoopOptions,
+): AsyncGenerator<CrateEvent> {
+  const { message, history, systemPrompt, model, apiKey, maxTurns = 25, signal, posthogDistinctId, posthogTraceId } = options;
+
+  const client = new OpenAI({
+    apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+    posthog: getPostHogClient(),
+  });
+
+  const { tools, handlers } = buildOpenAIToolkit(options.toolGroups);
+
+  const messages: ChatCompletionMessageParam[] = [
+    { role: "system" as const, content: systemPrompt },
+    ...(history ?? []).map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    })),
+    { role: "user" as const, content: message },
+  ];
+
+  const startTime = Date.now();
+  const toolsUsed: string[] = [];
+  let toolCallCount = 0;
+
+  for (let turn = 0; turn < maxTurns; turn++) {
+    if (signal?.aborted) break;
+
+    // When nearing the turn limit, nudge the model to produce final output
+    const turnsRemaining = maxTurns - turn;
+    const currentMessages = turnsRemaining <= 3 && turn > 0
+      ? [...messages, {
+          role: "user" as const,
+          content: `[SYSTEM: You have ${turnsRemaining} turns left. Stop making tool calls and output your final response NOW. If you were asked to output OpenUI Lang, output the component immediately with the data you have.]`,
+        }]
+      : messages;
+
+    const response = await client.chat.completions.create(
+      {
+        model,
+        max_tokens: 16384,
+        messages: currentMessages,
+        tools: tools.length > 0 ? tools : undefined,
+        posthogDistinctId,
+        posthogTraceId,
+      },
+      { signal },
+    );
+
+    const choice = response.choices[0];
+    if (!choice) break;
+
+    const assistantMsg = choice.message;
+
+    // Emit text
+    if (assistantMsg.content) {
+      for (const ev of emitText(assistantMsg.content)) yield ev;
+    }
+
+    // Check for tool calls
+    const toolCalls = assistantMsg.tool_calls ?? [];
+    if (toolCalls.length === 0 || choice.finish_reason === "stop") break;
+
+    // If we're on the last turn, don't execute more tools — force output
+    if (turnsRemaining <= 1) break;
+
+    // Add assistant message to history
+    messages.push(assistantMsg);
+
+    // Execute tools
+    const parsedCalls = toolCalls
+      .filter((tc): tc is Extract<typeof tc, { type: "function" }> => tc.type === "function")
+      .map((tc) => ({
+        id: tc.id,
+        name: tc.function.name,
+        input: JSON.parse(tc.function.arguments || "{}") as Record<string, unknown>,
+      }));
+
+    // Enforce tool call cap (research commands get a higher cap)
+    const cap = options.isResearchCommand ? TOOL_CALL_CAP_RESEARCH : TOOL_CALL_CAP;
+    if (toolCallCount + parsedCalls.length > cap) {
+      for (const ev of emitText("\n\nI've gathered a lot of information. Here's what I found so far.")) yield ev;
+      break;
+    }
+
+    for await (const ev of executeTools(handlers, parsedCalls, options.onToolComplete)) {
+      if ("_toolResult" in ev) {
+        messages.push({
+          role: "tool",
+          tool_call_id: ev._toolResult.id,
+          content: ev._toolResult.content,
+        });
+      } else {
+        if (ev.type === "tool_start" || ev.type === "tool_end") {
+          const bare = "tool" in ev ? ev.tool : "";
+          if (ev.type === "tool_start") toolCallCount++;
+          if (ev.type === "tool_start" && !toolsUsed.includes(bare)) toolsUsed.push(bare);
+        }
+        yield ev;
+      }
+    }
+  }
+
+  yield { type: "done", totalMs: Date.now() - startTime, toolsUsed, toolCallCount, costUsd: 0 };
+}
+
+// ── Public entry point ────────────────────────────────────────────
+
+export async function* agenticLoop(
+  options: AgenticLoopOptions,
+): AsyncGenerator<CrateEvent> {
+  if (options.useOpenRouter) {
+    yield* openRouterLoop(options);
+  } else {
+    yield* anthropicLoop(options);
+  }
+}
