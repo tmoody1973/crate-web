@@ -338,10 +338,40 @@ export function ReceiptUI({
   slug: string;
   initialReceipt: ReceiptData | null;
 }) {
-  const receipt = initialReceipt;
+  const [receipt, setReceipt] = useState<ReceiptData | null>(initialReceipt);
+  const [generating, setGenerating] = useState(initialReceipt === null);
+  const generationStarted = useRef(false);
   const viewTracked = useRef(false);
   const searchParams = useSearchParams();
   const incomingShareToken = searchParams.get("s") ?? null;
+
+  // Cache miss: the server render is cache-only (no Perplexity), so a brand-new
+  // artist arrives with initialReceipt === null. Trigger generation here, from
+  // a real browser, through the IP rate-limited route. This keeps paid
+  // Perplexity calls off the SSR/crawler path — bots that don't run JS never
+  // reach this.
+  useEffect(() => {
+    if (initialReceipt !== null) return;
+    if (generationStarted.current) return;
+    generationStarted.current = true;
+
+    const artist = slug.replace(/-/g, " ");
+    fetch("/api/influence/receipt/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artist }),
+    })
+      .then(async (res) => {
+        if (!res.ok) return null; // 429 / blocked → falls through to UnknownTier
+        const json = (await res.json()) as { receipt?: ReceiptData };
+        return json.receipt ?? null;
+      })
+      .catch(() => null)
+      .then((generated) => {
+        setReceipt(generated);
+        setGenerating(false);
+      });
+  }, [initialReceipt, slug]);
 
   // Track receipt view (raw — every page mount, no dwell filter)
   useEffect(() => {
@@ -402,7 +432,11 @@ export function ReceiptUI({
   );
   useActiveTime({ qualifyAfterMs: QUALIFIED_VIEW_MS, onQualified });
 
-  // Unknown tier
+  if (generating) {
+    return <ReceiptSkeleton />;
+  }
+
+  // Unknown tier (or generation produced no influences)
   if (!receipt || receipt.tier === "unknown") {
     return <UnknownTier slug={slug} />;
   }
