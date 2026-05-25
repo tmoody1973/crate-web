@@ -13,6 +13,7 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../../convex/_generated/api";
 import { discoverWithPerplexity } from "@/lib/perplexity-discover";
+import { isBotUserAgent, isPlausibleArtistName } from "@/lib/bot-detection";
 import {
   type ReceiptData,
   type ReceiptInfluence,
@@ -34,6 +35,16 @@ export async function POST(req: Request): Promise<Response> {
   const artist = typeof body?.artist === "string" ? body.artist.trim() : "";
   if (!artist) {
     return Response.json({ error: "artist is required" }, { status: 400 });
+  }
+
+  // Cost guards (Perplexity is paid). Reject fuzzed input and automated clients
+  // before any cache lookup or generation. The IP/global rate limits below stay
+  // the hard cap; these just cut the obvious abuse.
+  if (!isPlausibleArtistName(artist)) {
+    return Response.json({ error: "Invalid artist name" }, { status: 400 });
+  }
+  if (isBotUserAgent(req.headers.get("user-agent"))) {
+    return Response.json({ error: "Automated requests are not allowed" }, { status: 403 });
   }
 
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
