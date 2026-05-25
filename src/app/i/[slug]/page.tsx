@@ -101,7 +101,11 @@ export default async function InfluenceReceiptPage({
       className={`${bebasNeue.variable} ${spaceGrotesk.variable} min-h-screen bg-[#0a0a0a] text-white font-[family-name:var(--font-space)]`}
     >
       <Suspense fallback={null}>
-        <ReceiptUI slug={slug} initialReceipt={receipt} />
+        {/* key={slug} forces a fresh mount per artist. Without it, App Router
+            reuses this client component across /i/[slug] → /i/[slug]
+            navigations, so useState/refs carry the previous artist over and
+            the generation gate blocks the next fetch. */}
+        <ReceiptUI key={slug} slug={slug} initialReceipt={receipt} />
       </Suspense>
     </main>
   );
