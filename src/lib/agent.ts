@@ -17,7 +17,7 @@ export function createAgent(
 ): CrateAgent {
   const allKeys = { ...embeddedKeys, ...userKeys };
   const agent = new CrateAgent({
-    model: model || "claude-sonnet-4-6",
+    model: model || "claude-sonnet-5-5",
     keys: allKeys,
     skipPlanning: true,
   });

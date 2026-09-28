@@ -869,7 +869,7 @@ export async function POST(req: Request) {
   const isResearchCommand = isSlashResearch || isNaturalResearch;
 
   const rawModelId = isResearchCommand
-    ? "claude-sonnet-4-6"
+    ? "claude-sonnet-5-5"
     : (model || "claude-haiku-4-5-20251001");
 
   // Route based on the model: if the model ID contains "/" it's an OpenRouter model
@@ -891,7 +891,7 @@ export async function POST(req: Request) {
   } else if (hasOpenRouter) {
     // Anthropic model but user only has OpenRouter key — map the ID
     const ANTHROPIC_TO_OPENROUTER: Record<string, string> = {
-      "claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
+      "claude-sonnet-5-5": "anthropic/claude-sonnet-5.5",
       "claude-haiku-4-5-20251001": "anthropic/claude-haiku-4.5",
       "claude-opus-4-6": "anthropic/claude-opus-4.6",
     };
