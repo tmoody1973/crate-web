@@ -7,7 +7,7 @@
  * whether the action can reach the YouTube Data API from Convex's servers.
  */
 
-import { action } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { resolveYouTubeVideoId } from "./youtubeResolve";
 
@@ -18,7 +18,7 @@ export const diagYouTube = action({
   },
 });
 
-export const diagPerplexityRaw = action({
+export const diagPerplexityRaw = internalAction({
   args: { query: v.string() },
   handler: async (_ctx, { query }) => {
     const apiKey = process.env.PERPLEXITY_API_KEY;
