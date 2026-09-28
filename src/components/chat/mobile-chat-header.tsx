@@ -10,7 +10,7 @@ interface MobileChatHeaderProps {
 
 const MODELS = [
   { id: "claude-haiku-4-5-20251001", label: "Haiku 4.5" },
-  { id: "claude-sonnet-4-6", label: "Sonnet 4.6" },
+  { id: "claude-sonnet-5-5", label: "Sonnet 5.5" },
 ];
 
 export function MobileChatHeader({ onOpenSidebar, currentModel, onModelChange }: MobileChatHeaderProps) {

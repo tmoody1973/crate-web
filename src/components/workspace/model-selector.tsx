@@ -11,7 +11,7 @@ export interface ModelOption {
 
 const MODELS: ModelOption[] = [
   // Anthropic (direct key or via OpenRouter)
-  { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", provider: "Anthropic", description: "Best coding model — fast, accurate" },
+  { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", provider: "Anthropic", description: "Best coding model — fast, accurate" },
   { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5", provider: "Anthropic", description: "Lightweight, 3x cheaper" },
   // OpenRouter models (require OpenRouter key)
   { id: "openai/gpt-4o", name: "GPT-4o", provider: "OpenAI", description: "Multimodal, fast" },
